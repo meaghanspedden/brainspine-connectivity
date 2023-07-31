@@ -1,53 +1,45 @@
-%% Pre process data from hand contraction. ~ July 2023
-% concurrent brain spinal cord OPM recordings
-
-%subject 122
+%% process data from hand contraction. ~ July 2023
+% go through either all right or all left contractions preprocess and save
+%R or L--> line 27
 
 clear all;
 close all;
 
-sub='OP00122';
-dsprefix=1;
+sub='OP00116';
 bids_session='001';
-
-brainchan_labels={'19','DG', 'OH', 'A1','1B', 'A9','JS','A6','DJ','MY','DS','OK','MI','17'};
-badchans={'ML-X','ML-Y','ML-Z'}; %%
-posfileneck='D:\MSST001\sub-OP00122\ses-001\meg\ds_sub-OP00122_ses-001_positions.tsv';
-
-EMGpath='D:\OP00122_experiment\EMGfiles';
-EMGfiletemplate='000122_static_';
-
-
+dsprefix=0;
+brainchan_labels={'19','1B', 'MW', 'MY','OK','MZ','35','DI','MU','DQ','OH','DG','A1'};
+badchans={};
+posfileneck='D:\MSST001\sub-OP00116\ses-001\meg\sub-OP00116_ses-001_positions_new.tsv';
+EMGpath='D:\OP00116_experiment\EMGfiles';
+EMGfiletemplate='000116_static_';
 
 %% Processing Options
-    fband=[5 45]; %% OPM filter band
-    stpband1=[48 52];
-    stpband2=[98 102];
-    emghpf=10; %% hp for emg
-    EpochTime=1; %  %% length of epoch in seconds
+fband=[5 45]; %% OPM filter band
+stpband1=[48 52];
+stpband2=[98 102];
+emghpf=10; %% hp for emg
+EpochTime=1; %  %% length of epoch in seconds
 
-    % flags to turn these filters on/off
-    HFCflag=0; %% homogenous field correction (0 or 1)
-    MEGHP=1;
-    MEGLP=1;
-    MEGBS=1; % stop band
-    HB=1; %% heartbeat removal
-    EMGHP=1; %% HP filter EMG
-    ONEEPOCH=0; %% put this on if you just want single long epoch
+% flags to turn these filters on/off
+HFCflag=0; %% homogenous field correction (0 or 1)
+MEGHP=1;
+MEGLP=1;
+MEGBS=1; % stop band
+HB=1; %% heartbeat removal
+EMGHP=1; %% HP filter EMG
+ONEEPOCH=0; %% put this on if you just want single long epoch
 
+%% which opm runs correspond to which emg runs
 
-%% which opm files correspond to which emg files
 Bothexptorder={...
-    '002'  'R'  '12'
-    '003'  'R'  '14';
-    '004'  'R'  '16';
-    '005'  'R'  '18';
-
-    '001'  'L'  '20';
-    '002'  'L'  '22';
-    '003'  'L'  '24';
-    '004'  'L'  '26'};
-
+    '001' 'R' '07' ;
+    '002'  'R'  '09';
+    '003'  'R'  '11';
+    '004'  'R'  '13';
+    '001'  'L'  '23';
+    '002'  'L'  '25';
+    '003'  'L'  '27'};  %% 116 left only has 3 runs
 
 %% trig info
 
@@ -56,13 +48,13 @@ OPMchansreplace=strvcat('NI-TRIG-2','NI-TRIG-3'); %% replace this/these OPM chan
 EMGtriglatency=0.05;
 
 %% paths
-
 datadir= 'D:\MSST001';
 addpath('D:\spm12')
 spm('defaults','EEG')
 addpath(genpath('D:\brainspineconnectivity'))
-rng(123) %dont think there is anything stochastic but just to be sure
 warning('MAKE SURE TO CHANGE spm_eeg_filter to GRB version')
+
+
 %% right and left hands
 
 for RIGHT=0
@@ -70,32 +62,30 @@ for RIGHT=0
     if RIGHT
         exptorder=Bothexptorder(1:4,:);
         pstr='rhand';
-        hbcomps=[3 2 3 3];
     else
-        exptorder=Bothexptorder(5:8,:);
+        exptorder=Bothexptorder(5:7,:);
         pstr='lhand';
-        hbcomps=[2 3 3 3]; %components containing heartbeat activity in each run. hard coded.
     end
 
     %%
 
-    allfilenames=[];
-    allxfilenames=[];
-
+    allfilenames=[];allxfilenames=[];
     for exptind=1:size(exptorder,1) %loop through runs
 
         if strcmp(exptorder(exptind,2),'R')
             EMGchanname='EMG 1';
             otherEMGchan='EMG 2';
             EMGfilename=[EMGfiletemplate,cell2mat(exptorder(exptind,3)),'.smrx'];
-            task='static_right';
+            task='staticright';
+            hbcomp=[1 1 1 1];
         end
 
         if strcmp(exptorder(exptind,2),'L')
             EMGchanname='EMG 2';
             otherEMGchan='EMG 1';
             EMGfilename=[EMGfiletemplate,cell2mat(exptorder(exptind,3)),'.smrx'];
-            task='static_left';
+            task='staticleft';
+            hbcomp=[1 1 1];
         end
 
         run=cell2mat(exptorder(exptind,1));
@@ -114,18 +104,17 @@ for RIGHT=0
         S.wind = @hanning;
         spm_opm_psd(S);
         xlim([1,100])
-        title(sprintf('raw psd run %g',exptind))
+        title('raw psd')
 
+        
         %% visual inspection time series for bad channels
 
         labs=D.chanlabels;
         datsamp=D(opms,1:4000);
         figure; plot(datsamp')
         legend(labs(opms))
-
         %% read in EMG data
         [~, EMGstruct]= readSpikeData(fullfile(EMGpath, EMGfilename),EMGchanname);
-
         cfg = [];
         cfg.output    = 'pow';
         cfg.channel   = 'all';
@@ -136,9 +125,12 @@ for RIGHT=0
         cfg.foi       = 0:1:100;
         emg_freq    = ft_freqanalysis(cfg, EMGstruct);
 
+
+
         figure; semilogy(emg_freq.freq, emg_freq.powspctrm)
         xlabel('Frequency'); ylabel('Log power')
         title('EMG power spectrum')
+
 
 
         if MEGHP
@@ -152,6 +144,8 @@ for RIGHT=0
             D=spm_eeg_filter(S);
 
         end
+
+       
         %%  NOW LP FILTER JUST MEG
         if MEGLP
             S=[];
@@ -185,27 +179,18 @@ for RIGHT=0
             D=spm_eeg_filter(S);
 
         end
-%% get spine channel indices and channel labels
 
         spineind=D.indchannel(D.sensors('MEG').label);
         allspineind(exptind,:)=spineind;
         allchannames(exptind,:)=D.sensors('MEG').label;
 
 
-        %% mark bad channels
-        badind=[];
-        for f=1:length(badchans)
-            badind(f)=find(contains(D.chanlabels,deblank(badchans{f})));
-        end
-        D = badchannels(D, badind, 1); %% set channels to bad
-
-        %% heartbeat estimation
-        if HB   %% estimate heartbeat over all channels (will remove after merging files)
+        if HB%% estimate heartbeat over all channels (will remove after merging files)
             if exptind==1
-                [heartest,beatlen,megind]=grb_est_heartbeat(D,spineind,hbcomps(exptind));
+                [heartest,beatlen,megind]=grb_est_heartbeat(D,spineind,hbcomp(exptind));
                 allheart=zeros(size(exptorder,1),length(megind),beatlen);
             else
-                [heartest]=grb_est_heartbeat(D,spineind,hbcomps(exptind),beatlen,megind);
+                [heartest]=grb_est_heartbeat(D,spineind,hbcomp(exptind),beatlen,megind);
             end
             allheart(exptind,megind,:)=heartest;
         end % if HB
@@ -218,9 +203,20 @@ for RIGHT=0
         S.D=D;
         dD=spm_eeg_downsample(S);
 
+        %         figure;
+        %         plot(D.time,squeeze(D(44,:,1)),'g',dD.time,(squeeze(dD(44,:,1))));
+        %% mark bad channels
+
+        %         for f=1:size(badchans,1),
+        %             badind(f)=find(contains(dD.chanlabels,deblank(badchans(f,:))));
+        %         end;
+        %         dD = badchannels(dD, badind, 1); %% set channels to bad
+
         %% splice EMG data into the downsampled OPM dataset
 
         EMGchannames=strvcat(EMGchanname,otherEMGchan);
+
+
         [dD,EMGsamples,EMGdata]=addinEMG(D,dD,fullfile(EMGpath, EMGfilename),EMGtriglatency,OPMEMGsync,OPMchansreplace,EMGchannames);
 
 
@@ -232,7 +228,9 @@ for RIGHT=0
             S.freq=emghpf;
             S.chans2filter=dD.indchantype('EMG'); %
             dD=spm_eeg_filter(S);
-        end 
+        end; % if EMG HP
+
+
 
         %% now make standard SPM datasets split into epochs of length EpochTime
 
@@ -271,6 +269,8 @@ for RIGHT=0
 
     % now merge (before heartbeat removal)
 
+
+
     cd(dD.path);
     S=[];
     S.D=allfilenames;
@@ -283,6 +283,7 @@ for RIGHT=0
         plot(avheart')
 
         BALANCE=1;
+        Dbeforeproject=DAll;
         DAll=grb_remove_heartbeat(DAll,avheart,spineind,megind,BALANCE);
     end
 
@@ -297,7 +298,7 @@ for RIGHT=0
         chans_hf = chanlabels(DAllhf,Yinds);
 
         S = [];
-        S.D1=DAllhf;
+        S.D1 = DAllhf;
         S.D2=DAll;
         S.plot = 1;
         S.channels = chans_hf;

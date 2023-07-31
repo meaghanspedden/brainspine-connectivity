@@ -1,21 +1,22 @@
 %% Pre process data from hand contraction. ~ July 2023
 % concurrent brain spinal cord OPM recordings
 
-%subject 122
+%subject 123 (recorded under 124)
 
 clear all;
 close all;
 
-sub='OP00122';
-dsprefix=1;
+sub='OP00124'; %clerical error. registered as 123 but in acq comp 124.
+
 bids_session='001';
+dsprefix=1;
 
 brainchan_labels={'19','DG', 'OH', 'A1','1B', 'A9','JS','A6','DJ','MY','DS','OK','MI','17'};
-badchans={'ML-X','ML-Y','ML-Z'}; %%
-posfileneck='D:\MSST001\sub-OP00122\ses-001\meg\ds_sub-OP00122_ses-001_positions.tsv';
+badchans={'ML-X','ML-Y','ML-Z','K4-Z','K4-X'}; %%
+posfileneck='D:\MSST001\sub-OP00124\ses-001\meg\ds_sub-OP00124_ses-001_positions.tsv';
 
-EMGpath='D:\OP00122_experiment\EMGfiles';
-EMGfiletemplate='000122_static_';
+EMGpath='D:\OP00123_experiment\EMGfiles';
+EMGfiletemplate='000123_static_';
 
 
 
@@ -38,15 +39,15 @@ EMGfiletemplate='000122_static_';
 
 %% which opm files correspond to which emg files
 Bothexptorder={...
-    '002'  'R'  '12'
-    '003'  'R'  '14';
-    '004'  'R'  '16';
-    '005'  'R'  '18';
+    '001'  'R'  '08'
+    '003'  'R'  '10';
+    '004'  'R'  '12';
+    '005'  'R'  '14';
 
-    '001'  'L'  '20';
-    '002'  'L'  '22';
-    '003'  'L'  '24';
-    '004'  'L'  '26'};
+    '001'  'L'  '16';
+    '002'  'L'  '18';
+    '003'  'L'  '20';
+    '004'  'L'  '22'};
 
 
 %% trig info
@@ -70,11 +71,11 @@ for RIGHT=0
     if RIGHT
         exptorder=Bothexptorder(1:4,:);
         pstr='rhand';
-        hbcomps=[3 2 3 3];
+        hbcomps=[1 2 1 2];
     else
         exptorder=Bothexptorder(5:8,:);
         pstr='lhand';
-        hbcomps=[2 3 3 3]; %components containing heartbeat activity in each run. hard coded.
+        hbcomps=[1 1 1 2]; %components containing heartbeat activity in each run. hard coded.
     end
 
     %%
@@ -88,14 +89,14 @@ for RIGHT=0
             EMGchanname='EMG 1';
             otherEMGchan='EMG 2';
             EMGfilename=[EMGfiletemplate,cell2mat(exptorder(exptind,3)),'.smrx'];
-            task='static_right';
+            task='staticright';
         end
 
         if strcmp(exptorder(exptind,2),'L')
             EMGchanname='EMG 2';
             otherEMGchan='EMG 1';
             EMGfilename=[EMGfiletemplate,cell2mat(exptorder(exptind,3)),'.smrx'];
-            task='static_left';
+            task='staticleft';
         end
 
         run=cell2mat(exptorder(exptind,1));

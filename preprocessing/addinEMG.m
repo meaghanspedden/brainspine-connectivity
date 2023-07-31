@@ -1,6 +1,5 @@
 
 function [dD,EMGsamples,EMGdata]=addinEMG(D,dD,fullEMGname,EMGtriglatency,OPMEMGsync,OPMchansreplace,EMGchannames);
-%function dD=addinEMG(D,dD,EMGstruct,EMGtriglatency,OPMEMGsync,OPMchanreplace,EMGchanname);
 
 
 
@@ -10,7 +9,7 @@ end;
 
 
 synchTrigIdx = find(strcmp(D.chanlabels,OPMEMGsync)); 
-%figure; plot(rawData.trial{1}(synchTrigIdx,:),'k')
+figure; plot(D(synchTrigIdx,:),'k')
 
 %find when trig comes
 eventCont           = D(synchTrigIdx,:,1);

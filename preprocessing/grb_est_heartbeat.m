@@ -1,4 +1,4 @@
-function [heartep,beatlen,megind]=grb_est_heartbeat(D,chind,hbcomp,beatlen,megind);
+function [heartep,beatlen,megind]=grb_est_heartbeat(D,chind,hbcomp,beatlen,megind)
 
 
 %% use  svd to get estimate of heartbeat
@@ -68,5 +68,4 @@ heartep=mean(heartep,3);
 f=figure;
 plot(heartep')
 legend('estimate of heartbeat (over all chans)')
-waitfor(f)
 
