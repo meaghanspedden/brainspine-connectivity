@@ -49,8 +49,8 @@ if isempty(beatlen)
     beatlen=2*floor((median(diff(htrigs)))/2); % even
 end
 
-hbfreq=length(htrigs)/D.time(end)*60;
-fprintf('est heart rate %g bpm\n',hbfreq)
+% hbfreq=length(htrigs)/D.time(end)*60;
+% fprintf('est heart rate %g bpm\n',hbfreq)
 
 heartep=[];
 

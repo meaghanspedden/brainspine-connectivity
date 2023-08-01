@@ -185,7 +185,20 @@ for RIGHT=0
         allchannames(exptind,:)=D.sensors('MEG').label;
 
 
-        if HB%% estimate heartbeat over all channels (will remove after merging files)
+        %% mark bad channels
+
+        if~isempty(badchans)
+            badind=[];
+
+            for f=1:size(badchans,1)
+                badind(f)=find(contains(D.chanlabels,deblank(badchans(f,:))));
+            end
+            D = badchannels(D, badind, 1); %% set channels to bad
+        end
+
+        %%note that I have modified this in grb_est_heartbeat
+
+        if HB % estimate heartbeat over all channels (will remove after merging files)
             if exptind==1
                 [heartest,beatlen,megind]=grb_est_heartbeat(D,spineind,hbcomp(exptind));
                 allheart=zeros(size(exptorder,1),length(megind),beatlen);
@@ -203,14 +216,7 @@ for RIGHT=0
         S.D=D;
         dD=spm_eeg_downsample(S);
 
-        %         figure;
-        %         plot(D.time,squeeze(D(44,:,1)),'g',dD.time,(squeeze(dD(44,:,1))));
-        %% mark bad channels
 
-        %         for f=1:size(badchans,1),
-        %             badind(f)=find(contains(dD.chanlabels,deblank(badchans(f,:))));
-        %         end;
-        %         dD = badchannels(dD, badind, 1); %% set channels to bad
 
         %% splice EMG data into the downsampled OPM dataset
 

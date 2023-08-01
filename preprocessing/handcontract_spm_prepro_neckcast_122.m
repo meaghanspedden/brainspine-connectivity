@@ -193,11 +193,13 @@ for RIGHT=0
 
 
         %% mark bad channels
+        if~isempty(badchans)
         badind=[];
         for f=1:length(badchans)
             badind(f)=find(contains(D.chanlabels,deblank(badchans{f})));
         end
         D = badchannels(D, badind, 1); %% set channels to bad
+        end
 
         %% heartbeat estimation
         if HB   %% estimate heartbeat over all channels (will remove after merging files)

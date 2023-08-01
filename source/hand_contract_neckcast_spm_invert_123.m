@@ -558,7 +558,6 @@ if REMOVELIN,
 end;
 
 
-
 switch whatstr %% flags  RMORTHBRAIN and REMOVELIN now take care of options
 
     case 'brainopt',
@@ -730,207 +729,207 @@ if COMB3AXES
     %exportgraphics(gcf, savename, 'Resolution', 600)
 
     %%
-    if Ncan>0,
-        plotVw=zeros(maxk,length(normW));
-        plotWw=plotVw;
-        for k=1:maxk,
-            CVA=allCVA{k};
-            rsquare=CVA.cva(1:Ncan);
-            plotV=abs((cov(CVA.Y))*CVA.V(:,1:Ncan));
-            plotW=abs((cov(CVA.X))*CVA.W(:,1:Ncan));
-            plotVw(k,:)=plotV*rsquare; %% weighted by variance explained
-            plotWw(k,:)=plotW*rsquare;
-        end;
-        %             figure;
-        %             subplot(1,2,1);
-        %             h=imagesc(usefreq,lzrange,plotVw)
-        %             set(gca,'Ydir','normal')
-        %             title(sprintf('Non-Linear interactions: '))
-        %             ylabel('height');
-        %             xlabel('freq')
-        %
-        %             subplot(1,2,2);
-        %             h=imagesc(usefreq,lzrange,plotWw)
-        %             set(gca,'Ydir','normal')
-        %             title(sprintf('%s to cord %s',whatstr,pstr))
-        %             ylabel('height');
-        %             xlabel('freq')
-
-
-    end % if Ncan>0
-    
-    subplot(1,2,1);
-    imagesc(usefreq,lxrange,plotVw)
-    set(gca,'Ydir','normal')
-    title('Component 1','FontSize',12)
-    %title(sprintf('Non-Linear interactions: '))
-    ylabel('Height up spinal cord (mm)','FontSize',20);
-    xlabel('Frequency (Hz)','FontSize',20)
-    ax = gca;
-    ax.FontSize = 20;
-    %colormap(brewermap([],"OrRd"))
-
-
-    subplot(1,2,2);
-    h=imagesc(usefreq,lxrange,plotWw)
-    set(gca,'Ydir','normal')
-    title('Component 2','FontSize',12)
-
-    %title('W')
-    %title(sprintf('%s to cord %s',whatstr,pstr))
-    ylabel('Height up spinal cord (mm)','FontSize',20);
-    xlabel('Frequency (Hz)','FontSize',20)
-    ax = gca;
-    ax.FontSize = 20;
-
-    %savename=['D:\figsfortalk\nonlinrightemg.png'];
-
-    %exportgraphics(gcf, savename, 'Resolution', 600)
-
-else % ~COMB3AXES
-    %
-    %         subplot(3,1,1)
-    %         plot(lzrange,chi2(xind));
-    %         ylabel('left-right')
-    %         legend(num2str([min(pval(xind))]));
-    %         title(sprintf('%s,%s',pstr,whatstr))
-    %
-    %         subplot(3,1,2)
-    %         plot(lzrange,chi2(zind));
-    %         ylabel('up-down')
-    %         legend(num2str([min(pval(zind))]));
-    %         subplot(3,1,3)
-    %         plot(lzrange,chi2(yind));
-    %         ylabel('in-out')
-    %         xlabel('height up cord')
-    %         legend(num2str([min(pval(yind))]));
-
-    %% now look at which frequency components at that height
-    figure;
-    for orientmode=1:3,
-        switch orientmode,
-            case 1,
-                lookind=xind;
-                ostr='l-r';
-            case 2,
-                lookind=zind;
-                ostr='u-d'
-            case 3
-                lookind=yind;
-                ostr='in-out';
-        end;
-        chiplotW=[];
-        chiplotV=[];
-        for g=1:length(lookind),
-            g
-            CVA=allCVA{lookind(g)};
-            normV=cov(CVA.Y)*CVA.V;
-            normW=cov(CVA.X)*CVA.W;
-            chival=CVA.chi(1);
-            Ncan=max(find(CVA.p<0.05));
-
-            %chiplotW(g,:)=abs(sqrt(chival)*normW(:,1)./max(normW(:,1)));
-            %chiplotW(g,:)=sqrt(chival)*sum(abs(normW(:,1:Ncan)),2);
-            chiplotW(g,:)=sum(abs(normW(:,1:Ncan)),2);
-            %chiplotV(g,:)=abs(sqrt(chival)*normV(:,1)./max(normV(:,1)));
-            %chiplotV(g,:)=sqrt(chival)*sum(abs(normV(:,1:Ncan)),2);
-            chiplotV(g,:)=sum(abs(normV(:,1:Ncan)),2);
-
-        end;
-    end
-
-    %             subplot(3,3,orientmode*3-2);
-    %
-    %             imagesc(freqroi,lzrange,chiplotW);
-    %             set(gca,'Ydir','normal')
-    %             title([ostr ' W'])
-    %             colorbar;
-    %             subplot(3,3,orientmode*3-1);
-    %
-    %             imagesc(freqroi,lzrange,chiplotV);
-    %             set(gca,'Ydir','normal')
-    %             title([ostr ' V'])
-    %             colorbar;
-    %             subplot(3,3,orientmode*3);
-    %
-    %             imagesc(freqroi,lzrange,chiplotV.*chiplotW);
-    %             set(gca,'Ydir','normal')
-    %             title([ostr ' W*V'])
-    %             colorbar;
-    %
-    %         end; % for orient mode
-
-    figure;
-    %%
-
-
-
-    %% now look at which frequency components at that height
-    for orientmode=1:3,
-        switch orientmode,
-            case 1,
-                lookind=xind;
-                ostr='l-r';
-            case 2,
-                lookind=zind;
-                ostr='u-d'
-            case 3
-                lookind=yind;
-                ostr='in-out';
-        end;
-
-        [val,maxind]=max(chi2(lookind))
-        chi2(yind(maxind))
-        CVA=allCVA{lookind(maxind)};
-        Ncan=max(find(CVA.p<0.05)); %% take significant canonical modes
-        canvarX=CVA.w(:,1:Ncan);
-        canvarY=CVA.v(:,1:Ncan);
-        canfilename=[D.path filesep 'canvar_' ostr '_' whatstr '_' D.fname];
-        save(canfilename,'CVA','canvarX','canvarY');
-        allcanfilenames=strvcat(allcanfilenames,canfilename);
-        chi2roi=CVA.chi(1);
-        pvalroi=CVA.p(1);
-
-        %% SO CVA.W(:,1) etc are the canonical vectors for the X
-        % CVA.w is the canonical variate (=X*CVA.W)
-
-        %% SO CVA.V(:,1) etc are the canonical vectors for the Y
-        % CVA.v is the canonical variate (=Y*CVA.V)
-
-        normV=cov(CVA.Y)*CVA.V;
-        normW=cov(CVA.X)*CVA.W;
-
-
-        if Ncan>0,
-            realind=1:length(usefreq);
-            imind=length(usefreq)+1:2*length(usefreq);
-
-            figure;
-            if ~contains(whatstr,'abs') && ~contains(whatstr,'angle'),
-                subplot(2,1,1)
-                h=plot(usefreq,sum(abs(normV(realind,1:Ncan)),2),'g',usefreq,sum(abs(normV(imind,1:Ncan)),2),'r');
-                title(sprintf('Height %d, Sum %d modes, %s, %s',round(lzrange(maxind)),Ncan,whatstr,ostr))
-                subplot(2,1,2)
-                h=plot(usefreq,sum(abs(normW(realind,1:Ncan)),2),'g',usefreq,sum(abs(normW(imind,1:Ncan)),2),'r');
-                title(sprintf('Sum %d modes, cord',Ncan))
-            else % abs
-                subplot(2,1,1)
-                h=plot(usefreq,sum(abs(normV(realind,1:Ncan)),2),'m');
-                title(sprintf('Height %d, Sum %d modes, %s, %s',round(lzrange(maxind)),Ncan,whatstr,ostr))
-                hold on;
-
-                h2=plot(usefreq,abs(normV(realind,1:Ncan)));
-
-
-                subplot(2,1,2)
-                h=plot(usefreq,sum(abs(normW(realind,1:Ncan)),2),'b');
-                hold on;
-                h2=plot(usefreq,abs(normW(realind,1:Ncan)));
-
-                title(sprintf('Sum %d modes, cord',Ncan))
-            end; % else
-        end; % if
-    end;  % for orientmode
+%     if Ncan>0,
+%         plotVw=zeros(maxk,length(normW));
+%         plotWw=plotVw;
+%         for k=1:maxk,
+%             CVA=allCVA{k};
+%             rsquare=CVA.cva(1:Ncan);
+%             plotV=abs((cov(CVA.Y))*CVA.V(:,1:Ncan));
+%             plotW=abs((cov(CVA.X))*CVA.W(:,1:Ncan));
+%             plotVw(k,:)=plotV*rsquare; %% weighted by variance explained
+%             plotWw(k,:)=plotW*rsquare;
+%         end;
+%         %             figure;
+%         %             subplot(1,2,1);
+%         %             h=imagesc(usefreq,lzrange,plotVw)
+%         %             set(gca,'Ydir','normal')
+%         %             title(sprintf('Non-Linear interactions: '))
+%         %             ylabel('height');
+%         %             xlabel('freq')
+%         %
+%         %             subplot(1,2,2);
+%         %             h=imagesc(usefreq,lzrange,plotWw)
+%         %             set(gca,'Ydir','normal')
+%         %             title(sprintf('%s to cord %s',whatstr,pstr))
+%         %             ylabel('height');
+%         %             xlabel('freq')
+% 
+% 
+%     end % if Ncan>0
+%     
+%     subplot(1,2,1);
+%     imagesc(usefreq,lxrange,plotVw)
+%     set(gca,'Ydir','normal')
+%     title('Component 1','FontSize',12)
+%     %title(sprintf('Non-Linear interactions: '))
+%     ylabel('Height up spinal cord (mm)','FontSize',20);
+%     xlabel('Frequency (Hz)','FontSize',20)
+%     ax = gca;
+%     ax.FontSize = 20;
+%     %colormap(brewermap([],"OrRd"))
+% 
+% 
+%     subplot(1,2,2);
+%     h=imagesc(usefreq,lxrange,plotWw)
+%     set(gca,'Ydir','normal')
+%     title('Component 2','FontSize',12)
+% 
+%     %title('W')
+%     %title(sprintf('%s to cord %s',whatstr,pstr))
+%     ylabel('Height up spinal cord (mm)','FontSize',20);
+%     xlabel('Frequency (Hz)','FontSize',20)
+%     ax = gca;
+%     ax.FontSize = 20;
+% 
+%     %savename=['D:\figsfortalk\nonlinrightemg.png'];
+% 
+%     %exportgraphics(gcf, savename, 'Resolution', 600)
+% 
+% else % ~COMB3AXES
+%     %
+%     %         subplot(3,1,1)
+%     %         plot(lzrange,chi2(xind));
+%     %         ylabel('left-right')
+%     %         legend(num2str([min(pval(xind))]));
+%     %         title(sprintf('%s,%s',pstr,whatstr))
+%     %
+%     %         subplot(3,1,2)
+%     %         plot(lzrange,chi2(zind));
+%     %         ylabel('up-down')
+%     %         legend(num2str([min(pval(zind))]));
+%     %         subplot(3,1,3)
+%     %         plot(lzrange,chi2(yind));
+%     %         ylabel('in-out')
+%     %         xlabel('height up cord')
+%     %         legend(num2str([min(pval(yind))]));
+% 
+%     %% now look at which frequency components at that height
+%     figure;
+%     for orientmode=1:3,
+%         switch orientmode,
+%             case 1,
+%                 lookind=xind;
+%                 ostr='l-r';
+%             case 2,
+%                 lookind=zind;
+%                 ostr='u-d'
+%             case 3
+%                 lookind=yind;
+%                 ostr='in-out';
+%         end;
+%         chiplotW=[];
+%         chiplotV=[];
+%         for g=1:length(lookind),
+%             g
+%             CVA=allCVA{lookind(g)};
+%             normV=cov(CVA.Y)*CVA.V;
+%             normW=cov(CVA.X)*CVA.W;
+%             chival=CVA.chi(1);
+%             Ncan=max(find(CVA.p<0.05));
+% 
+%             %chiplotW(g,:)=abs(sqrt(chival)*normW(:,1)./max(normW(:,1)));
+%             %chiplotW(g,:)=sqrt(chival)*sum(abs(normW(:,1:Ncan)),2);
+%             chiplotW(g,:)=sum(abs(normW(:,1:Ncan)),2);
+%             %chiplotV(g,:)=abs(sqrt(chival)*normV(:,1)./max(normV(:,1)));
+%             %chiplotV(g,:)=sqrt(chival)*sum(abs(normV(:,1:Ncan)),2);
+%             chiplotV(g,:)=sum(abs(normV(:,1:Ncan)),2);
+% 
+%         end;
+%     end
+% 
+%     %             subplot(3,3,orientmode*3-2);
+%     %
+%     %             imagesc(freqroi,lzrange,chiplotW);
+%     %             set(gca,'Ydir','normal')
+%     %             title([ostr ' W'])
+%     %             colorbar;
+%     %             subplot(3,3,orientmode*3-1);
+%     %
+%     %             imagesc(freqroi,lzrange,chiplotV);
+%     %             set(gca,'Ydir','normal')
+%     %             title([ostr ' V'])
+%     %             colorbar;
+%     %             subplot(3,3,orientmode*3);
+%     %
+%     %             imagesc(freqroi,lzrange,chiplotV.*chiplotW);
+%     %             set(gca,'Ydir','normal')
+%     %             title([ostr ' W*V'])
+%     %             colorbar;
+%     %
+%     %         end; % for orient mode
+% 
+%     figure;
+%     %%
+% 
+% 
+% 
+%     %% now look at which frequency components at that height
+%     for orientmode=1:3,
+%         switch orientmode,
+%             case 1,
+%                 lookind=xind;
+%                 ostr='l-r';
+%             case 2,
+%                 lookind=zind;
+%                 ostr='u-d'
+%             case 3
+%                 lookind=yind;
+%                 ostr='in-out';
+%         end;
+% 
+%         [val,maxind]=max(chi2(lookind))
+%         chi2(yind(maxind))
+%         CVA=allCVA{lookind(maxind)};
+%         Ncan=max(find(CVA.p<0.05)); %% take significant canonical modes
+%         canvarX=CVA.w(:,1:Ncan);
+%         canvarY=CVA.v(:,1:Ncan);
+%         canfilename=[D.path filesep 'canvar_' ostr '_' whatstr '_' D.fname];
+%         save(canfilename,'CVA','canvarX','canvarY');
+%         allcanfilenames=strvcat(allcanfilenames,canfilename);
+%         chi2roi=CVA.chi(1);
+%         pvalroi=CVA.p(1);
+% 
+%         %% SO CVA.W(:,1) etc are the canonical vectors for the X
+%         % CVA.w is the canonical variate (=X*CVA.W)
+% 
+%         %% SO CVA.V(:,1) etc are the canonical vectors for the Y
+%         % CVA.v is the canonical variate (=Y*CVA.V)
+% 
+%         normV=cov(CVA.Y)*CVA.V;
+%         normW=cov(CVA.X)*CVA.W;
+% 
+% 
+%         if Ncan>0,
+%             realind=1:length(usefreq);
+%             imind=length(usefreq)+1:2*length(usefreq);
+% 
+%             figure;
+%             if ~contains(whatstr,'abs') && ~contains(whatstr,'angle'),
+%                 subplot(2,1,1)
+%                 h=plot(usefreq,sum(abs(normV(realind,1:Ncan)),2),'g',usefreq,sum(abs(normV(imind,1:Ncan)),2),'r');
+%                 title(sprintf('Height %d, Sum %d modes, %s, %s',round(lzrange(maxind)),Ncan,whatstr,ostr))
+%                 subplot(2,1,2)
+%                 h=plot(usefreq,sum(abs(normW(realind,1:Ncan)),2),'g',usefreq,sum(abs(normW(imind,1:Ncan)),2),'r');
+%                 title(sprintf('Sum %d modes, cord',Ncan))
+%             else % abs
+%                 subplot(2,1,1)
+%                 h=plot(usefreq,sum(abs(normV(realind,1:Ncan)),2),'m');
+%                 title(sprintf('Height %d, Sum %d modes, %s, %s',round(lzrange(maxind)),Ncan,whatstr,ostr))
+%                 hold on;
+% 
+%                 h2=plot(usefreq,abs(normV(realind,1:Ncan)));
+% 
+% 
+%                 subplot(2,1,2)
+%                 h=plot(usefreq,sum(abs(normW(realind,1:Ncan)),2),'b');
+%                 hold on;
+%                 h2=plot(usefreq,abs(normW(realind,1:Ncan)));
+% 
+%                 title(sprintf('Sum %d modes, cord',Ncan))
+%             end; % else
+%         end; % if
+    %end;  % for orientmode
 
 end; % if COMB3AXES
 
