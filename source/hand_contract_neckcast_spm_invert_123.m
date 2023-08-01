@@ -28,14 +28,9 @@ badchans={'ML-X','ML-Y','ML-Z','K4-Z','K4-X'}; %%
 addpath D:\torso_tools
 addpath D:\analyse_OPMEG
 addpath D:\spm12
-
 spm('defaults','EEG');
-addpath D:\MEGsSpinalMEG\GarethScripts\meaghan
-addpath D:\MEGsSpinalMEG\GarethScripts
-addpath('D:\scannercast\table_of_info')
-addpath('D:\MEGsSpinalMEG\source')
+addpath(genpath('D:\brainspineconnectivity'))
 
-addpath D:\MEGsSpinalMEG\plotting
 
 
 %% analysis options
@@ -44,8 +39,8 @@ SHUFFLE=0; %for permutation test
 allcanfilenames=[];
 
 
-%whatstr='emg+abs';
-whatstr='brainopt+abs';
+whatstr='emg+abs';
+%whatstr='brainopt+abs';
 %whatstr='orthbrain+brainopt';
 %whatstr='emg';
 
@@ -83,7 +78,7 @@ sub_fids= [19.131  -1286.201  241.474; %r shoulder
 
 
 
-for cnd=1 %:size(filenames,1),
+for cnd=2 %:size(filenames,1),
 
     DAll=spm_eeg_load(filenames(cnd,:));
     [a1,b1,c1]=fileparts(DAll.fullfile);
@@ -436,26 +431,22 @@ magz=sqrt(diag(Jcov(zind,zind)));
 
 magopt=sqrt(diag(Jocov));
 
-figure
-plot_func_spine_dat(subject,src,magopt,grad)
-title('Opt oriented sources')
+% figure
+% plot_func_spine_dat(subject,src,magopt,grad)
+% title('Opt oriented sources')
 
-% [maxval maxidx]=max(magopt);
-% srctest=src;
-% magopt(maxidx)=[];
-% srctest.pos(maxidx,:)=[]; srctest.inside(maxidx)=[];
-% 
-figure
-plot_func_spine_dat(subject,src,magx,grad)
-title('X oriented sources')
 % % 
-figure
-plot_func_spine_dat(subject,src,magz,grad)
-title('Z oriented sources')
-% 
-figure
-plot_func_spine_dat(subject,src,magy,grad)
-title('Y oriented sources')
+% figure
+% plot_func_spine_dat(subject,src,magx,grad)
+% title('X oriented sources')
+% % % 
+% figure
+% plot_func_spine_dat(subject,src,magz,grad)
+% title('Z oriented sources')
+% % 
+% figure
+% plot_func_spine_dat(subject,src,magy,grad)
+% title('Y oriented sources')
 
 
 
@@ -683,7 +674,11 @@ if COMB3AXES
     col1=cols(1,:); col2=cols(6,:);
     subplot(211)
     plot(usefreq,abs(normV(:,1)),'LineWidth',3,'color',col1);
+    if contains(whatstr,'emg')
+        title('EMG','FontSize',20)
+    else
     title('Brain','FontSize',20)
+    end
     xlabel('Frequency (Hz)','FontSize',20)
     box off
     ax = gca;

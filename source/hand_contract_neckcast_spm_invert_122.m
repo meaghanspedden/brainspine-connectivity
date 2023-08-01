@@ -38,8 +38,8 @@ SHUFFLE=0; %for permutation test
 allcanfilenames=[];
 
 
-whatstr='emg+abs';
-%whatstr='brainopt+abs';
+%whatstr='emg+abs';
+whatstr='brainopt+abs';
 %whatstr='orthbrain+brainopt';
 %whatstr='emg';
 
@@ -70,11 +70,9 @@ sub_fids=[];
 
 %% for back scan 115, corresponds to experiment 122
 
-sub_fids= [19.131  -1286.201  241.474; %r shoulder
-          24.208  -1750.632 262.910; %l shoulder
-         -63.22  -1535.591 371.745]; %sternum
-
-
+% sub_fids= [19.131  -1286.201  241.474; %r shoulder
+%           24.208  -1750.632 262.910; %l shoulder
+%          -63.22  -1535.591 371.745]; %sternum
 
 
 for cnd=2 %:size(filenames,1),
@@ -677,7 +675,11 @@ if COMB3AXES
     col1=cols(1,:); col2=cols(6,:);
     subplot(211)
     plot(usefreq,abs(normV(:,1)),'LineWidth',3,'color',col1);
+    if contains(whatstr,'emg')
+    title('EMG','FontSize',20)
+    else
     title('Brain','FontSize',20)
+    end
     xlabel('Frequency (Hz)','FontSize',20)
     box off
     ax = gca;

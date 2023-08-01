@@ -10,34 +10,29 @@ posfile='D:\MSST001\sub-OP00116\ses-001\meg\sub-OP00116_ses-001_positions_new.ts
 backshape='D:\OP00116_experiment\cast space\OP0016_seated.stl'; %in same space as sensors
 cyl='D:\OP00116_experiment\cast space\cylinder_good_space.stl';
 
-dpath='D:\MSST001\sub-OP00116\ses-001\meg';
-savepath='D:\MSST001\Coh_results00116';
+brainchan_labels={'19','1B', 'MW', 'MY','OK','MZ','35','DI','MU','DQ','OH','DG','A1'};
+badchans={};
 
-cd(dpath)
 
+%%
 addpath D:\torso_tools
 addpath D:\analyse_OPMEG
 addpath D:\spm12
 
 spm('defaults','EEG');
-addpath D:\MEGsSpinalMEG\GarethScripts\meaghan
-addpath D:\MEGsSpinalMEG\GarethScripts
-addpath('D:\scannercast\table_of_info')
-addpath('D:\MEGsSpinalMEG\source')
+addpath(genpath('D:\brainspineconnectivity'))
+dpath='D:\MSST001\sub-OP00116\ses-001\meg';
+savepath='D:\MSST001\Coh_results00116';
 
-addpath D:\MEGsSpinalMEG\plotting
-
-
-%% channels which were over cortex
-brainchan_labels={'19','1B', 'MW', 'MY','OK','MZ','35','DI','MU','DQ','OH','DG','A1'};
+cd(dpath)
 
 
+%% analysis options
 SHUFFLE=0;
 allcanfilenames=[];
 
-
-whatstr='emg+abs';
-%whatstr='brainopt+abs';
+%whatstr='emg+abs';
+whatstr='brainopt+abs';
 %whatstr='orthbrain+brainopt';
 %whatstr='emg';
 
@@ -126,26 +121,26 @@ for cnd=2 %:size(filenames,1),
 
     Uinv=pinv(Ur); %% the spatial mixture of brain chans orthogonal to the ideal mixture for EMG-brain cross-spectrum
     CHECKMIX=1;
-    if CHECKMIX
-        figure;
-        %% can base it on real or imag parts, very similar
-        plot(1:length(S),Ur(:,1),1:length(S),Ui(:,1)) %% linear mixture of channels to give real or imag comp
-
-        replace.U=Ur(:,1); %% Ur or Uinv
-        replace.ind=fbrainind;
-        replace.label='G2-19-Y';
-
-        %% make a replace one of the chans with optimcal linear mixture and check it is larger/smaller
-        [cspect_brainmix,fdat_brainmix,trialcspect_brainmix]=xspectrum_meaghan(D,D.chanlabels(brainind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)],seedperm,[],replace);
-        figure;
-        plot(cspect_brain.freq,abs(cspect_brain.crsspctrm),'r');
-        hold on;
-        plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm),'go');
-        ind=find(contains(cspect_brainmix.labelcmb,replace.label));
-        plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm),'go');
-        plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm(ind,:)),'k*');
-        title('abs cross')
-    end % checkmix
+%     if CHECKMIX
+%         figure;
+%         %% can base it on real or imag parts, very similar
+%         plot(1:length(S),Ur(:,1),1:length(S),Ui(:,1)) %% linear mixture of channels to give real or imag comp
+% 
+%         replace.U=Ur(:,1); %% Ur or Uinv
+%         replace.ind=fbrainind;
+%         replace.label='G2-19-Y';
+% 
+%         %% make a replace one of the chans with optimcal linear mixture and check it is larger/smaller
+%         [cspect_brainmix,fdat_brainmix,trialcspect_brainmix]=xspectrum_meaghan(D,D.chanlabels(brainind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)],seedperm,[],replace);
+%         figure;
+%         plot(cspect_brain.freq,abs(cspect_brain.crsspctrm),'r');
+%         hold on;
+%         plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm),'go');
+%         ind=find(contains(cspect_brainmix.labelcmb,replace.label));
+%         plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm),'go');
+%         plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm(ind,:)),'k*');
+%         title('abs cross')
+%     end % checkmix
 
     %% get indices of channels within the fdat structure
 
@@ -227,8 +222,7 @@ for cnd=2 %:size(filenames,1),
 
             res=10;
 
-            %[src,lxrange]=make_spine_grid_MES(sub_red,cordoffset);
-            [src]=make_spine_grid_MES_cylinder(sub_red,cyl_source,res);
+            src=make_spine_grid_MES_cylinder(sub_red,cyl_source,res);
             
 
             %% now set up torso model, this gives lead field
@@ -270,10 +264,13 @@ for cnd=2 %:size(filenames,1),
 
             end % switch
 
+            if ~isempty(badgrad) %have not tested georges
+                warning('have not tested this works for BEM')
 
-            if ~isempty(badgrad)
-                Lf=Lf(setdiff(1:size(Lf,1),badgrad),:); %% take out bad channels post-hoc
+                badidx=find(contains(grad.label,badchans));
+                Lf=Lf(setdiff(1:size(Lf,1),badidx),:); %% take out bad channels post-hoc
             end
+
 
             if length(src.inside)<length(src.pos)
                 warning('Not all sources in the space')
@@ -333,19 +330,6 @@ for cnd=2 %:size(filenames,1),
             allVE(arbind)=VE;
         end % for arbind
 
-%             figure;
-%             subplot(2,1,1)
-%             plot(depthvals,allF);
-%             title(sprintf('F, %s, %s',invtype,DAll.conditions{1}))
-%             ylabel('F')
-%             legend(arbvals)
-%             subplot(2,1,2)
-%             plot(depthvals,allR2,depthvals,allVE,':');
-%             title('R2+ VE (dotted)')
-%             ylabel('Variance explained')
-%             xlabel('depth')
-%             legend(arbvals)
-
 
 % figure
 % bar(allF); xticklabels(arbvals)
@@ -402,7 +386,7 @@ Jv=Jv./sqrt(dot(Jv,Jv)); %this is optimal orient
 plotOptOri(Jv,src,subject)
 
 
-if ~isempty(FIXORIENT) %overwrite optimal orientation with fixorient if not empty
+if ~isempty(FIXORIENT) 
     Jv=FIXORIENT;
     warning('Fixing orientation');
 end
@@ -428,11 +412,7 @@ figure
 plot_func_spine_dat(subject,src,magopt,grad)
 title('Opt oriented sources')
 
-% [maxval maxidx]=max(magopt);
-% srctest=src;
-% magopt(maxidx)=[];
-% srctest.pos(maxidx,:)=[]; srctest.inside(maxidx)=[];
-% 
+
 figure
 plot_func_spine_dat(subject,src,magx,grad)
 title('X oriented sources')
@@ -467,7 +447,7 @@ if COMB3AXES
 else
     maxk=Nx*Nz*3;  %% 3 orientations evaluated separately
     useJ=J;
-end;
+end
 
 X=useJ;
 %% Y can either be emg or brain
@@ -640,12 +620,12 @@ if COMB3AXES
     else
         [dum,peakind]=max(chi2); %% peak stat
     end
-% 
-%     figure;
-%     plot_func_spine_dat(subject,src,magopt,grad)
-%     title('power')
-%     hold on
-%     plot3(src.pos(peakind,1), src.pos(peakind,2),src.pos(peakind,3),'ro','MarkerSize',12)
+
+    figure;
+    plot_func_spine_dat(subject,src,magopt,grad)
+    title('power')
+    hold on
+    plot3(src.pos(peakind,1), src.pos(peakind,2),src.pos(peakind,3),'ro','MarkerSize',12)
 
 
     [dum,peakindchi]=max(chi2); %% peak stat
@@ -672,7 +652,11 @@ if COMB3AXES
     col1=cols(1,:); col2=cols(6,:);
     subplot(211)
     plot(usefreq,abs(normV(:,1)),'LineWidth',3,'color',col1);
-    title('EMG','FontSize',20)
+    if contains(whatstr,'emg')
+        title('EMG','FontSize',20)
+    else
+        title('Brain','FontSize',20)
+    end
     xlabel('Frequency (Hz)','FontSize',20)
     box off
     ax = gca;
@@ -691,18 +675,18 @@ if COMB3AXES
 
     %  exportgraphics(gcf, savename, 'Resolution', 600)
 
-    %         figure;
-    %         h=plot(usefreq,Fstatlin(1:length(usefreq),peakind),usefreq,Forth);
-    %         set(h(1),'Linewidth',4);
-    %         if RMORTHBRAIN
-    %             legend('Linear post removal','Brain orth removed');
-    %         else
-    %             legend('Linear','Brain orth not removed');
-    %         end;
-    %
-    %         ylabel('Fstat')
-    %         xlabel('freq')
-    %
+            figure;
+            h=plot(usefreq,Fstatlin(1:length(usefreq),peakind),usefreq,Forth);
+            set(h(1),'Linewidth',4);
+            if RMORTHBRAIN
+                legend('Linear post removal','Brain orth removed');
+            else
+                legend('Linear','Brain orth not removed');
+            end;
+    
+            ylabel('Fstat')
+            xlabel('freq')
+    
     %         title(sprintf('Linear interactions %s ',pstr))
 
 
