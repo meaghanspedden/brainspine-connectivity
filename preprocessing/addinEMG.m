@@ -18,6 +18,7 @@ sample              = 1:length(time);
 % convert to binary
 eventDisc           = (eventCont > 3);
 
+
 % find first sample. first find differences
 tmp                 = eventDisc - [0,eventDisc(1:end-1)];
 tmp2                = (tmp == 1);
@@ -26,6 +27,8 @@ events              = round(events);
 
 %because it is downsampled
 event = round((events/(D.fsample/dD.fsample)));
+
+
 
 %trigsample=event; %% min(find(dtrigchan>max(dtrigchan)/2))
 %EMGstartsample=trigsample
