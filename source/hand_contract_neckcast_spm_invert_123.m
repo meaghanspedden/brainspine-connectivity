@@ -64,7 +64,7 @@ sub_fids= [-201 238 123; %r shoulder
     -196 -207 157; %l shoulder
     -221 8.92 219.038  ];
 
-for cnd=1 %:size(filenames,1),
+for cnd=2 %:size(filenames,1),
 
     DAll=spm_eeg_load(filenames(cnd,:));
     [a1,b1,c1]=fileparts(DAll.fullfile);
@@ -94,7 +94,7 @@ for cnd=1 %:size(filenames,1),
 
 
     %% now compute coherence and cross spectra between brain, emg, and sensors on cord
-    %cd  D:\spm12\external\fieldtrip-master\fieldtrip-master\private
+    cd      D:\fieldtrip-master\fieldtrip-master\private
 
     seedperm=0;
     cohbrain=coh_meaghan(D,D.chanlabels(brainind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)]);
@@ -529,7 +529,29 @@ for cnd=1 %:size(filenames,1),
     rYbrain_abs=rYbrain_abs-mean(rYbrain_abs);
     Zemg_abs=Zemg_abs-mean(Zemg_abs);
     CVAemgbrain_abs=spm_cva(rYbrain_abs,Zemg_abs);
+    
+     Ncan_emgbrain=max(find(CVAemgbrain_abs.p<0.05));
+     normV_emgbrain=(cov(CVAemgbrain_abs.Y))*CVAemgbrain_abs.V(:,1:Ncan_emgbrain);
+     normW_emgbrain=(cov(CVAemgbrain_abs.X))*CVAemgbrain_abs.W(:,1:Ncan_emgbrain);
 
+        cols=colormap(brewermap([],"Dark2"));
+        col1=cols(1,:); col2=cols(6,:);
+        subplot(211)
+        plot(usefreq,abs(normV_emgbrain(:,1)),'LineWidth',3,'color',col1);
+        title('Brain','FontSize',20)
+    
+        xlabel('Frequency (Hz)','FontSize',20)
+        box off
+        ax = gca;
+        ax.FontSize = 20;
+
+        subplot(212)
+        plot(usefreq,abs(normW_emgbrain(:,1)),'LineWidth',3,'color', col2);
+        title('EMG','FontSize',20)
+        box off
+        ax = gca;
+        ax.FontSize = 20;
+        xlabel('Frequency (Hz)','FontSize',20)
 
     %% now scanning up cord
 
@@ -644,7 +666,7 @@ for cnd=1 %:size(filenames,1),
         Y=Y-mean(Y);
         X=X-mean(X);
 
-        CVA=spm_cva(X,Y,X0);
+        CVA=spm_cva(Y,X,X0);
         chi2(k)=CVA.chi(1);
         pval(k)=CVA.p(1);
         cvar2(k)=CVA.r(1).^2;
@@ -656,26 +678,32 @@ for cnd=1 %:size(filenames,1),
 
         PWRMAX=1;
 
+        clear maxk
+        [maxval maxidx] = maxk(magopt,2);
         if PWRMAX
             [dum,peakind]=max(magopt); %% peak power
         else
             [dum,peakind]=max(chi2); %% peak stat
         end
 
+    
+
         figure;
         plot_func_spine_dat(subject,src,magopt,grad)
         title('power')
         hold on
         plot3(src.pos(peakind,1), src.pos(peakind,2),src.pos(peakind,3),'ro','MarkerSize',12)
+        plot3(src.pos(maxidx(2),1), src.pos(maxidx(2),2),src.pos(maxidx(2),3),'ro','MarkerSize',12)
 
+        peakind=maxidx(2);
 
-        [dum,peakindchi]=max(chi2); %% peak stat
-        figure;
-        plot_func_spine_dat(subject,src,chi2,grad)
-        title('chi2')
-        hold on
-        plot3(src.pos(peakindchi,1), src.pos(peakindchi,2),src.pos(peakindchi,3),'ro','MarkerSize',12)
-        title('CVA chi2')
+%         [dum,peakindchi]=max(chi2); %% peak stat
+%         figure;
+%         plot_func_spine_dat(subject,src,chi2,grad)
+%         title('chi2')
+%         hold on
+%         plot3(src.pos(peakindchi,1), src.pos(peakindchi,2),src.pos(peakindchi,3),'ro','MarkerSize',12)
+%         title('CVA chi2')
 
         CVA=allCVA{peakind}; %cva for sourcepoint where power is max
 

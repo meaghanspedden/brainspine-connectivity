@@ -5,14 +5,13 @@ close all;
 
 mydir='D:\MSST001';
 
-
 %filenames for concatenated runs for right hand and left hand
-filenames=strvcat([mydir '\sub-OP00116\ses-001\meg\pprhandoe1000msfdfflo45hi5ds_sub-OP00116_ses-001_task-staticright_run-001_meg.mat'],...
-    [mydir '\sub-OP00116\ses-001\meg\pplhandoe1000msfdfflo45hi5ds_sub-OP00116_ses-001_task-staticleft_run-001_meg.mat']);
+filenames=strvcat([mydir '\sub-OP00116\ses-001\meg\pprhandoe1000msfdfflo45hi5sub-OP00116_ses-001_task-staticright_run-001_meg.mat'],...
+    [mydir '\sub-OP00116\ses-001\meg\pplhandoe1000msfdfflo45hi5sub-OP00116_ses-001_task-staticleft_run-001_meg.mat']);
 
 posfile=[mydir '\sub-OP00116\ses-001\meg\sub-OP00116_ses-001_positions_new.tsv'];
 backshape='D:\OP00116_experiment\cast space\OP0016_seated.stl'; %in same space as sensors
-cyl='OP00116_experiment\cast space\cylinder_good_space.stl';
+cyl='D:\OP00116_experiment\cast space\cylinder_good_space.stl';
 
 dpath=[mydir '\sub-OP00116\ses-001\meg'];
 savepath=[mydir '\Coh_results00116'];
@@ -32,6 +31,7 @@ addpath D:\spm12
 
 spm('defaults','EEG');
 addpath(genpath('D:\brainspineconnectivity'))
+
 
 %% analysis options
 SHUFFLE=0;
@@ -64,7 +64,7 @@ sub_fids= [-201 238 123; %r shoulder
     -196 -207 157; %l shoulder
     -221 8.92 219.038  ];
 
-for cnd=1 %:size(filenames,1),
+for cnd=2 %:size(filenames,1),
 
     DAll=spm_eeg_load(filenames(cnd,:));
     [a1,b1,c1]=fileparts(DAll.fullfile);
@@ -94,7 +94,7 @@ for cnd=1 %:size(filenames,1),
 
 
     %% now compute coherence and cross spectra between brain, emg, and sensors on cord
-    %cd  D:\spm12\external\fieldtrip-master\fieldtrip-master\private
+    cd  D:\fieldtrip-master\fieldtrip-master\private
 
     seedperm=0;
     cohbrain=coh_meaghan(D,D.chanlabels(brainind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)]);
@@ -364,7 +364,7 @@ for cnd=1 %:size(filenames,1),
     emdata=squeeze(fdat_brain.fourierspctrm(:,fbemgind,fcind));
     ntapers=size(fdat.fourierspctrm,1);
 
-    %I think nx here is num sourcepts
+    %
     Nx=length(src.pos);
     J=zeros(Nx*3,length(fcind),ntapers);
 
@@ -393,7 +393,7 @@ for cnd=1 %:size(filenames,1),
     Jv=sqrt([sum(diag(Jcov(xind,xind))) sum(diag(Jcov(yind,yind))) sum(diag(Jcov(zind,zind)))]);
     Jv=Jv./sqrt(dot(Jv,Jv)); %this is optimal orient
 
-    plotOptOri(Jv,src,subject)
+    %plotOptOri(Jv,src,subject)
 
 
     if ~isempty(FIXORIENT)
@@ -418,22 +418,22 @@ for cnd=1 %:size(filenames,1),
 
     magopt=sqrt(diag(Jocov));
 
-    figure
-    plot_func_spine_dat(subject,src,magopt,grad)
-    title('Opt oriented sources')
+%     figure
+%     plot_func_spine_dat(subject,src,magopt,grad)
+%     title('Opt oriented sources')
+% 
+% 
+%     figure
+%     plot_func_spine_dat(subject,src,magx,grad)
+%     title('X oriented sources')
+%     %
+%     figure
+%     plot_func_spine_dat(subject,src,magz,grad)
+%     title('Z oriented sources')
 
-
-    figure
-    plot_func_spine_dat(subject,src,magx,grad)
-    title('X oriented sources')
-    %
-    figure
-    plot_func_spine_dat(subject,src,magz,grad)
-    title('Z oriented sources')
-
-    figure
-    plot_func_spine_dat(subject,src,magy,grad)
-    title('Y oriented sources')
+%     figure
+%     plot_func_spine_dat(subject,src,magy,grad)
+%     title('Y oriented sources')
 
 
 
@@ -529,6 +529,30 @@ for cnd=1 %:size(filenames,1),
     rYbrain_abs=rYbrain_abs-mean(rYbrain_abs);
     Zemg_abs=Zemg_abs-mean(Zemg_abs);
     CVAemgbrain_abs=spm_cva(rYbrain_abs,Zemg_abs);
+
+
+     Ncan_emgbrain=max(find(CVAemgbrain_abs.p<0.05));
+     normV_emgbrain=(cov(CVAemgbrain_abs.Y))*CVAemgbrain_abs.V(:,1:Ncan_emgbrain);
+     normW_emgbrain=(cov(CVAemgbrain_abs.X))*CVAemgbrain_abs.W(:,1:Ncan_emgbrain);
+
+        cols=colormap(brewermap([],"Dark2"));
+        col1=cols(1,:); col2=cols(6,:);
+        subplot(211)
+        plot(usefreq,abs(normV_emgbrain(:,1)),'LineWidth',3,'color',col1);
+        title('Brain','FontSize',20)
+    
+        xlabel('Frequency (Hz)','FontSize',20)
+        box off
+        ax = gca;
+        ax.FontSize = 20;
+
+        subplot(212)
+        plot(usefreq,abs(normW_emgbrain(:,1)),'LineWidth',3,'color', col2);
+        title('EMG','FontSize',20)
+        box off
+        ax = gca;
+        ax.FontSize = 20;
+        xlabel('Frequency (Hz)','FontSize',20)
 
 
     %% now scanning up cord
@@ -644,7 +668,7 @@ for cnd=1 %:size(filenames,1),
         Y=Y-mean(Y);
         X=X-mean(X);
 
-        CVA=spm_cva(X,Y,X0);
+        CVA=spm_cva(Y,X,X0);
         chi2(k)=CVA.chi(1);
         pval(k)=CVA.p(1);
         cvar2(k)=CVA.r(1).^2;
