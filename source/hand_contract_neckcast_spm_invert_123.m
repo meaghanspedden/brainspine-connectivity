@@ -522,6 +522,15 @@ for cnd=1%:size(filenames,1),
     CVAemgbrain_abs=spm_cva(rYbrain_abs,Zemg_abs);
     fprintf('EMG brain CVA chi2=%.2f p=%.3f\n',CVAemgbrain_abs.chi(1),CVAemgbrain_abs.p(1))
 
+
+    if SHUFFLE
+        warning('SHUFFLING DATA !')
+        rYbrain_abs=rYbrain_abs(randperm(size(rYbrain,1)),:);
+        rYbrain_abs=rYbrain_abs-mean(rYbrain_abs);
+        CVA_shuf_emgbrain=spm_cva(rYbrain_abs,Zemg_abs);
+        fprintf('CVA shuf data emg brain chi2=%.2f p=%.3f \n', CVA_shuf_emgbrain.chi(1),CVA_shuf_emgbrain.p(1))
+    end
+
     Ncan_emgbrain=max(find(CVAemgbrain_abs.p<0.05));
     normV_emgbrain=(cov(CVAemgbrain_abs.Y))*CVAemgbrain_abs.V(:,1:Ncan_emgbrain)*inv(cov(CVAemgbrain_abs.v(:,1:Ncan_emgbrain)));
     normW_emgbrain=(cov(CVAemgbrain_abs.X))*CVAemgbrain_abs.W(:,1:Ncan_emgbrain)*inv(cov(CVAemgbrain_abs.w(:,1:Ncan_emgbrain)));
@@ -581,7 +590,6 @@ for cnd=1%:size(filenames,1),
         case 'brainopt+abs'
             %% Y will already have had linear projection from orth brain removed (if selected)
             % and also linear
-            %Y=abs([Y(:,cind(1,:))+i*Y(:,cind(2,:))]); %% put it back into complex numbers then abs
             Ycord=abs(rYcord(:,cind(1,:),:) +i*rYcord(:,cind(2,:),:));
 
             X0=abs(Yibrain); % % abs of orth brain : use confound here as non-linear portion may influence
@@ -650,15 +658,15 @@ for cnd=1%:size(filenames,1),
         [~,maxidx2]=maxk(magopt,2);
        end
 
-
-        figure;
-        plot_func_spine_dat(subject,src,magopt,grad,col1)
-        title('power')
-        hold on
-        plot3(src.pos(peakind,1), src.pos(peakind,2),src.pos(peakind,3),'ro','MarkerSize',10,'MarkerFaceColor','r')
+       figure;
+       plot_func_spine_dat(subject,src,magopt,grad,col1)
+       title('power')
+       hold on
+       plot3(src.pos(peakind,1), src.pos(peakind,2),src.pos(peakind,3),'ro','MarkerSize',10,'MarkerFaceColor','r')
+      
        if contains(filenames(cnd,:),'124')
-         plot3(src.pos(maxidx2(2),1), src.pos(maxidx2(2),2),src.pos(maxidx2(2),3),'ro','MarkerSize',10,'MarkerFaceColor','r')
-         peakind=maxidx2(2);
+           plot3(src.pos(maxidx2(2),1), src.pos(maxidx2(2),2),src.pos(maxidx2(2),3),'ro','MarkerSize',10,'MarkerFaceColor','r')
+           peakind=maxidx2(2);
        end
 
         %calc variance removed for point of max power

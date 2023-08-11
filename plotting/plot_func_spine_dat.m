@@ -8,7 +8,7 @@ function plot_func_spine_dat(mesh,src,func,grad,senscol)
       axis image
 
       hold on
-      ft_plot_sens(grad,'coilshape','sphere','coilsize',10)
+      ft_plot_sens(grad,'coilshape', 'point','coilsize',18)
       view(7,1)
       colorbar
 end
