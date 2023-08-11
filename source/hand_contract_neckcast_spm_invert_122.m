@@ -24,31 +24,29 @@ end
 cd(dpath)
 
 brainchan_labels={'19','DG', 'OH', 'A1','1B', 'A9','JS','A6','DJ','MY','DS','OK','MI','17'};
-badchans={'ML-X','ML-Y','ML-Z','K4-Z','K4-X'}; %% 
+badchans={'ML-X','ML-Y','ML-Z','K4-Z','K4-X'}; %% these are also marked in D object
 
 %%
 addpath D:\torso_tools
 addpath D:\spm12
-
 spm('defaults','EEG');
 addpath(genpath('D:\brainspineconnectivity'))
 
-
 %% analysis options
 SHUFFLE=0;
+rng(123) %for shuffling
 allcanfilenames=[];
 
-%whatstr='emg+abs';
-whatstr='brainopt+abs';
+whatstr='emg+abs';
+%whatstr='brainopt+abs';
 %whatstr='orthbrain+brainopt';
-%whatstr='emg';
 
-FIXORIENT=[]; %
-REMOVELIN=1;
+
+FIXORIENT=[]; 
+REMOVELIN=1; %this seems to be hard coded now
 RMORTHBRAIN=contains(whatstr,'brain'); %% don't remove brain if dealing with cord-muscle
 FIXMODES=0;
 CLONETRIALS=1; % use all trial data (1) rather than average (0)
-
 
 freqroi=[5 35];
 
@@ -60,12 +58,15 @@ IMAGECROSS=0;
 COMB3AXES=1;
 
 
+%colors for lines in plots
+cols=colormap(brewermap([],"Dark2"));
+col1=cols(1,:); col2=cols(4,:); %for non linear
+col3=cols(3,:); col4=cols(6,:); %for real imag and coh
+col5=cols(5,:);
 
-sub_fids= [-201 238 123; %r shoulder
-    -196 -207 157; %l shoulder
-    -221 8.92 219.038  ];
 
-for cnd=2 %:size(filenames,1),
+
+for cnd=1%:size(filenames,1),
 
     DAll=spm_eeg_load(filenames(cnd,:));
     [a1,b1,c1]=fileparts(DAll.fullfile);
@@ -73,8 +74,7 @@ for cnd=2 %:size(filenames,1),
 
     cname=[a1 filesep 'clone_b1' b1 c1 ];
 
-
-    D=DAll; %
+    D=DAll;
 
     %% identify channels on spine (the ones that have positions and ori)
 
@@ -95,7 +95,7 @@ for cnd=2 %:size(filenames,1),
 
 
     %% now compute coherence and cross spectra between brain, emg, and sensors on cord
-    cd      D:\fieldtrip-master\fieldtrip-master\private
+    cd  D:\fieldtrip-master\fieldtrip-master\private %fix this?
 
     seedperm=0;
     cohbrain=coh_meaghan(D,D.chanlabels(brainind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)]);
@@ -105,56 +105,62 @@ for cnd=2 %:size(filenames,1),
     fbemgind=find(contains(fdat_brain.label,D.chanlabels(emgind(1))));
     fbrainind=setdiff(1:length(fdat_brain.label),fbemgind);
 
-    %% plot some metrics of brain-emg interaction
-    nchansBrain=length(cspect_brain.labelcmb); %it was getting confused because csd mat is square
-
-    figure; subplot(4,1,1);
-    plot(cspect_brain.freq,real(cspect_brain.crsspctrm(1:nchansBrain,:))');
-    title('real cross')
-    subplot(4,1,2);
-    plot(cspect_brain.freq,imag(cspect_brain.crsspctrm(1:nchansBrain,:))');
-    title('imag cross')
-    subplot(4,1,3)
-    plot(cspect_brain.freq,abs(cspect_brain.crsspctrm(1:nchansBrain,:))');
-    title('abs cross')
-    subplot(4,1,4)
-    plot(cohbrain.freq,cohbrain.cohspctrm(1:nchansBrain,:)');
-    title('coh')
+    %     %% plot some metrics of brain-emg interaction
+    %     nchansBrain=length(cspect_brain.labelcmb); %it was getting confused because csd mat is square
+    %
+    %     figure; subplot(4,1,1);
+    %     plot(cspect_brain.freq,real(cspect_brain.crsspctrm(1:nchansBrain,:))');
+    %     title('real cross')
+    %     subplot(4,1,2);
+    %     plot(cspect_brain.freq,imag(cspect_brain.crsspctrm(1:nchansBrain,:))');
+    %     title('imag cross')
+    %     subplot(4,1,3)
+    %     plot(cspect_brain.freq,abs(cspect_brain.crsspctrm(1:nchansBrain,:))');
+    %     title('abs cross')
+    %     subplot(4,1,4)
+    %     plot(cohbrain.freq,cohbrain.cohspctrm(1:nchansBrain,:)');
+    %     title('coh')
     %% get dominant spatial component that explains the brain-emg cross spectrum
     r1=cspect_brain.crsspctrm;
     r1=r1-mean(r1);
 
-    [Ur,S,V]=svd(real(r1)*real(r1)'); %% could be an issue if peak coherence is imag.
+    [Ur,S,~]=svd(real(r1)*real(r1)'); %% could be an issue if peak coherence is imag.
     varexp=cumsum(diag(S))./sum(diag(S));
     Nrcomp=min(find(varexp>0.99));
     %Ur=Ur(:,1:Nrcomp);
     [Ui,Si,Vi]=svd(imag(r1)*imag(r1)');
 
     Uinv=pinv(Ur); %% the spatial mixture of brain chans orthogonal to the ideal mixture for EMG-brain cross-spectrum
-    CHECKMIX=1;
-    %     if CHECKMIX
-    %         figure;
-    %         %% can base it on real or imag parts, very similar
-    %         plot(1:length(S),Ur(:,1),1:length(S),Ui(:,1)) %% linear mixture of channels to give real or imag comp
-    %
-    %         replace.U=Ur(:,1); %% Ur or Uinv
-    %         replace.ind=fbrainind;
-    %         replace.label='G2-19-Y';
-    %
-    %         %% make a replace one of the chans with optimcal linear mixture and check it is larger/smaller
-    %         [cspect_brainmix,fdat_brainmix,trialcspect_brainmix]=xspectrum_meaghan(D,D.chanlabels(brainind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)],seedperm,[],replace);
-    %         figure;
-    %         plot(cspect_brain.freq,abs(cspect_brain.crsspctrm),'r');
-    %         hold on;
-    %         plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm),'go');
-    %         ind=find(contains(cspect_brainmix.labelcmb,replace.label));
-    %         plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm),'go');
-    %         plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm(ind,:)),'k*');
-    %         title('abs cross')
-    %     end % checkmix
+    %CHECKMIX=0;
+    %if CHECKMIX
+    replace.U=Ui(:,1); %% Ur or Uinv
+    replace.ind=fbrainind;
+    replace.label='G2-19-Y';
+
+    %calculate coherence with ideal mixture-EMG
+    [~, fdat_brainmix,~]=xspectrum_meaghan(D,D.chanlabels(brainind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)],seedperm,[],replace);
+
+    combs={replace.label D.chanlabels{emgind(1)}};
+    cfg            = [];
+    cfg.method     = 'coh';
+    cfg.channelcmb = combs;
+
+    brainmix_emg_coh      = ft_connectivityanalysis(cfg, fdat_brainmix);
+
+    %% replace one of the chans with optimcal linear mixture and check it is larger/smaller
+   
+    [cspect_brainmix,fdat_brainmix,trialcspect_brainmix]=xspectrum_meaghan(D,D.chanlabels(brainind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)],seedperm,[],replace);
+    %             figure;
+    %             plot(cspect_brain.freq,abs(cspect_brain.crsspctrm),'r');
+    %             hold on;
+    %             plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm),'go');
+    ind=find(contains(cspect_brainmix.labelcmb,replace.label));
+    %             plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm),'go');
+    %             plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm(ind,:)),'k*');
+    %             title('abs cross')
+    % end % checkmix
 
     %% get indices of channels within the fdat structure
-
 
     fspemgind=find(contains(fdat.label,D.chanlabels(emgind(1))));
     spind=setdiff(1:length(fdat.label),fspemgind);
@@ -185,6 +191,7 @@ for cnd=2 %:size(filenames,1),
     cind(2,:)=((Nclonesamples/2)+1):Nclonesamples;
 
     imagefreq=cspect.freq;
+
     if CLONETRIALS
         Dclone=clone(DAll,cname,[size(DAll,1) Nclonesamples size(DAll,3)]);
         for f=1:Dclone.ntrials
@@ -196,10 +203,9 @@ for cnd=2 %:size(filenames,1),
         Dclone(spineind,cind(1,:),1)=real(cspect.crsspctrm);
         Dclone(spineind,cind(2,:),1)=imag(cspect.crsspctrm);
     end
-    %% plot back and sensors on back
+    %% load optical scan stl
 
     [F, V]=stlread(backshape);
-    %     [a1,b1,c1]=fileparts(backshape);
     sub=[];
     sub.vertices = V;
     sub.faces = F;
@@ -210,14 +216,12 @@ for cnd=2 %:size(filenames,1),
     subject.pos=sub_red.vertices;
     subject.tri=sub_red.faces;
 
-
-    %% Now set up a source space either flat plane or cylinder
+    %% Now set up a source space  cylinder
 
     allF=[];
     allR2=allF;
     allVE=allF;
     allmaxFstat=allF;
-
 
     %arbvals=strvcat('singleshell','George','localspheres','singlesphere','infinite');
 
@@ -226,39 +230,36 @@ for cnd=2 %:size(filenames,1),
     arbvals=strvcat('infinite');
 
 
-    for arbind=1:size(arbvals,1)
+    for arbind=1:size(arbvals,1) %loop through volume conductors
 
-
-        count=0;
-
-        res=10;
+        res=10; %cylinder grid resolution
 
         src=make_spine_grid_MES_cylinder(sub_red,cyl_source,res);
-
 
         %% now set up torso model, this gives lead field
         % mapping each point (and orientation) in source space to sensors
 
         Lf=[];
+
         switch deblank(arbvals(arbind,:))
 
             case {'singleshell','singlesphere','localspheres','infinite'}
+
                 cfg = [];
                 cfg.method = deblank(arbvals(arbind,:));
-
                 cfg.grad=grad;
                 cfg.conductivity = 1;
                 cfg.unit='mm';
-                [bmodel,cfg] = ft_prepare_headmodel(cfg,subject);
+                [bmodel] = ft_prepare_headmodel(cfg,subject);
 
 
                 cfg = [];
                 cfg.headmodel = bmodel;
                 cfg.sourcemodel = src;
                 cfg.reducerank= 'no';
-                [sourcemodel] = ft_prepare_leadfield(cfg, grad); %% takes a long time- probably due to dense back mesh- but concise output
+                [sourcemodel] = ft_prepare_leadfield(cfg, grad);
 
-                %put leadfields into mat similar to bem lf
+                %unravel lf
 
                 startidx=1;
                 for k=1:size(src.pos,1) %for each source point
@@ -275,22 +276,14 @@ for cnd=2 %:size(filenames,1),
 
         end % switch
 
-        if ~isempty(badgrad) %have not tested georges
-            warning('have not tested this works for BEM')
-
-            badidx=find(contains(grad.label,badchans));
-            Lf=Lf(setdiff(1:size(Lf,1),badidx),:); %% take out bad channels post-hoc
-        end
-
+        D=spm_opm_attach_leadfield(grad.label,Lf,1,Dclone);
 
         if length(src.inside)<length(src.pos)
             warning('Not all sources in the space')
         end
 
-        %% GRB TEST
         %% now run inversion
         origbad=D.badchannels;
-        D=Dclone;
         D = badchannels(D,1:D.nchannels, 1); %% set all channels to bad
         D = badchannels(D,spineind, 0); %% set spine channels to good
         D = badchannels(D,origbad, 1); %% set original bad channels to bad
@@ -310,21 +303,19 @@ for cnd=2 %:size(filenames,1),
             D.inv{1}.inverse.A=eye(Nchans); %% force use of all channels
         else
             D.inv{1}.inverse.Nm=[];
-            D.inv{1}.inverse.A=[]; % eye(Nchans); %% force use of all channels
+            D.inv{1}.inverse.A=[]; 
         end
 
         D.inv{1}.inverse.no_temporal_filter=1;
         D.inv{1}.inverse.complexind=cind;
         D.inv{1}.forward.modality='MEG';
         D.inv{1}.forward.sensors=grad;
-        D.inv{1}.forward.siunits=1; %I think everyting needs to be in
-        %m for this to work
-
+        D.inv{1}.forward.siunits=1; %check implications of this--> units
         D.val=1;
         D.inv{1}.inverse.Nt=[] ;
 
 
-        Dout=spm_eeg_invert_classic_volumetric(D,1,Lf);
+        Dout=TEST_spm_eeg_invert_classic_volumetric(D,1);
 
         %% now we have a mapping between source and sensor space given by M
 
@@ -341,17 +332,6 @@ for cnd=2 %:size(filenames,1),
         allVE(arbind)=VE;
     end % for arbind
 
-
-    % figure
-    % bar(allF); xticklabels(arbvals)
-    % ylabel('FE')
-    % figure
-    % bar(allR2); xticklabels(arbvals)
-    % ylabel('R2')
-    % figure
-    % bar(allVE); xticklabels(arbvals)
-    % ylabel('VE')
-
     %% Now get per trial current density estimates in source space
 
     %frequencies of interest
@@ -365,13 +345,8 @@ for cnd=2 %:size(filenames,1),
     emdata=squeeze(fdat_brain.fourierspctrm(:,fbemgind,fcind));
     ntapers=size(fdat.fourierspctrm,1);
 
-    %I think nx here is num sourcepts
     Nx=length(src.pos);
     J=zeros(Nx*3,length(fcind),ntapers);
-
-
-    %magM=sqrt(diag((M*M')));
-    %nM=M./repmat(magM,1,size(M,2)); % normalize M
 
     Jcov=zeros(Nx*3,Nx*3);
     for f=1:ntapers
@@ -381,21 +356,17 @@ for cnd=2 %:size(filenames,1),
     end
     Jcov=Jcov./ntapers;
 
-
-    xind=1:3:Nx*3;
+    xind=1:3:Nx*3; %indices for x y and z oriented sources
     yind=2:3:Nx*3;
     zind=3:3:Nx*3;
 
     %% sum power over all axes
     magJ=sqrt((diag(Jcov(xind,xind)+diag(Jcov(yind,yind)+diag(Jcov(zind,zind))))));
-    [maxJ,peakind]=max(magJ);
+    %[maxJ,peakind]=max(magJ);
 
     %% get optimal orientation based on whole cord
     Jv=sqrt([sum(diag(Jcov(xind,xind))) sum(diag(Jcov(yind,yind))) sum(diag(Jcov(zind,zind)))]);
-    Jv=Jv./sqrt(dot(Jv,Jv)); %this is optimal orient
-
-    plotOptOri(Jv,src,subject)
-
+    Jv=Jv./sqrt(dot(Jv,Jv)); %this is optimal orientation
 
     if ~isempty(FIXORIENT)
         Jv=FIXORIENT;
@@ -419,38 +390,33 @@ for cnd=2 %:size(filenames,1),
 
     magopt=sqrt(diag(Jocov));
 
-    figure
-    plot_func_spine_dat(subject,src,magopt,grad)
-    title('Opt oriented sources')
+    %     figure
+    %     plot_func_spine_dat(subject,src,magopt,grad)
+    %     title('Opt oriented sources')
+    %     figure
+    %     plot_func_spine_dat(subject,src,magx,grad)
+    %     title('X oriented sources')
+    %     %
+    %     figure
+    %     plot_func_spine_dat(subject,src,magz,grad)
+    %     title('Z oriented sources')
 
-
-    figure
-    plot_func_spine_dat(subject,src,magx,grad)
-    title('X oriented sources')
-    %
-    figure
-    plot_func_spine_dat(subject,src,magz,grad)
-    title('Z oriented sources')
-
-    figure
-    plot_func_spine_dat(subject,src,magy,grad)
-    title('Y oriented sources')
-
-
+    %     figure
+    %     plot_func_spine_dat(subject,src,magy,grad)
+    %     title('Y oriented sources')
 
 
     J=J-mean(J,3);
     %Jorient=Jorient-mean(Jorient,3); %% along one axis
 
     %% Ybrain should be data from optimal linear mixture of channels to get emg coherence
-    %% Yibrain should be data from channel mixture orthogonal to this
+    % Yibrain should be data from channel mixture orthogonal to this
+
     Ybrain=[];Yibrain=[];
-    for f=1:size(fdat_brain.fourierspctrm,1),
+    for f=1:size(fdat_brain.fourierspctrm,1)
         Ybrain(f,:)=Ur(:,1)'*squeeze(fdat_brain.fourierspctrm(f,bind,:));
         Yibrain(f,:)=Uinv(:,1)'*squeeze(fdat_brain.fourierspctrm(f,bind,:));
-    end;
-
-
+    end
 
     %% X is always cord i.e. Jorient (or J which is 3*longer)
 
@@ -467,148 +433,165 @@ for cnd=2 %:size(filenames,1),
     Y=[];
     if findstr(whatstr,'brain')
         Y=[real(Ybrain) imag(Ybrain)];
-    end;
-
+    end
 
     if findstr(whatstr,'emg')
         Y=[real(emdata) imag(emdata)];
-    end;
+    end
     %% keep copies of brain and emg signal for use later
-    Ybrain2=[real(Ybrain) imag(Ybrain)]; %%
-    Zemg=[real(emdata) imag(emdata)]; %% may need this later
 
-    if isempty(Y),
+    Ybrain2=[real(Ybrain) imag(Ybrain)];
+    Zemg=[real(emdata) imag(emdata)];
+    if isempty(Y)
         error('Y not defined');
-    end;
+    end
 
-    %% now optionally remove linear parts
+    %% linear regression: Y and ortho brain signal
     Fstatlin=zeros(length(usefreq),maxk);
     Yconfound=[real(Yibrain) imag(Yibrain)]; %% comes from orthogonal brain channel mixture
 
-    %% removing orthogonal brain signal
+    % removing orthogonal brain signal
     Yr1=zeros(size(Y));
     rpcind=[cind cind];
-    Forthri=zeros(size(cind,2),1)
-    for f=1:size(cind,2)*2,
+    Forthri=zeros(size(cind,2),1);
+    for f=1:size(cind,2)*2
         [B,BINT,Yr1(:,f),RINT,STATS] = regress(Y(:,f),[Yconfound(:,rpcind(1,f)) Yconfound(:,rpcind(2,f)) ones(size(Yconfound,1),1)]);
         Forthri(f)=STATS(2);
-    end;
-    Forth_real=Forthri(cind(1,:));
+    end
+
+    Forth_real=Forthri(cind(1,:)); %relationship between confound and signal
     Forth_imag=Forthri(cind(2,:)); %% separate real and imag
 
-    if RMORTHBRAIN,
+    if RMORTHBRAIN %Y becomes residuals if remove ortho brain (not for emg - cord)
         stvar=var(Y);
         Y=Yr1;
         fprintf('\n Mean %3.2f percent variance removed by orthogonal channels\n',100*(1-mean(var(Y)./stvar)))
-    end;
+    end
+
     %% get linear emg-brain
     rYbrain=zeros(size(Ybrain2));
-
     Fstatlin_emgbrainri=zeros(size(cind,2),1);
-    for f=1:size(cind,2)*2,
+
+    for f=1:size(cind,2)*2
+
         %% Ybrain2 is copy of original brain signal, Zemg is copy of original EMG. Both are complex.
         [B,BINT,R,RINT,STATS] = regress(Ybrain2(:,f),[Zemg(:,rpcind(1,f)) Zemg(:,rpcind(2,f)) ones(size(Zemg,1),1)]);
         rYbrain(:,f)=R;
-
         Fstatlin_emgbrainri(f)=STATS(2);
 
-    end; % for f
+    end % for f
 
-    Fstatlin_emgbrain_real=Fstatlin_emgbrainri(cind(1,:))
+    Fstatlin_emgbrain_real=Fstatlin_emgbrainri(cind(1,:));
     Fstatlin_emgbrain_imag=Fstatlin_emgbrainri(cind(2,:)); %% separate real and imag
 
     figure;
-    plot(usefreq,Fstatlin_emgbrain_real,usefreq,Fstatlin_emgbrain_imag);
-    legend('Brain-emg real','Brain-emg imag');
-    title('linear');
-    linvaremgbrain_rmvd=1-var(rYbrain(:))/var(Ybrain2(:));
+    % Plot F statistics for real and imaginary parts of brain-EMG
+    subplot(2, 1, 1);
+    plot(usefreq, Fstatlin_emgbrain_real, 'color',col3,'LineWidth',3); hold on
+    plot(usefreq, Fstatlin_emgbrain_imag, 'color',col4, 'LineWidth', 3);
+    ylabel('F Statistic');
+    xlabel('Frequency (Hz)');
+    legend('Brain-EMG Real', 'Brain-EMG Imaginary');
+    ax = gca;
+    ax.FontSize = 20;
+    box off
+    xlim([0 40])
+    % Plot Coherence between brain and EMG
+    subplot(2, 1, 2);
+    plot(brainmix_emg_coh.freq, brainmix_emg_coh.cohspctrm, 'LineWidth', 3,'color',col5);
+    ylabel('Coherence');
+    ax = gca;
+    ax.FontSize = 20;
+    box off
+    xlim([0 40])
 
-    % now non-linear brain emg
+    % Overall plot title and adjustments
+    sgtitle('Linear Brain-EMG', 'FontSize', 16, 'FontWeight', 'bold');
+    set(gcf, 'Position', [100, 100, 600, 800]);  % Adjust figure size and position
+
+    linvaremgbrain_rmvd=1-var(rYbrain(:))/var(Ybrain2(:)); %residuals as prop of orig brain signal
+
+    %% now non-linear brain-emg cva (using residuals from linear regression)
     fprintf('\n Taking abs for brain residuals and emg') % THIS BIT OF CODE HARDCODED TO ABS
     rYbrain_abs=abs([rYbrain(:,cind(1,:))+i*rYbrain(:,cind(2,:))]); %% put it back into complex numbers then abs
     Zemg_abs=abs([Zemg(:,cind(1,:))+i*Zemg(:,cind(2,:))]);
+
+    %mean centre
     rYbrain_abs=rYbrain_abs-mean(rYbrain_abs);
     Zemg_abs=Zemg_abs-mean(Zemg_abs);
+
+    %CVA for abs brain-emg
     CVAemgbrain_abs=spm_cva(rYbrain_abs,Zemg_abs);
+    fprintf('EMG brain CVA chi2=%.2f p=%.3f\n',CVAemgbrain_abs.chi(1),CVAemgbrain_abs.p(1))
 
-     Ncan_emgbrain=max(find(CVAemgbrain_abs.p<0.05));
-     normV_emgbrain=(cov(CVAemgbrain_abs.Y))*CVAemgbrain_abs.V(:,1:Ncan_emgbrain);
-     normW_emgbrain=(cov(CVAemgbrain_abs.X))*CVAemgbrain_abs.W(:,1:Ncan_emgbrain);
+    Ncan_emgbrain=max(find(CVAemgbrain_abs.p<0.05));
+    normV_emgbrain=(cov(CVAemgbrain_abs.Y))*CVAemgbrain_abs.V(:,1:Ncan_emgbrain)*inv(cov(CVAemgbrain_abs.v(:,1:Ncan_emgbrain)));
+    normW_emgbrain=(cov(CVAemgbrain_abs.X))*CVAemgbrain_abs.W(:,1:Ncan_emgbrain)*inv(cov(CVAemgbrain_abs.w(:,1:Ncan_emgbrain)));
 
-        cols=colormap(brewermap([],"Dark2"));
-        col1=cols(1,:); col2=cols(6,:);
-        subplot(211)
-        plot(usefreq,abs(normV_emgbrain(:,1)),'LineWidth',3,'color',col1);
-        title('Brain','FontSize',20)
-    
-        xlabel('Frequency (Hz)','FontSize',20)
-        box off
-        ax = gca;
-        ax.FontSize = 20;
+    figure
+    plot(usefreq,abs(normV_emgbrain(:,1)),'LineWidth',3,'color',col1);
+    xlabel('Frequency (Hz)','FontSize',20)
+    ylabel('Brain')
+    box off
+    ax = gca;
+    ax.FontSize = 20;
+    hold on
+    yyaxis right
+    plot(usefreq,abs(normW_emgbrain(:,1)),'LineWidth',3,'color', col2);
+    ylabel('EMG')
+    legend({'Brain', 'EMG'})
 
-        subplot(212)
-        plot(usefreq,abs(normW_emgbrain(:,1)),'LineWidth',3,'color', col2);
-        title('EMG','FontSize',20)
-        box off
-        ax = gca;
-        ax.FontSize = 20;
-        xlabel('Frequency (Hz)','FontSize',20)
-
-    %% now scanning up cord
-
+    %% now cord and Y linear regression, scannning up cord
 
     Y=Y-mean(Y);
     Fstatlinri=zeros(size(cind,2),maxk);
     rYcord=zeros([size(Y),maxk]); %% need specific residual at each point on cord
-    for k=1:maxk,
-        k
+    for k=1:maxk
+        disp(k)
         X=[real(squeeze(useJ(k,:,:))') imag(squeeze(useJ(k,:,:))')]; % cord
         X=X-mean(X);
 
-        for f=1:size(cind,2)*2, %% want to deal with real and imag part of Y
+        for f=1:size(cind,2)*2 %% want to deal with real and imag part of Y
 
             [B,BINT,R,RINT,STATS] = regress(Y(:,f),[X(:,rpcind(1,f)) X(:,rpcind(2,f)) ones(size(X,1),1)]);
             rYcord(:,f,k)=R; %% THIS WAS WRONG AS rY changed at each location on cord...
-            %% note also that rYcord has both real and imag components that had linear relationshop removed
 
+            % note also that rYcord has both real and imag components that had linear relationshop removed
 
             Fstatlinri(f,k)=STATS(2);
             rsqlin(f,k)=STATS(1);
-        end; % for f
+        end % for f
 
-    end; % for k
+    end % for k
 
     Fstatlin_real=Fstatlinri(cind(1,:),:); %% separate real and imag
-    Fstatlin_imag=Fstatlinri(cind(2,:),:); %% separate real and imag
-    figure;
-    plot(usefreq,Fstatlin_real,usefreq,Fstatlin_imag,':');
-    legend('linear real','linear imag');
-    title('linear');
-
+    Fstatlin_imag=Fstatlinri(cind(2,:),:);
+    Y2=Y; %save a copy to use to calc variance later on; Y is redefined
 
     switch whatstr %% flags  RMORTHBRAIN and REMOVELIN now take care of options
 
-        case 'brainopt',
+        case 'brainopt'
             warning('not checked')
             Ycord=rYcord(:,cind(1,:),:) +i*rYcord(:,cind(2,:),:);
             X0=[]; %% already removed by RMORTH flag
-        case 'brainopt+abs',
+
+        case 'brainopt+abs'
             %% Y will already have had linear projection from orth brain removed (if selected)
-            %% and also linear
+            % and also linear
             %Y=abs([Y(:,cind(1,:))+i*Y(:,cind(2,:))]); %% put it back into complex numbers then abs
             Ycord=abs(rYcord(:,cind(1,:),:) +i*rYcord(:,cind(2,:),:));
 
             X0=abs(Yibrain); % % abs of orth brain : use confound here as non-linear portion may influence
 
-        case 'orthbrain+brainopt',
+        case 'orthbrain+brainopt'
             warning('not checked')
-            if RMORTHBRAIN,
+            if RMORTHBRAIN
                 error('orthbrain already removed as confound');
-            end;
+            end
             X0=Y; %% null space is optimal brain signal
             Y=[real(Yibrain) imag(Yibrain)]; %% signal space is orthogonal (to optimal) brain signal
 
-        case 'emg',
+        case 'emg'
             warning('not checked')
             Ycord=rYcord(:,cind(1,:),:) +i*rYcord(:,cind(2,:),:);
             X0=[];
@@ -617,32 +600,13 @@ for cnd=2 %:size(filenames,1),
             %Yc=abs([Y(:,cind(1,:))+i*Y(:,cind(2,:))]); %% put it back into complex numbers then abs
             %Y=abs(Yc);
             Ycord=abs(rYcord(:,cind(1,:),:) +i*rYcord(:,cind(2,:),:));
-
-
             X0=abs(Yibrain); % abs of orth brain : use confound here as non-linear portion may influence
 
         otherwise
             error('not defined')
-    end; % switch
+    end % switch
 
-
-    %
-    % if size(X)~=size(Y),
-    %     error('X and Y don not match')
-    % end;
-    %
-    % if ~isempty(X0)
-    %     if size(X0)~=size(X),
-    %         error('X and X0 do not match')
-    %     end;
-    % end;
-
-    % Y=Y-mean(Y);
-    % if SHUFFLE,
-    %     warning('SHUFFLING DATA !')
-    %     Y=Y(randperm(size(Y,1)),:);
-    % end;
-
+    %% CVA with linear part removed
     X0=X0-mean(X0);
     chi2=0;
     chi2r=0;
@@ -650,20 +614,25 @@ for cnd=2 %:size(filenames,1),
     pval=[];
     allCVA=[];
 
-    for k=1:maxk,
-        k
-
+    for k=1:maxk
+        disp(k)
         X=squeeze(useJ(k,:,:))'; % cord data
 
-
-        if contains(whatstr,'abs'),
+        if contains(whatstr,'abs')
             X=abs(X);
         else
             X=[real(X) imag(X)];
-        end;
+        end
 
         %% here is where we need to account for/ quantify linear effect from part of cord (i.e. just before non lin stage)
         Y=squeeze(Ycord(:,:,k)); %% this will have had linear portion removed if required
+
+        if SHUFFLE
+            warning('SHUFFLING DATA !')
+            Y=Y(randperm(size(Y,1)),:);
+        end
+
+
         Y=Y-mean(Y);
         X=X-mean(X);
 
@@ -672,7 +641,7 @@ for cnd=2 %:size(filenames,1),
         pval(k)=CVA.p(1);
         cvar2(k)=CVA.r(1).^2;
         allCVA{k}=CVA;
-    end; % for k
+    end % for k
 
 
     if COMB3AXES
@@ -686,58 +655,46 @@ for cnd=2 %:size(filenames,1),
         end
 
         figure;
-        plot_func_spine_dat(subject,src,magopt,grad)
+        plot_func_spine_dat(subject,src,magopt,grad,col1)
         title('power')
         hold on
-        plot3(src.pos(peakind,1), src.pos(peakind,2),src.pos(peakind,3),'ro','MarkerSize',12)
+        plot3(src.pos(peakind,1), src.pos(peakind,2),src.pos(peakind,3),'ro','MarkerSize',10,'MarkerFaceColor','r')
 
-
-        [dum,peakindchi]=max(chi2); %% peak stat
-        figure;
-        plot_func_spine_dat(subject,src,chi2,grad)
-        title('chi2')
-        hold on
-        plot3(src.pos(peakindchi,1), src.pos(peakindchi,2),src.pos(peakindchi,3),'ro','MarkerSize',12)
-        title('CVA chi2')
+        %calc variance removed for point of max power
+        rYMax=squeeze(rYcord(:,:,peakind));
+        linvar_rmvd= 1-var(rYMax(:))/var(Y2(:)); %save this for point of max pwr. Y2 is a copy of Y from lin reg (is overwritten)
 
         CVA=allCVA{peakind}; %cva for sourcepoint where power is max
+        fprintf('CVA at point of peak power chi2=%.2f p=%.3f \n', CVA.chi(1),CVA.p(1))
+        fprintf('Source recon VE is %.2f R2 is %.2f\n', allVE,allR2)
 
         Ncan=max(find(CVA.p<0.05));
-        normV=(cov(CVA.Y))*CVA.V(:,1:Ncan);
-        normW=(cov(CVA.X))*CVA.W(:,1:Ncan);
+        normV=cov(CVA.Y)*CVA.V(:,1:Ncan)*inv(cov(CVA.v)); %
+        %uVnorm=Vnorm./sqrt(dot(Vnorm,Vnorm)); %% remove scaling factor (is this necessary?)
+        normW=cov(CVA.X)*CVA.W(:,1:Ncan)*inv(cov(CVA.w)); %
         cvaname=[savepath filesep sprintf('%s_%s.mat',pstr,whatstr)];
-        %save(cvaname,'allCVA','peakind','magopt','usefreq','CVAemgbrain','Fstatlin','Fstatlin_emgbrain','linvar_rmvd','linvaremgbrain_rmvd');
-
-
+        save(cvaname,'allCVA','peakind','magopt','usefreq','CVAemgbrain_abs','Fstatlinri','Fstatlin_emgbrainri','linvar_rmvd','linvaremgbrain_rmvd');
 
         %% plot nonlinear
 
         cols=colormap(brewermap([],"Dark2"));
         col1=cols(1,:); col2=cols(6,:);
-        subplot(211)
+        figure;
         plot(usefreq,abs(normV(:,1)),'LineWidth',3,'color',col1);
         if contains(whatstr,'emg')
-            title('EMG','FontSize',20)
+            leg1='EMG';
         else
-            title('Brain','FontSize',20)
+            leg1='Brain';
         end
         xlabel('Frequency (Hz)','FontSize',20)
-        box off
         ax = gca;
         ax.FontSize = 20;
-
-        subplot(212)
+        yyaxis right
         plot(usefreq,abs(normW(:,1)),'LineWidth',3,'color', col2);
-        title('Cord','FontSize',20)
+        legend({leg1,'Spinal Cord'})
         box off
-        ax = gca;
-        ax.FontSize = 20;
-        xlabel('Frequency (Hz)','FontSize',20)
-
-
         %savename=['D:\figsfortalk\nonlin_left_spineemg.png'];
-
-        %  exportgraphics(gcf, savename, 'Resolution', 600)
+        %exportgraphics(gcf, savename, 'Resolution', 600)
 
         figure;
         subplot(2,1,1);
@@ -753,33 +710,49 @@ for cnd=2 %:size(filenames,1),
             legend('Linear post removal','Brain orth removed');
         else
             legend('Linear','Brain orth not removed');
-        end;
+        end
 
+        %% coherence for visualization
+        SC_freqdat=squeeze(useJ(peakind,:,:))'; % cord, complex
 
-        ylabel('Fstat')
-        xlabel('freq');
+        Y=[];
+        if findstr(whatstr,'brain')
+            error('not tested')
+            Y=[real(Ybrain) imag(Ybrain)];
+        end
 
+        if findstr(whatstr,'emg')
+            Y=emdata;
+        end
 
+        [Coh_ft] = cohxy(SC_freqdat,Y,fdat);
 
-        figure;
-        plot(usefreq,Fstatlin_real(1:length(usefreq),peakind),'LineWidth',3,'color','k');
+        figure; %plot coherence and f stats in subplot
+        subplot(2, 1, 1);
+        h(1) = plot(usefreq, Fstatlin_real(1:length(usefreq), peakind), 'LineWidth', 2);
         hold on;
-        plot(usefreq,Fstatlin_imag(1:length(usefreq),peakind),'LineWidth',3,'color','r');
-        legend('real','imag')
-        ylabel('Fstat','Fontsize',20)
-        xlabel('Frequency (Hz)','FontSize',20)
-        ax = gca;
-        ax.FontSize = 20;
-        %legend('Left contraction','Right contraction','FontSize',20)
+        plot(usefreq, Fstatlin_imag(1:length(usefreq), peakind), 'LineWidth', 2);
+        xlabel('Frequency (Hz)');
+        ylabel('F statistic');
+        legend({'Real', 'Imaginary'})
         box off
-        %ylim([0 2.5])
+        ax = gca;
+        ax.FontSize = 12;
 
-        savename=['D:\figsfortalk\linear_right_brainspine.png'];
+        subplot(2, 1, 2);
+        plot(usefreq, squeeze(Coh_ft.cohspctrm(1, 2, :)), 'LineWidth', 2);
+        xlabel('Frequency (Hz)');
+        ylabel('Coherence');
+        set(gcf, 'Position', [100, 100, 500, 800]); % Set figure size and position
+        box off
+        ax = gca;
+        ax.FontSize = 12;
+        % savename=['D:\figsfortalk\linear_right_brainspine.png'];
 
-        
-    end; % if COMB3AXES
 
-end; % for filenames
+    end % if COMB3AXES
+
+end % for filenames
 
 
 

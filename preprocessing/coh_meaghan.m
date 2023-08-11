@@ -49,4 +49,4 @@ cfg.showlabels       = 'yes';
 cfg.interactive='yes';
 cfg.outline='yes';
 
-ft_multiplotER(cfg,cont_coh)
+%ft_multiplotER(cfg,cont_coh)

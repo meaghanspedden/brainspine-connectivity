@@ -1,14 +1,14 @@
-function plot_func_spine_dat(mesh,src,func,grad)
+function plot_func_spine_dat(mesh,src,func,grad,senscol)
 
       inside=src.pos(src.inside,:);
-
+      colmaptouse=brewermap([],'YlGnBu');
       ft_plot_mesh(mesh, 'edgealpha',0.05, 'facealpha', 0.3); hold on
-      ft_plot_cloud(inside,func,'scalerad','no', 'cloudtype','surf','ncirc',1,'radius',5,'colormap','parula')
+      ft_plot_cloud(inside,func,'scalerad','no', 'cloudtype','surf','ncirc',1,'radius',5,'colormap',colormap(flipud(colmaptouse)))
       xlabel('X'); ylabel('Y')
       axis image
 
       hold on
-      ft_plot_sens(grad,'coilshape','sphere','coilsize',10,'style','k*')
+      ft_plot_sens(grad,'coilshape','sphere','coilsize',10)
       view(7,1)
       colorbar
 end

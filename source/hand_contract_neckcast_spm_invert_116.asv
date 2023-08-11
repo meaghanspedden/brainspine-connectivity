@@ -1,21 +1,20 @@
 %% SPM inversion - new neck cast - hand contraction July 2023
 
-%for subject 123
 clear all;
 close all;
 
-mydir='D:\MSST001\';
+mydir='D:\MSST001';
 
 %filenames for concatenated runs for right hand and left hand
-filenames=strvcat([mydir 'sub-OP00124\ses-001\meg\pprhandoe1000msfdfflo45hi5ds_sub-OP00124_ses-001_task-staticright_run-001_meg'],...
-        [mydir '\sub-OP00124\ses-001\meg\pplhandoe1000msfdfflo45hi5ds_sub-OP00124_ses-001_task-staticleft_run-001_meg']);
+filenames=strvcat([mydir '\sub-OP00116\ses-001\meg\pprhandoe1000msfdfflo45hi5sub-OP00116_ses-001_task-staticright_run-001_meg.mat'],...
+    [mydir '\sub-OP00116\ses-001\meg\pplhandoe1000msfdfflo45hi5sub-OP00116_ses-001_task-staticleft_run-001_meg.mat']);
 
-posfile=[mydir 'sub-OP00124\ses-001\meg\ds_sub-OP00124_ses-001_positions.tsv'];
-backshape='D:\OP00123_experiment\cast space\OP00123.stl'; %stl in same space as sensors
-cyl='D:\OP00123_experiment\cast space\cylinder_good_space.stl'; %cylinder for source space
+posfile=[mydir '\sub-OP00116\ses-001\meg\sub-OP00116_ses-001_positions_new.tsv'];
+backshape='D:\OP00116_experiment\cast space\OP0016_seated.stl'; %in same space as sensors
+cyl='D:\OP00116_experiment\cast space\cylinder_good_space.stl';
 
-dpath=[mydir 'sub-OP00124\ses-001\meg']; %data path
-savepath=[mydir '\Coh_results00123']; %save path
+dpath=[mydir '\sub-OP00116\ses-001\meg'];
+savepath=[mydir '\Coh_results00116'];
 
 if ~exist(savepath,'dir')
     mkdir(savepath)
@@ -23,8 +22,8 @@ end
 
 cd(dpath)
 
-brainchan_labels={'19','DG', 'OH', 'A1','1B', 'A9','JS','A6','DJ','MY','DS','OK','MI','17'};
-badchans={'ML-X','ML-Y','ML-Z','K4-Z','K4-X'}; %%
+brainchan_labels={'19','1B', 'MW', 'MY','OK','MZ','35','DI','MU','DQ','OH','DG','A1'};
+badchans={};
 
 %%
 addpath D:\torso_tools
@@ -525,20 +524,20 @@ for cnd=1%:size(filenames,1),
     fprintf('EMG brain CVA chi2=%.2f p=%.3f\n',CVAemgbrain_abs.chi(1),CVAemgbrain_abs.p(1))
 
     Ncan_emgbrain=max(find(CVAemgbrain_abs.p<0.05));
-    normV_emgbrain=(cov(CVAemgbrain_abs.Y))*CVAemgbrain_abs.V(:,1:Ncan_emgbrain)*inv(cov(CVAemgbrain_abs.v(:,1:Ncan_emgbrain)));
-    normW_emgbrain=(cov(CVAemgbrain_abs.X))*CVAemgbrain_abs.W(:,1:Ncan_emgbrain)*inv(cov(CVAemgbrain_abs.w(:,1:Ncan_emgbrain)));
+
+    cov(CVA.Y)*CVA.V(:,1:Ncan)*inv(cov(CVA.v)); %
+    normV_emgbrain=(cov(CVAemgbrain_abs.Y))*CVAemgbrain_abs.V(:,1:Ncan_emgbrain);
+    normW_emgbrain=(cov(CVAemgbrain_abs.X))*CVAemgbrain_abs.W(:,1:Ncan_emgbrain);
 
     figure
     plot(usefreq,abs(normV_emgbrain(:,1)),'LineWidth',3,'color',col1);
     xlabel('Frequency (Hz)','FontSize',20)
-    ylabel('Brain')
     box off
     ax = gca;
     ax.FontSize = 20;
     hold on
     yyaxis right
     plot(usefreq,abs(normW_emgbrain(:,1)),'LineWidth',3,'color', col2);
-    ylabel('EMG')
     legend({'Brain', 'EMG'})
 
     %% now cord and Y linear regression, scannning up cord
