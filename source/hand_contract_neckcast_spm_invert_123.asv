@@ -1,20 +1,21 @@
 %% SPM inversion - new neck cast - hand contraction July 2023
 
+%for subject 123
 clear all;
 close all;
 
-mydir='D:\MSST001';
+mydir='D:\MSST001\';
 
 %filenames for concatenated runs for right hand and left hand
-filenames=strvcat([mydir '\sub-OP00116\ses-001\meg\pprhandoe1000msfdfflo45hi5sub-OP00116_ses-001_task-staticright_run-001_meg.mat'],...
-    [mydir '\sub-OP00116\ses-001\meg\pplhandoe1000msfdfflo45hi5sub-OP00116_ses-001_task-staticleft_run-001_meg.mat']);
+filenames=strvcat([mydir 'sub-OP00124\ses-001\meg\pprhandoe1000msfdfflo45hi5ds_sub-OP00124_ses-001_task-staticright_run-001_meg'],...
+        [mydir '\sub-OP00124\ses-001\meg\pplhandoe1000msfdfflo45hi5ds_sub-OP00124_ses-001_task-staticleft_run-001_meg']);
 
-posfile=[mydir '\sub-OP00116\ses-001\meg\sub-OP00116_ses-001_positions_new.tsv'];
-backshape='D:\OP00116_experiment\cast space\OP0016_seated.stl'; %in same space as sensors
-cyl='D:\OP00116_experiment\cast space\cylinder_good_space.stl';
+posfile=[mydir 'sub-OP00124\ses-001\meg\ds_sub-OP00124_ses-001_positions.tsv'];
+backshape='D:\OP00123_experiment\cast space\OP00123.stl'; %stl in same space as sensors
+cyl='D:\OP00123_experiment\cast space\cylinder_good_space.stl'; %cylinder for source space
 
-dpath=[mydir '\sub-OP00116\ses-001\meg'];
-savepath=[mydir '\Coh_results00116'];
+dpath=[mydir 'sub-OP00124\ses-001\meg']; %data path
+savepath=[mydir '\Coh_results00123']; %save path
 
 if ~exist(savepath,'dir')
     mkdir(savepath)
@@ -22,8 +23,8 @@ end
 
 cd(dpath)
 
-brainchan_labels={'19','1B', 'MW', 'MY','OK','MZ','35','DI','MU','DQ','OH','DG','A1'};
-badchans={};
+brainchan_labels={'19','DG', 'OH', 'A1','1B', 'A9','JS','A6','DJ','MY','DS','OK','MI','17'};
+badchans={'ML-X','ML-Y','ML-Z','K4-Z','K4-X'}; %%
 
 %%
 addpath D:\torso_tools
@@ -389,6 +390,22 @@ for cnd=1%:size(filenames,1),
 
     magopt=sqrt(diag(Jocov));
 
+    %     figure
+    %     plot_func_spine_dat(subject,src,magopt,grad)
+    %     title('Opt oriented sources')
+    %     figure
+    %     plot_func_spine_dat(subject,src,magx,grad)
+    %     title('X oriented sources')
+    %     %
+    %     figure
+    %     plot_func_spine_dat(subject,src,magz,grad)
+    %     title('Z oriented sources')
+
+    %     figure
+    %     plot_func_spine_dat(subject,src,magy,grad)
+    %     title('Y oriented sources')
+
+
     J=J-mean(J,3);
     %Jorient=Jorient-mean(Jorient,3); %% along one axis
 
@@ -430,7 +447,6 @@ for cnd=1%:size(filenames,1),
     end
 
     %% linear regression: Y and ortho brain signal
-
     Fstatlin=zeros(length(usefreq),maxk);
     Yconfound=[real(Yibrain) imag(Yibrain)]; %% comes from orthogonal brain channel mixture
 
@@ -649,13 +665,13 @@ for cnd=1%:size(filenames,1),
 
     if COMB3AXES
 
-        PWRMAX=1;
 
-        if PWRMAX
-            [dum,peakind]=max(magopt); %% peak power
-        else
-            [dum,peakind]=max(chi2); %% peak stat
-        end
+       [~,peakind]=max(magopt); %% peak power
+       if contains(filenames(cnd,:),'124') %need second max as well for 123
+        
+       end
+
+
 
         figure;
         plot_func_spine_dat(subject,src,magopt,grad,col1)
@@ -675,17 +691,6 @@ for cnd=1%:size(filenames,1),
 
         normV=cov(CVA.Y)*CVA.V(:,1:Ncan)*inv(cov(CVA.v(:,1:Ncan))); %
         normW=cov(CVA.X)*CVA.W(:,1:Ncan)*inv(cov(CVA.w(:,1:Ncan))); %
-
-        %shuffle just for point of max pwr
-
-        if SHUFFLE
-            warning('SHUFFLING DATA !')
-            Y=squeeze(Ycord(:,:,peakind)); %% this will have had linear portion removed if required
-            Y=Y(randperm(size(Y,1)),:);
-            X=squeeze(useJ(peakind,:,:))'; % cord data
-            CVA_shuf=spm_cva(Y,X,X0);
-
-        end
         
         cvaname=[savepath filesep sprintf('%s_%s.mat',pstr,whatstr)];
         save(cvaname,'allCVA','peakind','magopt','usefreq','CVAemgbrain_abs','Fstatlinri','Fstatlin_emgbrainri','linvar_rmvd','linvaremgbrain_rmvd');
@@ -770,11 +775,12 @@ for cnd=1%:size(filenames,1),
         plot(usefreq, squeeze(Coh_ft.cohspctrm(1, 2, :)), 'LineWidth', 3,'color',col5);
         xlabel('Frequency (Hz)');
         ylabel('Coherence');
-        set(gcf, 'Position', [100, 100, 600, 800]); % Set figure size and position
+        set(gcf, 'Position', [100, 100, 500, 800]); % Set figure size and position
         box off
         ax = gca;
         ax.FontSize = 12;
         sgtitle('Linear Cord-Y', 'FontSize', 16, 'FontWeight', 'bold');
+        set(gcf, 'Position', [100, 100, 600, 800]);  % Adjust figure size and position
         % savename=['D:\figsfortalk\linear_right_brainspine.png'];
 
 

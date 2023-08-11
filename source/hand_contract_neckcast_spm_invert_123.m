@@ -33,8 +33,8 @@ spm('defaults','EEG');
 addpath(genpath('D:\brainspineconnectivity'))
 
 %% analysis options
-SHUFFLE=0;
-rng(123) %for shuffling
+SHUFFLE=1;
+rng(125) %for shuffling
 allcanfilenames=[];
 
 whatstr='emg+abs';
@@ -390,22 +390,6 @@ for cnd=1%:size(filenames,1),
 
     magopt=sqrt(diag(Jocov));
 
-    %     figure
-    %     plot_func_spine_dat(subject,src,magopt,grad)
-    %     title('Opt oriented sources')
-    %     figure
-    %     plot_func_spine_dat(subject,src,magx,grad)
-    %     title('X oriented sources')
-    %     %
-    %     figure
-    %     plot_func_spine_dat(subject,src,magz,grad)
-    %     title('Z oriented sources')
-
-    %     figure
-    %     plot_func_spine_dat(subject,src,magy,grad)
-    %     title('Y oriented sources')
-
-
     J=J-mean(J,3);
     %Jorient=Jorient-mean(Jorient,3); %% along one axis
 
@@ -447,6 +431,7 @@ for cnd=1%:size(filenames,1),
     end
 
     %% linear regression: Y and ortho brain signal
+
     Fstatlin=zeros(length(usefreq),maxk);
     Yconfound=[real(Yibrain) imag(Yibrain)]; %% comes from orthogonal brain channel mixture
 
@@ -471,6 +456,8 @@ for cnd=1%:size(filenames,1),
     %% get linear emg-brain
     rYbrain=zeros(size(Ybrain2));
     Fstatlin_emgbrainri=zeros(size(cind,2),1);
+    pvals_emgbrainri=zeros(size(cind,2),1);
+
 
     for f=1:size(cind,2)*2
 
@@ -478,22 +465,35 @@ for cnd=1%:size(filenames,1),
         [B,BINT,R,RINT,STATS] = regress(Ybrain2(:,f),[Zemg(:,rpcind(1,f)) Zemg(:,rpcind(2,f)) ones(size(Zemg,1),1)]);
         rYbrain(:,f)=R;
         Fstatlin_emgbrainri(f)=STATS(2);
+        pvals_emgbrainri(f)=STATS(3);
+        % testing at each freq so will have to deal with MC
 
     end % for f
 
     Fstatlin_emgbrain_real=Fstatlin_emgbrainri(cind(1,:));
     Fstatlin_emgbrain_imag=Fstatlin_emgbrainri(cind(2,:)); %% separate real and imag
 
+    pvals_emgbrain_real=pvals_emgbrainri(cind(1,:));
+    pvals_emgbrain_imag=pvals_emgbrainri(cind(2,:));
+
+    % work out the threshold using FDR
+    [~, crit_p_real, ~, adj_p_real]=fdr_bh(pvals_emgbrain_real,0.01,'dep','yes');
+    [~, crit_p_imag, ~, adj_p_imag]=fdr_bh(pvals_emgbrain_imag,0.01,'dep','yes');
+    realSig=find(adj_p_real<0.05);
+    imagSig=find(adj_p_imag<0.05);
+
     figure;
     % Plot F statistics for real and imaginary parts of brain-EMG
     subplot(2, 1, 1);
-    plot(usefreq, Fstatlin_emgbrain_real, 'color',col3,'LineWidth',3); hold on
+    plot(usefreq, Fstatlin_emgbrain_real, 'color',col3,'LineWidth',3,'LineStyle',':'); hold on
     plot(usefreq, Fstatlin_emgbrain_imag, 'color',col4, 'LineWidth', 3);
+    plot(usefreq(realSig), ones(1,length(realSig))*10,'*','MarkerSize',8,'color',col3)
+    plot(usefreq(imagSig), ones(1,length(imagSig))*12,'*','MarkerSize',8,'color',col4)
     ylabel('F Statistic');
     xlabel('Frequency (Hz)');
     legend('Brain-EMG Real', 'Brain-EMG Imaginary');
     ax = gca;
-    ax.FontSize = 20;
+    ax.FontSize = 14;
     box off
     xlim([0 40])
     % Plot Coherence between brain and EMG
@@ -501,11 +501,9 @@ for cnd=1%:size(filenames,1),
     plot(brainmix_emg_coh.freq, brainmix_emg_coh.cohspctrm, 'LineWidth', 3,'color',col5);
     ylabel('Coherence');
     ax = gca;
-    ax.FontSize = 20;
+    ax.FontSize = 14;
     box off
     xlim([0 40])
-
-    % Overall plot title and adjustments
     sgtitle('Linear Brain-EMG', 'FontSize', 16, 'FontWeight', 'bold');
     set(gcf, 'Position', [100, 100, 600, 800]);  % Adjust figure size and position
 
@@ -545,9 +543,9 @@ for cnd=1%:size(filenames,1),
 
     Y=Y-mean(Y);
     Fstatlinri=zeros(size(cind,2),maxk);
+    pvalsri=zeros(size(cind,2),maxk);
     rYcord=zeros([size(Y),maxk]); %% need specific residual at each point on cord
     for k=1:maxk
-        disp(k)
         X=[real(squeeze(useJ(k,:,:))') imag(squeeze(useJ(k,:,:))')]; % cord
         X=X-mean(X);
 
@@ -560,12 +558,17 @@ for cnd=1%:size(filenames,1),
 
             Fstatlinri(f,k)=STATS(2);
             rsqlin(f,k)=STATS(1);
+            pvalsri(f,k)=STATS(3);
         end % for f
 
     end % for k
 
     Fstatlin_real=Fstatlinri(cind(1,:),:); %% separate real and imag
     Fstatlin_imag=Fstatlinri(cind(2,:),:);
+    pvals_real=pvalsri(cind(1,:),:);
+    pvals_imag=pvalsri(cind(2,:),:);
+
+ 
     Y2=Y; %save a copy to use to calc variance later on; Y is redefined
 
     switch whatstr %% flags  RMORTHBRAIN and REMOVELIN now take care of options
@@ -615,7 +618,7 @@ for cnd=1%:size(filenames,1),
     allCVA=[];
 
     for k=1:maxk
-        disp(k)
+
         X=squeeze(useJ(k,:,:))'; % cord data
 
         if contains(whatstr,'abs')
@@ -626,12 +629,6 @@ for cnd=1%:size(filenames,1),
 
         %% here is where we need to account for/ quantify linear effect from part of cord (i.e. just before non lin stage)
         Y=squeeze(Ycord(:,:,k)); %% this will have had linear portion removed if required
-
-        if SHUFFLE
-            warning('SHUFFLING DATA !')
-            Y=Y(randperm(size(Y,1)),:);
-        end
-
 
         Y=Y-mean(Y);
         X=X-mean(X);
@@ -646,19 +643,23 @@ for cnd=1%:size(filenames,1),
 
     if COMB3AXES
 
-        PWRMAX=1;
+       [~,peakind]=max(magopt); %% peak power
+       clear maxk
 
-        if PWRMAX
-            [dum,peakind]=max(magopt); %% peak power
-        else
-            [dum,peakind]=max(chi2); %% peak stat
-        end
+       if contains(filenames(cnd,:),'124') %need second max as well for 123
+        [~,maxidx2]=maxk(magopt,2);
+       end
+
 
         figure;
         plot_func_spine_dat(subject,src,magopt,grad,col1)
         title('power')
         hold on
         plot3(src.pos(peakind,1), src.pos(peakind,2),src.pos(peakind,3),'ro','MarkerSize',10,'MarkerFaceColor','r')
+       if contains(filenames(cnd,:),'124')
+         plot3(src.pos(maxidx2(2),1), src.pos(maxidx2(2),2),src.pos(maxidx2(2),3),'ro','MarkerSize',10,'MarkerFaceColor','r')
+         peakind=maxidx2(2);
+       end
 
         %calc variance removed for point of max power
         rYMax=squeeze(rYcord(:,:,peakind));
@@ -669,9 +670,23 @@ for cnd=1%:size(filenames,1),
         fprintf('Source recon VE is %.2f R2 is %.2f\n', allVE,allR2)
 
         Ncan=max(find(CVA.p<0.05));
-        normV=cov(CVA.Y)*CVA.V(:,1:Ncan)*inv(cov(CVA.v)); %
-        %uVnorm=Vnorm./sqrt(dot(Vnorm,Vnorm)); %% remove scaling factor (is this necessary?)
-        normW=cov(CVA.X)*CVA.W(:,1:Ncan)*inv(cov(CVA.w)); %
+
+        normV=cov(CVA.Y)*CVA.V(:,1:Ncan)*inv(cov(CVA.v(:,1:Ncan))); %
+        normW=cov(CVA.X)*CVA.W(:,1:Ncan)*inv(cov(CVA.w(:,1:Ncan))); %
+
+        %shuffle just for point of max pwr
+
+        if SHUFFLE
+            warning('SHUFFLING DATA !')
+            Y=squeeze(Ycord(:,:,peakind)); %% this will have had linear portion removed if required
+            Y=Y(randperm(size(Y,1)),:);
+            X=squeeze(useJ(peakind,:,:))'; % cord data
+            Y=Y-mean(Y);
+            X=X-mean(X);
+            CVA_shuf=spm_cva(Y,X,X0);
+            fprintf('CVA shuf data at point of peak power chi2=%.2f p=%.3f \n', CVA_shuf.chi(1),CVA_shuf.p(1))
+        end
+
         cvaname=[savepath filesep sprintf('%s_%s.mat',pstr,whatstr)];
         save(cvaname,'allCVA','peakind','magopt','usefreq','CVAemgbrain_abs','Fstatlinri','Fstatlin_emgbrainri','linvar_rmvd','linvaremgbrain_rmvd');
 
@@ -683,20 +698,21 @@ for cnd=1%:size(filenames,1),
         plot(usefreq,abs(normV(:,1)),'LineWidth',3,'color',col1);
         if contains(whatstr,'emg')
             leg1='EMG';
+            ylabel('EMG')
         else
             leg1='Brain';
+            ylabel('Brain')
         end
         xlabel('Frequency (Hz)','FontSize',20)
         ax = gca;
         ax.FontSize = 20;
         yyaxis right
+        ylabel('Spinal cord')
         plot(usefreq,abs(normW(:,1)),'LineWidth',3,'color', col2);
         legend({leg1,'Spinal Cord'})
         box off
-        %savename=['D:\figsfortalk\nonlin_left_spineemg.png'];
-        %exportgraphics(gcf, savename, 'Resolution', 600)
-
-        figure;
+        
+        figure
         subplot(2,1,1);
         h=plot(usefreq,Fstatlin_real(1:length(usefreq),peakind),usefreq,Forth_real);
         set(h(1),'Linewidth',4);
@@ -711,14 +727,15 @@ for cnd=1%:size(filenames,1),
         else
             legend('Linear','Brain orth not removed');
         end
+        %savename=['D:\figsfortalk\nonlin_left_spineemg.png'];
+        %exportgraphics(gcf, savename, 'Resolution', 600)
 
         %% coherence for visualization
         SC_freqdat=squeeze(useJ(peakind,:,:))'; % cord, complex
 
         Y=[];
         if findstr(whatstr,'brain')
-            error('not tested')
-            Y=[real(Ybrain) imag(Ybrain)];
+            Y=Ybrain;
         end
 
         if findstr(whatstr,'emg')
@@ -726,27 +743,38 @@ for cnd=1%:size(filenames,1),
         end
 
         [Coh_ft] = cohxy(SC_freqdat,Y,fdat);
+        
+        p_real=pvals_real(:,peakind);
+        p_imag=pvals_imag(:,peakind);
+
+        % work out the threshold using FDR
+        [~, crit_p_r, ~, adj_p_real]=fdr_bh(p_real,0.01,'dep','yes');
+        [~, crit_p_i, ~, adj_p_imag]=fdr_bh(p_imag,0.01,'dep','yes');
+        realSig=find(adj_p_real<0.05);
+        imagSig=find(adj_p_imag<0.05);
 
         figure; %plot coherence and f stats in subplot
         subplot(2, 1, 1);
-        h(1) = plot(usefreq, Fstatlin_real(1:length(usefreq), peakind), 'LineWidth', 2);
-        hold on;
-        plot(usefreq, Fstatlin_imag(1:length(usefreq), peakind), 'LineWidth', 2);
+        plot(usefreq, Fstatlin_real(1:length(usefreq), peakind), 'LineWidth', 3,'color',col3); hold on
+        plot(usefreq, Fstatlin_imag(1:length(usefreq), peakind), 'LineWidth', 3,'color',col4,'LineStyle',':');
+        plot(usefreq(realSig), ones(1,length(realSig))*400,'*','MarkerSize',8,'color',col3)
+        plot(usefreq(imagSig), ones(1,length(imagSig))*450,'*','MarkerSize',8,'color',col4)
+        legend({'Real', 'Imaginary'})
         xlabel('Frequency (Hz)');
         ylabel('F statistic');
-        legend({'Real', 'Imaginary'})
         box off
         ax = gca;
         ax.FontSize = 12;
 
         subplot(2, 1, 2);
-        plot(usefreq, squeeze(Coh_ft.cohspctrm(1, 2, :)), 'LineWidth', 2);
+        plot(usefreq, squeeze(Coh_ft.cohspctrm(1, 2, :)), 'LineWidth', 3,'color',col5);
         xlabel('Frequency (Hz)');
         ylabel('Coherence');
-        set(gcf, 'Position', [100, 100, 500, 800]); % Set figure size and position
+        set(gcf, 'Position', [100, 100, 600, 800]); % Set figure size and position
         box off
         ax = gca;
         ax.FontSize = 12;
+        sgtitle('Linear Cord-Y', 'FontSize', 16, 'FontWeight', 'bold');
         % savename=['D:\figsfortalk\linear_right_brainspine.png'];
 
 
