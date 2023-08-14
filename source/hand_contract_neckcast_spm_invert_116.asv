@@ -36,18 +36,22 @@ SHUFFLE=1;
 rng(125) %for shuffling
 allcanfilenames=[];
 
-whatstr='emg+abs';
-%whatstr='brainopt+abs';
+%whatstr='emg+abs';
+whatstr='brainopt+abs';
+%whatstr='orthbrain+brainopt';
 
 
 FIXORIENT=[]; 
 REMOVELIN=1; %this seems to be hard coded now
-RMORTHBRAIN=contains(whatstr,'brain'); %% don't remove ortho brain if dealing with cord-muscle
+RMORTHBRAIN=contains(whatstr,'brain'); %% don't remove brain if dealing with cord-muscle
 FIXMODES=0;
 CLONETRIALS=1; % use all trial data (1) rather than average (0)
 
 freqroi=[5 35];
+
+%invtype='EBBr95';
 invtype='IID';
+%invtype='EBB';
 
 IMAGECROSS=0;
 COMB3AXES=1;
@@ -518,6 +522,7 @@ for cnd=1%:size(filenames,1),
 
 
     if SHUFFLE
+        warning('SHUFFLING DATA !')
         rYbrain_abs=rYbrain_abs(randperm(size(rYbrain,1)),:);
         rYbrain_abs=rYbrain_abs-mean(rYbrain_abs);
         CVA_shuf_emgbrain=spm_cva(rYbrain_abs,Zemg_abs);
@@ -584,7 +589,7 @@ for cnd=1%:size(filenames,1),
             %% Y will already have had linear projection from orth brain removed (if selected)
             % and also linear
             Ycord=abs(rYcord(:,cind(1,:),:) +i*rYcord(:,cind(2,:),:));
-
+            
             X0=abs(Yibrain); % % abs of orth brain : use confound here as non-linear portion may influence
 
         case 'orthbrain+brainopt'
@@ -601,6 +606,8 @@ for cnd=1%:size(filenames,1),
             X0=[];
         case 'emg+abs'
             warning('not checked')
+            %Yc=abs([Y(:,cind(1,:))+i*Y(:,cind(2,:))]); %% put it back into complex numbers then abs
+            %Y=abs(Yc);
             Ycord=abs(rYcord(:,cind(1,:),:) +i*rYcord(:,cind(2,:),:));
             X0=abs(Yibrain); % abs of orth brain : use confound here as non-linear portion may influence
 
