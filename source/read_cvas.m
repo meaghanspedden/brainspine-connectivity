@@ -13,17 +13,17 @@ end
 
 a=load(cvaemg_l);
 usefreq=a.usefreq;
-CVAemg=a.allCVA{a.peakind};
+CVAemg=a.allCVA{1};
 CVAemgbrain=a.CVAemgbrain_abs;
 Fstatlin_emgbrainri=a.Fstatlin_emgbrainri;
-Fstatlin_emgcord=a.Fstatlinri(:,a.peakind);
+Fstatlin_emgcord=a.Fstatlinri(:,1);
 varemgcordlin=a.linvar_rmvd;
 varemgbrainlin=a.linvaremgbrain_rmvd;
 
 b=load(cvabrain_l);
-CVAbrain=b.allCVA{b.peakind};
+CVAbrain=b.allCVA{1};
 varbraincordlin=b.linvar_rmvd;
-Fstatlin_braincord=b.Fstatlinri(:,b.peakind);
+Fstatlin_braincord=b.Fstatlinri(:,1);
 
 Ncanb=max(find(CVAbrain.p<0.05));
 normV_brain=(cov(CVAbrain.Y))*CVAbrain.V(:,1:Ncanb);

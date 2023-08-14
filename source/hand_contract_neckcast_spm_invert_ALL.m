@@ -6,8 +6,8 @@ clc
 
 mydir='D:\MSST001';
 subjectID ='116'; %122 or %123
-%whatstr='emg+abs';
-whatstr='brainopt+abs';
+whatstr='emg+abs';
+%whatstr='brainopt+abs';
 
 %% paths
 addpath D:\torso_tools
@@ -51,11 +51,8 @@ invtype='IID';
 
 IMAGECROSS=0;
 
-%colors for lines in plots
-%col1=cols(1,:); col2=cols(4,:); %for non linear
 
-
-for cnd=1%:size(filenames,1),
+for cnd=2%:size(filenames,1),
 
     DAll=spm_eeg_load(filenames(cnd,:));
     [a1,b1,c1]=fileparts(DAll.fullfile);
@@ -375,9 +372,8 @@ for cnd=1%:size(filenames,1),
     magopt=sqrt(diag(Jocov)); %power at each sourcepoint
     [~,peakind]=max(magopt); %% index for sourcepoint with peak power
 
-    if contains(filenames(cnd,:),'124') %need second max for 123
+    if contains(filenames(cnd,:),'124') %need second max for this participant
         [~,maxidx2]=maxk(magopt,2);
-        peakind=maxidx2(2);
     end
 
     %plot peak power
@@ -390,7 +386,8 @@ for cnd=1%:size(filenames,1),
         plot3(src.pos(maxidx2(2),1), src.pos(maxidx2(2),2),src.pos(maxidx2(2),3),'ro','MarkerSize',10,'MarkerFaceColor','r')
         peakind=maxidx2(2);
     end
-
+    savename=sprintf('%s %s %g',subjectID,whatstr,cnd);
+    savefig(fullfile(savepath,savename))
 
     %% Ybrain should be data from optimal linear mixture of channels to get emg coherence
     % Yibrain should be data from channel mixture orthogonal to this
