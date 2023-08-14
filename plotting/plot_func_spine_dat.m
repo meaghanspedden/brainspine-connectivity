@@ -1,4 +1,4 @@
-function plot_func_spine_dat(mesh,src,func,grad,senscol)
+function plot_func_spine_dat(mesh,src,func,grad)
 
       inside=src.pos(src.inside,:);
       colmaptouse=brewermap([],'YlGnBu');

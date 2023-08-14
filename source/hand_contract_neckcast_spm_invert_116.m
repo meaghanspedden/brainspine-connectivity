@@ -4,17 +4,9 @@ clear all;
 close all;
 
 mydir='D:\MSST001';
+subjectID
 
-%filenames for concatenated runs for right hand and left hand
-filenames=strvcat([mydir '\sub-OP00116\ses-001\meg\pprhandoe1000msfdfflo45hi5sub-OP00116_ses-001_task-staticright_run-001_meg.mat'],...
-    [mydir '\sub-OP00116\ses-001\meg\pplhandoe1000msfdfflo45hi5sub-OP00116_ses-001_task-staticleft_run-001_meg.mat']);
 
-posfile=[mydir '\sub-OP00116\ses-001\meg\sub-OP00116_ses-001_positions_new.tsv'];
-backshape='D:\OP00116_experiment\cast space\OP0016_seated.stl'; %in same space as sensors
-cyl='D:\OP00116_experiment\cast space\cylinder_good_space.stl';
-
-dpath=[mydir '\sub-OP00116\ses-001\meg'];
-savepath=[mydir '\Coh_results00116'];
 
 if ~exist(savepath,'dir')
     mkdir(savepath)
@@ -22,8 +14,6 @@ end
 
 cd(dpath)
 
-brainchan_labels={'19','1B', 'MW', 'MY','OK','MZ','35','DI','MU','DQ','OH','DG','A1'};
-badchans={};
 
 %%
 addpath D:\torso_tools
