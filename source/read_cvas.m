@@ -7,8 +7,8 @@ if LEFTHAND
     cvabrain_l=[];
 end
 if RIGHTHAND
-    cvaemg_l='D:\MSST001\Coh_results00122\pprhandoe1_emg+abs.mat';
-    cvabrain_l= 'D:\MSST001\Coh_results00122\pprhandoe1_brainopt+abs.mat';
+    cvaemg_l='D:\MSST001\Coh_results00123\pprhandoe1_emg+abs.mat';
+    cvabrain_l= 'D:\MSST001\Coh_results00123\pprhandoe1_brainopt+abs.mat';
 end
 
 a=load(cvaemg_l);

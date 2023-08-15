@@ -8,17 +8,18 @@ col5=cols(5,:);
 
 % Where to put significance stars
 [maxValue, ~] = max(max([Fstat_real;Fstat_imag]));
-yValue = maxValue + 0.1 * maxValue; %
+yValue1 = maxValue + 0.1 * maxValue; %
+yValue2 = yValue1 + 0.1 * maxValue;
 
 figure;
 subplot(2, 1, 1);
 plot(usefreq, Fstat_real, 'color',col3,'LineWidth',3,'LineStyle',':'); hold on
 plot(usefreq, Fstat_imag, 'color',col4, 'LineWidth', 3);
 if ~isempty(realSig)
-    plot(usefreq(realSig), ones(1,length(realSig))*yValue,'*','MarkerSize',8,'color',col3)
+    plot(usefreq(realSig), ones(1,length(realSig))*yValue1,'*','MarkerSize',8,'color',col3)
 end
 if ~isempty(imagSig)
-    plot(usefreq(imagSig), ones(1,length(imagSig))*yValue,'*','MarkerSize',8,'color',col4)
+    plot(usefreq(imagSig), ones(1,length(imagSig))*yValue2,'*','MarkerSize',8,'color',col4)
 end
 ylabel('F Statistic');
 xlabel('Frequency (Hz)');

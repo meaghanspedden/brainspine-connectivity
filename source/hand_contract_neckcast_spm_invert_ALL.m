@@ -5,9 +5,9 @@ close all;
 clc
 
 mydir='D:\MSST001';
-subjectID ='116'; %122 or %123
-whatstr='emg+abs';
-%whatstr='brainopt+abs';
+subjectID ='123'; %122 or %123
+%whatstr='emg+abs';
+whatstr='brainopt+abs';
 
 %% paths
 addpath D:\torso_tools
@@ -52,7 +52,7 @@ invtype='IID';
 IMAGECROSS=0;
 
 
-for cnd=2%:size(filenames,1),
+for cnd=1%:size(filenames,1),
 
     DAll=spm_eeg_load(filenames(cnd,:));
     [a1,b1,c1]=fileparts(DAll.fullfile);
