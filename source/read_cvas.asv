@@ -1,18 +1,18 @@
 clear all;close all;
 
-subjectID='122';
+subjectID='123';
 
 
 RIGHTHAND=1;
 LEFTHAND=~RIGHTHAND;
 
 if LEFTHAND
-    cvaemg_l=['D:\MSST001\Coh_results00',subjectID,'\pplhandoe1_emg+abs.mat'];
-    cvabrain_l=['D:\MSST001\Coh_results00',subjectID,'\pplhandoe1_brainopt+abs.mat'];
+    cvaemg_l=[];
+    cvabrain_l=[];
 end
 if RIGHTHAND
-    cvaemg_l=['D:\MSST001\Coh_results00',subjectID,'\pprhandoe1_emg+abs.mat'];
-    cvabrain_l= ['D:\MSST001\Coh_results00',subjectID,'\pprhandoe1_brainopt+abs.mat'];
+    cvaemg_l=['D:\MSST001\Coh_results00123\pprhandoe1_emg+abs.mat'];
+    cvabrain_l= ['D:\MSST001\Coh_results00,subjectI123\pprhandoe1_brainopt+abs.mat'];
 end
 
 a=load(cvaemg_l);
