@@ -4,7 +4,7 @@ close all;
 addpath D:\spm12
 
 %lookforstr='envelope'
-lookforstr='phase/amp'
+lookforstr='phase/amp';
 N=1000;
 Nt=512;
 t=1:Nt;
@@ -24,8 +24,9 @@ for tr=1:N,
     %% just envelope coupling at hightest freq (t/3)
     x(tr,:)=a1*sin(t/10+phase1)+a2*sin(t/5+phase2)+a3*sin(t/3+rphase1)+randn(1,Nt);
     y(tr,:)=a1*cos(t/10+phase1)+a1*cos(t/5+phase2)+a3*sin(t/3+rphase2)+randn(1,Nt);
-    fy=fft(y(tr,:));;
-    fx=fft(x(tr,:));;
+    fy=fft(y(tr,:));
+    fx=fft(x(tr,:));
+    
     fY(tr,:)=fy(2:Nf);
     fX(tr,:)=fx(2:Nf);
 end;

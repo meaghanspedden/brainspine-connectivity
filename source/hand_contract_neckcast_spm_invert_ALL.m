@@ -43,7 +43,7 @@ allcanfilenames=[];
 FIXORIENT=[]; %empty means it calculates optimal orientation
 REMOVELIN=1; %I think this is be hard coded now, can remove?
 RMORTHBRAIN=contains(whatstr,'brain'); %% don't remove ortho brain if dealing with cord-muscle
-FIXMODES=0;
+FIXMODES=0;%1 means force use of all channels in source recon
 CLONETRIALS=1; % use all trial data (1) rather than average (0)
 
 freqroi=[5 35];
@@ -443,7 +443,7 @@ for cnd=1%:size(filenames,1),
         fprintf('\n Mean %3.2f percent variance removed by orthogonal channels\n',100*(1-mean(var(Y)./stvar)))
     end
 
-    %% Linear regresssion: emg-brain
+    %% Linear regression: emg-brain
 
     rYbrain=zeros(size(Ybrain2));
     Fstatlin_emgbrainri=zeros(size(cind,2),1);
@@ -544,14 +544,12 @@ for cnd=1%:size(filenames,1),
 
     %% Calculate corresponding coherence for visualization
     SC_freqdat=squeeze(useJ(peakind,:,:))'; % cord, complex
-    YCoh=[];
+    YCoh=Y(:,cind(1,:),:) +i*Y(:,cind(2,:),:); %put y back into complex
     if findstr(whatstr,'brain')
-        YCoh=Ybrain;
         lab1='Brain';
     end
 
     if findstr(whatstr,'emg')
-        YCoh=emdata;
         lab1='EMG';
     end
 
