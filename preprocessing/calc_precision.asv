@@ -1,0 +1,83 @@
+% calc RMS error for each subject
+
+clear all; close all; clc
+
+sub='116';
+hand='r';
+savedir='D:\MSST001\Coh_results00116';
+
+if strcmp(sub,'116')
+rightfiles={'07', '09','11','13'}; %for 116
+leftfiles={'23', '25', '27'};
+targets=[67 52];
+elseif strcmp(sub,'122')
+targets=[58 62];
+
+elseif strcmp(sub,'123')
+targets=[63 62];
+
+else
+    error('no subject with that ID')
+
+end
+
+if strcmp(hand,'r')
+emgfiles=rightfiles;
+target=targets(1);
+else
+emgfiles=leftfiles;
+target=targets(2);
+end
+
+epochErrors=[];
+for k=1:length(emgfiles)
+
+emgfile=['E:\EMGforprecision\',sub,'_',emgfiles{k}];
+load(emgfile)
+retainedtrialsi
+
+if strcmp(hand,'r')
+dat=Rect_smooth_EMG_r;
+
+elseif strcmp(hand,'l')
+dat=Rect_smooth_EMG_l;
+
+end
+
+%% synchronize
+
+trigtime=trig.times;
+sf=1/dat.interval;
+trigsamp=round(trigtime*sf);
+synchedEMG=dat.values(trigsamp:end);
+newtime=dat.times(trigsamp:end);
+newtime=newtime-newtime(1);
+
+%% plot
+
+targetline=ones(1,length(synchedEMG))*target;
+
+figure; plot(newtime, synchedEMG); hold on
+plot(newtime,targetline,'r--','LineWidth',1.5)
+
+
+%calc RMSE for each second of data
+start=1;
+targetlineEpoch=targetline(1:sf);
+nepochs=floor(length(synchedEMG)/sf);
+disp(nepochs)
+for j=1:nepochs %fix this
+    thisdat=synchedEMG(start:start+sf-1);
+    epochErrors(k,j)=sqrt(mean((thisdat-targetlineEpoch').^2));
+    start=start+sf;
+end
+
+end
+
+
+
+% savename=sprintf('%s_error_all');
+% save(fullfile(savedir,savename),'epochErrors')
+
+
+

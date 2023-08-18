@@ -1,4 +1,4 @@
-function [D] = spm_opm_removeOutlierTrials(S)
+function [D, retain] = spm_opm_removeOutlierTrials(S)
 % Removes trials that are marked as outlers
 % FORMAT D = spm_opm_removeOutlierTrials(S)
 %   S               - input structure

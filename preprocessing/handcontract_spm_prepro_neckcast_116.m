@@ -13,6 +13,7 @@ badchans={};
 posfileneck='D:\MSST001\sub-OP00116\ses-001\meg\sub-OP00116_ses-001_positions_new.tsv';
 EMGpath='D:\OP00116_experiment\EMGfiles';
 EMGfiletemplate='000116_static_';
+savedir='D:\MSST001\Coh_results00116';
 
 %% Processing Options
 fband=[5 45]; %% OPM filter band
@@ -57,7 +58,7 @@ warning('MAKE SURE TO CHANGE spm_eeg_filter to GRB version')
 
 %% right and left hands
 
-for RIGHT=0
+for RIGHT=1
 
     if RIGHT
         exptorder=Bothexptorder(1:4,:);
@@ -266,8 +267,10 @@ for RIGHT=0
         %% remove outliers
         S=[];
         S.D=dDep;
-        [dDep] = spm_opm_removeOutlierTrials(S);
-
+        [dDep, retain] = spm_opm_removeOutlierTrials(S);
+        
+        savename=sprintf('retainedtrials%srun%s_%s',sub,run,pstr(1));
+        save(fullfile(savedir,savename),'retain')
 
         allfilenames=strvcat(allfilenames,dDep.fname);
 

@@ -53,7 +53,7 @@ invtype='IID';
 IMAGECROSS=0;
 
 
-for cnd=2%:size(filenames,1),
+for cnd=1%:size(filenames,1),
 
     DAll=spm_eeg_load(filenames(cnd,:));
     [a1,b1,c1]=fileparts(DAll.fullfile);
@@ -147,23 +147,17 @@ for cnd=2%:size(filenames,1),
 
 
     %% plot the optimal brain mixture weights
-    %I think we want to normalize these but how to calc cov for brain data
+    %I think we want to normalize these but how to 
 
-brainlabs=fdat_brain.label(~contains(fdat_brain.label,'EMG'));
+    brainlabs=fdat_brain.label(~contains(fdat_brain.label,'EMG'));
 
 dat=spm2fieldtrip(D);
 cfg=[];
 cfg.channel=brainlabs;
 dat=ft_selectdata(cfg,dat);
 
-
-cfg=[];
-cfg.covariance='yes';
-datacov=ft_timelockanalysis(cfg,dat);
-
 dat=ft_timelockanalysis([],dat); %put into ft structure to plot
-
-dat.avg=datacov.cov*Ur(:,1);
+dat.avg=Ur(:,1); %should multiply this by data covariance
 dat.time=dat.time(2);
 dat.var=dat.var(:,1);
 dat.dof=dat.dof(:,1);

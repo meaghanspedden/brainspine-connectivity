@@ -11,6 +11,7 @@ if strcmp(subID,'116')
     metadat.badchans={};
     metadat.dpath=[mydir '\sub-OP00116\ses-001\meg'];
     metadat.savepath=[mydir '\Coh_results00116'];
+    metadat.layoutfile='D:\OP00116_experiment\lay_head_116';
 
 
 elseif strcmp(subID,'122')
@@ -23,6 +24,8 @@ elseif strcmp(subID,'122')
     metadat.badchans={'ML-X','ML-Y','ML-Z','K4-Z','K4-X'};
     metadat.dpath=[mydir '\sub-OP00122\ses-001\meg'];
     metadat.savepath=[mydir '\Coh_results00122'];
+    metadat.layoutfile='D:\OP00122_experiment\lay_head_122';
+
 
 
 elseif strcmp(subID,'123')
@@ -35,6 +38,7 @@ elseif strcmp(subID,'123')
     metadat.badchans={'ML-X','ML-Y','ML-Z','K4-Z','K4-X'};
     metadat.dpath=[mydir '\sub-OP00124\ses-001\meg'];
     metadat.savepath=[mydir '\Coh_results00123'];
+    metadat.layoutfile='D:\OP00123_experiment\lay_head_123';
 
 
 else

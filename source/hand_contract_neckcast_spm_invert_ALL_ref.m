@@ -5,9 +5,11 @@ close all;
 clc
 
 mydir='D:\MSST001';
-subjectID ='123'; %122 or %123
+subjectID ='116'; %122 or %123
 %whatstr='emg+abs';
 whatstr='brainopt+abs';
+
+Refs={'A2','DJ','MT','DL','DH','OI'};
 
 %% paths
 addpath D:\torso_tools
@@ -28,7 +30,6 @@ brainchan_labels=dataOut.brainchan_labels;
 badchans=dataOut.badchans;
 dpath=dataOut.dpath;
 savepath=dataOut.savepath;
-layoutfile=dataOut.layoutfile;
 
 
 if ~exist(savepath,'dir')
@@ -53,7 +54,7 @@ invtype='IID';
 IMAGECROSS=0;
 
 
-for cnd=2%:size(filenames,1),
+for cnd=1%:size(filenames,1),
 
     DAll=spm_eeg_load(filenames(cnd,:));
     [a1,b1,c1]=fileparts(DAll.fullfile);
@@ -107,7 +108,26 @@ for cnd=2%:size(filenames,1),
     %     subplot(4,1,4)
     %     plot(cohbrain.freq,cohbrain.cohspctrm(1:nchansBrain,:)');
     %     title('coh')
+%% fft ref sensors
+dat=spm2fieldtrip(D);
 
+cfg            = [];
+cfg.output     = 'fourier';
+cfg.method     = 'mtmfft';
+cfg.foilim     = freqroi;
+cfg.tapsmofrq  = 5;
+cfg.keeptrials = 'yes';
+cfg.channel=dat.label(contains(dat.label,Refs));
+
+fdat_ref   = ft_freqanalysis(cfg,dat);
+
+%get first component of ref data
+ref=mean(fdat_ref.fourierspctrm,1); %mean over trials
+ref=squeeze(ref-mean(ref)); %mean center
+[Uref,Sref,~]=svd(real(ref)*real(ref)'); %% use real part
+
+    
+    
     %% get dominant spatial component that explains the brain-emg cross spectrum
 
     r1=cspect_brain.crsspctrm;
@@ -133,51 +153,6 @@ for cnd=2%:size(filenames,1),
 
     brainmix_emg_coh      = ft_connectivityanalysis(cfg, fdat_brainmix);
 
-
-    load(layoutfile)
-
-    cfg                  = [];
-    cfg.parameter        = 'cohspctrm';
-    cfg.xlim             = [15 30];
-    cfg.refchannel       = combs{2};
-    cfg.layout           = lay_head;
-    cfg.interplimits='electrodes';
-    figure; ft_topoplotER(cfg, cohbrain)
-    colorbar
-
-
-    %% plot the optimal brain mixture weights
-    %I think we want to normalize these but how to calc cov for brain data
-
-brainlabs=fdat_brain.label(~contains(fdat_brain.label,'EMG'));
-
-dat=spm2fieldtrip(D);
-cfg=[];
-cfg.channel=brainlabs;
-dat=ft_selectdata(cfg,dat);
-
-
-cfg=[];
-cfg.covariance='yes';
-datacov=ft_timelockanalysis(cfg,dat);
-
-dat=ft_timelockanalysis([],dat); %put into ft structure to plot
-
-dat.avg=datacov.cov*Ur(:,1);
-dat.time=dat.time(2);
-dat.var=dat.var(:,1);
-dat.dof=dat.dof(:,1);
-
-cfg                  = [];
-cfg.parameter        = 'avg';
-cfg.layout           = lay_head;
-cfg.interplimits='electrodes';
-figure; ft_topoplotER(cfg, dat)
-colorbar
-
-
-
-
     %% replace one of the chans with optimcal linear mixture and check it is larger/smaller
 
     [cspect_brainmix,fdat_brainmix,trialcspect_brainmix]=xspectrum_meaghan(D,D.chanlabels(brainind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)],seedperm,[],replace);
@@ -186,9 +161,9 @@ colorbar
     %             hold on;
     %             plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm),'go');
     ind=find(contains(cspect_brainmix.labelcmb,replace.label));
-    %             plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm),'go');
-    %             plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm(ind,:)),'k*');
-    %             title('abs cross')
+                plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm),'go');
+                plot(cspect_brain.freq,abs(cspect_brainmix.crsspctrm(ind,:)),'k*');
+                title('abs cross')
     % end % checkmix
 
     %% get indices of channels within the fdat structure
@@ -401,11 +376,6 @@ colorbar
         Jv=FIXORIENT;
     end
 
-% plot optimal orientation
-plotOptOri(Jv,src,subject)
-
-
-
     Jorient=J(xind,:,:).*Jv(1)+J(yind,:,:).*Jv(2)+J(zind,:,:).*Jv(3); %source data for opt orientation or fixorient
     Jocov=zeros(length(xind),length(xind));
 
@@ -443,10 +413,11 @@ plotOptOri(Jv,src,subject)
     %% Ybrain should be data from optimal linear mixture of channels to get emg coherence
     % Yibrain should be data from channel mixture orthogonal to this
 
-    Ybrain=[];Yibrain=[];
+    Ybrain=[];Yibrain=[]; Yref=[];
     for f=1:size(fdat_brain.fourierspctrm,1)
         Ybrain(f,:)=Ur(:,1)'*squeeze(fdat_brain.fourierspctrm(f,bind,:));
         Yibrain(f,:)=Uinv(:,1)'*squeeze(fdat_brain.fourierspctrm(f,bind,:));
+        Yref(f,:)=Uref(:,1)'*squeeze(fdat_ref.fourierspctrm(f,:,:));
     end
 
     %% X is always spinal cord i.e. Jorient
@@ -474,8 +445,9 @@ plotOptOri(Jv,src,subject)
     %% linear regression: Y (EMG or brain) and ortho brain signal
 
     Fstatlin=zeros(length(usefreq));
-    Yconfound=[real(Yibrain) imag(Yibrain)]; %% comes from orthogonal brain channel mixture
-
+    %Yconfound=[real(Yibrain) imag(Yibrain)]; %% comes from orthogonal brain channel mixture
+    Yconfound=[real(Yref) imag(Yref)];%mixture of ref chans
+    
     % removing orthogonal brain signal
     Yr1=zeros(size(Y));
     rpcind=[cind cind];
@@ -708,20 +680,6 @@ plotOptOri(Jv,src,subject)
     end
 
     plotNonlinearMeasures(usefreq, abs(normV(:,1)),abs(normW(:,1)),lab1,'Spinal Cord')
-
-    %% final CVA between precision and spinal cord
-    load(fullfile(savepath,sprintf('%s_error_all_%s',subjectID,pstr(3)))) %load trial wise errors
-    %make a matrix for CVA with ntapers repeats
-    repError = repelem(allErrors, 9);
-
-
-     X=squeeze(useJ(peakind,:,:))'; %spinal cord data
-     X=X-mean(X);
-     Y=repError';
-     Y=Y-mean(Y);
-
-     CVA_precision=spm_cva(Y,X); %tendency for 116...
-
 
 
 end % for filenames

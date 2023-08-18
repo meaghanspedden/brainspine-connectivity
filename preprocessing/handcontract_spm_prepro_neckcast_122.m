@@ -16,6 +16,8 @@ posfileneck='D:\MSST001\sub-OP00122\ses-001\meg\ds_sub-OP00122_ses-001_positions
 
 EMGpath='D:\OP00122_experiment\EMGfiles';
 EMGfiletemplate='000122_static_';
+savedir='D:\MSST001\Coh_results00122';
+
 
 
 
@@ -65,7 +67,7 @@ rng(123) %dont think there is anything stochastic but just to be sure
 warning('MAKE SURE TO CHANGE spm_eeg_filter to GRB version')
 %% right and left hands
 
-for RIGHT=0
+for RIGHT=1
 
     if RIGHT
         exptorder=Bothexptorder(1:4,:);
@@ -264,7 +266,9 @@ for RIGHT=0
         %% remove outliers
         S=[];
         S.D=dDep;
-        [dDep] = spm_opm_removeOutlierTrials(S);
+        [dDep,retain] = spm_opm_removeOutlierTrials(S);
+        savename=sprintf('retainedtrials%srun%s_%s',sub,run,pstr(1));
+        save(fullfile(savedir,savename),'retain')
 
 
         allfilenames=strvcat(allfilenames,dDep.fname);

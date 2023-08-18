@@ -1,10 +1,7 @@
 function [cont_coh]=coh_meaghan(D,channels,seed,freqroi)
 
 dat=spm2fieldtrip(D);
-% 
-% emgind=find(contains(dat.label,seed));
-% brainind=find(contains(dat.label,channels));
-%a=load('megtest.mat');
+
 % FFT
 cfg            = [];
 cfg.output     = 'fourier';
