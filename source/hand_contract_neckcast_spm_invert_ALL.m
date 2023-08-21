@@ -5,13 +5,13 @@ close all;
 clc
 
 mydir='D:\MSST001';
-subjectID ='123'; %122 or %123
+subjectID ='116'; %122 or %123
 %whatstr='emg+abs';
 whatstr='brainopt+abs';
 
 %% paths
 addpath D:\torso_tools
-addpath D:\spm12
+addpath D:\spm
 spm('defaults','EEG');
 addpath(genpath('D:\brainspineconnectivity'))
 
@@ -53,7 +53,7 @@ invtype='IID';
 IMAGECROSS=0;
 
 
-for cnd=2%:size(filenames,1),
+for cnd=1%:size(filenames,1),
 
     DAll=spm_eeg_load(filenames(cnd,:));
     [a1,b1,c1]=fileparts(DAll.fullfile);
@@ -82,7 +82,7 @@ for cnd=2%:size(filenames,1),
 
 
     %% now compute coherence and cross spectra between brain, emg, and sensors on cord
-    cd  D:\fieldtrip-master\fieldtrip-master\private %fix this?
+   cd  D:\fieldtrip-master\fieldtrip-master\private %fix this?
 
     seedperm=0;
     cohbrain=coh_meaghan(D,D.chanlabels(brainind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)]);
@@ -144,6 +144,7 @@ for cnd=2%:size(filenames,1),
     cfg.interplimits='electrodes';
     figure; ft_topoplotER(cfg, cohbrain)
     colorbar
+    title('Brain muscle coherence')
 
 
     %% plot the optimal brain mixture weights
@@ -174,6 +175,7 @@ cfg.layout           = lay_head;
 cfg.interplimits='electrodes';
 figure; ft_topoplotER(cfg, dat)
 colorbar
+title('opt brain mix')
 
 
 
@@ -307,7 +309,7 @@ colorbar
 
         end % switch
 
-        D=TEST_spm_opm_attach_leadfield(grad.label,Lf,1,Dclone);
+        D=spm_opm_attach_leadfield(grad.label,Lf,1,Dclone);
 
         if length(src.inside)<length(src.pos)
             warning('Not all sources in the space')
@@ -347,7 +349,7 @@ colorbar
         D.inv{1}.inverse.Nt=[] ;
 
 
-        Dout=TEST_spm_eeg_invert_classic_volumetric(D,1);
+        Dout=spm_eeg_invert_classic_volumetric(D,1);
 
         %% now we have a mapping between source and sensor space given by M
 
@@ -713,14 +715,13 @@ plotOptOri(Jv,src,subject)
     load(fullfile(savepath,sprintf('%s_error_all_%s',subjectID,pstr(3)))) %load trial wise errors
     %make a matrix for CVA with ntapers repeats
     repError = repelem(allErrors, 9);
+    X=squeeze(useJ(peakind,:,:))'; %spinal cord data
+    X=X-mean(X);
+    Y=repError';
+    Y=Y-mean(Y);
 
 
-     X=squeeze(useJ(peakind,:,:))'; %spinal cord data
-     X=X-mean(X);
-     Y=repError';
-     Y=Y-mean(Y);
-
-     CVA_precision=spm_cva(Y,X); %tendency for 116...
+    CVA_precision=spm_cva(Y,X); %tendency for 116...
 
 
 
