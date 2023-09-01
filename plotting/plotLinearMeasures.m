@@ -3,8 +3,8 @@ function plotLinearMeasures(usefreq, Fstat_real, Fstat_imag, realSig, imagSig, c
 figtitle=sprintf('%s %s linear connectivity',lab1,lab2);
 
 cols=colormap(brewermap([],"Dark2"));
-col3=cols(3,:); col4=cols(6,:); %for real imag and coh
-col5=cols(5,:);
+col3=cols(3,:); col4=cols(4,:); %for real imag and coh
+col5=cols(8,:);
 
 % Where to put significance stars
 [maxValue, ~] = max(max([Fstat_real;Fstat_imag]));
@@ -23,9 +23,11 @@ if ~isempty(imagSig)
 end
 ylabel('F Statistic');
 xlabel('Frequency (Hz)');
-legend('Real', 'Imaginary','Location','northwest');
+legend('Real', 'Imaginary','Location','best');
+legend boxoff
 ax = gca;
 ax.FontSize = 14;
+ax.LineWidth=1.5; %change to the desired value     
 box off
 xlim([0 40])
 
@@ -36,8 +38,11 @@ if size(coh.cohspctrm,1) > 1
 end
 plot(usefreq, coh.cohspctrm, 'LineWidth', 3,'color',col5);
 ylabel('Coherence');
+xlabel('Frequency (Hz)');
+
 ax = gca;
 ax.FontSize = 14;
+ax.LineWidth=1.5; %change to the desired value     
 box off
 xlim([0 40])
 sgtitle(figtitle, 'FontSize', 16, 'FontWeight', 'bold');

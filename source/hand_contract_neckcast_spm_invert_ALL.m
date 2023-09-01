@@ -5,7 +5,7 @@ close all;
 clc
 
 mydir='D:\MSST001';
-subjectID ='116'; %122 or %123
+subjectID ='123'; %122 or %123 
 %whatstr='emg+abs';
 whatstr='brainopt+abs';
 
@@ -15,6 +15,7 @@ addpath D:\spm
 spm('defaults','EEG');
 addpath(genpath('D:\brainspineconnectivity'))
 
+figsavedir='D:\FiguresForPaper';
 
 %% get meta data
 
@@ -79,6 +80,8 @@ for cnd=1%:size(filenames,1),
     end
 
     emgind=D.indchantype('EMG');
+
+  
 
 
     %% now compute coherence and cross spectra between brain, emg, and sensors on cord
@@ -439,8 +442,8 @@ plotOptOri(Jv,src,subject)
         plot3(src.pos(maxidx2(2),1), src.pos(maxidx2(2),2),src.pos(maxidx2(2),3),'ro','MarkerSize',10,'MarkerFaceColor','r')
         peakind=maxidx2(2);
     end
-    savename=sprintf('%s %s %g',subjectID,whatstr,cnd);
-    savefig(fullfile(savepath,savename))
+    savename=sprintf('%s %s %g.png',subjectID,whatstr,cnd);
+    exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
 
     %% Ybrain should be data from optimal linear mixture of channels to get emg coherence
     % Yibrain should be data from channel mixture orthogonal to this
@@ -521,15 +524,19 @@ plotOptOri(Jv,src,subject)
     pvals_emgbrain_imag=pvals_emgbrainri(cind(2,:));
 
     % work out the threshold using FDR
-    [~, crit_p_real, ~, adj_p_real]=fdr_bh(pvals_emgbrain_real,0.01,'dep','yes');
-    [~, crit_p_imag, ~, adj_p_imag]=fdr_bh(pvals_emgbrain_imag,0.01,'dep','yes');
+    [~, crit_p_real, ~, adj_p_real]=fdr_bh(pvals_emgbrain_real,0.05,'dep','yes');
+    [~, crit_p_imag, ~, adj_p_imag]=fdr_bh(pvals_emgbrain_imag,0.05,'dep','yes');
     realSig=find(adj_p_real<0.05);
     imagSig=find(adj_p_imag<0.05);
+
+    fprintf('EMG brain Critical p real is %.2f and imag is %.2f\n',crit_p_real, crit_p_imag)
+
 
     linvaremgbrain_rmvd=1-var(rYbrain(:))/var(Ybrain2(:)); %residuals as prop of orig brain signal
 
     plotLinearMeasures(usefreq, Fstatlin_emgbrain_real, Fstatlin_emgbrain_imag, realSig, imagSig, brainmix_emg_coh,'Brain','EMG')
-
+    savename=sprintf('lin_sub%s_emg_brain_%g.pdf',subjectID,cnd);
+    exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
     %% Non-linear emg-brain cva (using residuals from linear regression)
 
     rYbrain_abs=abs([rYbrain(:,cind(1,:))+i*rYbrain(:,cind(2,:))]); %% put it back into complex numbers then abs
@@ -555,7 +562,8 @@ plotOptOri(Jv,src,subject)
     normW_emgbrain=(cov(CVAemgbrain_abs.X))*CVAemgbrain_abs.W(:,1:Ncan_emgbrain)*inv(cov(CVAemgbrain_abs.w(:,1:Ncan_emgbrain)));
 
     plotNonlinearMeasures(usefreq, abs(normV_emgbrain(:,1)),abs(normW_emgbrain(:,1)),'Brain','EMG')
-
+    savename=sprintf('nonlin_sub%s_emg_brain_%g.pdf',subjectID,cnd);
+    exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
     %% Spinal cord and Y(EMG/brain) linear regression at source point where power is max
 
     Y=Y-mean(Y);
@@ -586,10 +594,12 @@ plotOptOri(Jv,src,subject)
 
 
     % work out the threshold using FDR
-    [~, crit_p_r, ~, adj_p_real]=fdr_bh(pvals_real,0.01,'dep','yes');
-    [~, crit_p_i, ~, adj_p_imag]=fdr_bh(pvals_imag,0.01,'dep','yes');
+    [h, crit_p_r, ~, adj_p_real]=fdr_bh(pvals_real,0.05,'dep','yes');
+    [~, crit_p_i, ~, adj_p_imag]=fdr_bh(pvals_imag,0.05,'dep','yes');
     realSig=find(adj_p_real<0.05);
     imagSig=find(adj_p_imag<0.05);
+
+    fprintf('Critical p real is %.2f and imag is %.2f\n',crit_p_r, crit_p_i)
 
     %calc variance removed for point of max power
     rYMax=rYcord;
@@ -610,7 +620,8 @@ plotOptOri(Jv,src,subject)
 
 
     plotLinearMeasures(usefreq, Fstatlin_real, Fstatlin_imag, realSig, imagSig, Coh_ft,lab1,'spinal cord')
-
+    savename=sprintf('linear_sub%s_%s_cord_%g.pdf',subjectID,lab1,cnd);
+    exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
     %% define X Y and X0 for Y (brain or EMG)-Spinal cord CVA, nonlinear
 
     switch whatstr %% flags  RMORTHBRAIN and REMOVELIN now take care of options
@@ -688,7 +699,7 @@ plotOptOri(Jv,src,subject)
     if SHUFFLE
         disp('SHUFFLING DATA !')
         Y=squeeze(Ycord(:,:)); %% this will have had linear portion removed if required
-        rng(125) %
+        rng('default') %
         Y=Y(randperm(size(Y,1)),:);
         X=squeeze(useJ(peakind,:,:))'; % cord data
         Y=Y-mean(Y);
@@ -710,6 +721,8 @@ plotOptOri(Jv,src,subject)
     end
 
     plotNonlinearMeasures(usefreq, abs(normV(:,1)),abs(normW(:,1)),lab1,'Spinal Cord')
+    savename=sprintf('nonlin_sub%s_%s_cord_%g.pdf',subjectID,lab1,cnd);
+    exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
 
     %% final CVA between precision and spinal cord
     load(fullfile(savepath,sprintf('%s_error_all_%s',subjectID,pstr(3)))) %load trial wise errors
@@ -724,6 +737,13 @@ plotOptOri(Jv,src,subject)
     CVA_precision=spm_cva(Y,X); %tendency for 116...
 
 
+
+% to save:
+% CVA_shuf_emgbrain.p(1)
+ %CVA_shuf.p(1)
+%CVA_precision.p(1)
+%Ns=size(X,1)
+%'linvar_rmvd','linvaremgbrain_rmvd'
 
 end % for filenames
 

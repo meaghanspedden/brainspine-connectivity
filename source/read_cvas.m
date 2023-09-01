@@ -1,7 +1,11 @@
 clear all;close all;
 
-subjectID='122';
+subjectID='116';
+figsavedir='D:\FiguresForPaper';
 
+
+cols=colormap(brewermap([],"Paired"));
+col1=cols(1,:); col2=cols(2,:); 
 
 RIGHTHAND=1;
 LEFTHAND=~RIGHTHAND;
@@ -67,7 +71,6 @@ end
 % set(gca,'Yticklabel',[elabstr;blabstr;eblabstr]);
 % title('W=cord, e=emg, b=brain')
 
-figure;
 varemgcord_nonlin=sum(CVAemg.r(1:Ncane).^2); %% sum of r square for significant modes
 varbraincord_nonlin=sum(CVAbrain.r(1:Ncanb).^2);
 varbrainemg_nonlin=sum(CVAemgbrain.r(1:Ncaneb).^2);
@@ -76,19 +79,42 @@ varbrainemg_nonlin=sum(CVAemgbrain.r(1:Ncaneb).^2);
 %  varbraincord_nonlin=sum(CVAbrain.r(1:end).^2);
 %  varbrainemg_nonlin=sum(CVAemgbrain.r(1:end).^2);
 
+f=figure;
+pos=[680   312   560   666];
+
 subplot(2,1,1)
 h=bar([varemgcordlin varbraincordlin varemgbrainlin].*100);
-title('linear')
-ylabel('Var explained')
-set(gca,'Xticklabel',strvcat('emg-cord','brain-cord','brain-emg'));
+title('Linear')
+ylabel('Variance explained (%)')
+set(gca,'Xticklabel',strvcat('EMG-spinal cord','Brain-spinal cord','Brain-EMG'));
+ylim([0 20])
+set(h,'Facecolor',col2)
+ax = gca;
+ax.FontSize = 14;
+ax.LineWidth=1.5; %c
+box off
 
 subplot(2,1,2)
 h=bar([varemgcord_nonlin varbraincord_nonlin varbrainemg_nonlin].*100);
+ylim([0 80])
+box off
+ylabel('Variance explained (%)')
+title('Nonlinear')
+set(gca,'Xticklabel',strvcat('EMG-spinal cord','Brain-spinal cord','Brain-EMG'));
+set(h,'Facecolor',col1)
+ax = gca;
+ax.FontSize = 14;
+ax.LineWidth=1.5; %c
+f.Position=pos;
 
-ylabel('Var explained')
-title('non-linear')
-set(gca,'Xticklabel',strvcat('emg-cord','brain-cord','brain-emg'));
-set(h,'Facecolor','r')
+if RIGHTHAND
+    whichhand='r';
+else
+    whichhand='l';
+end
+
+savename=sprintf('VE_sub%s_%s.pdf',subjectID,whichhand);
+exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
 
 
 

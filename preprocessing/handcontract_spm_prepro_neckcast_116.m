@@ -50,10 +50,10 @@ EMGtriglatency=0.05;
 
 %% paths
 datadir= 'D:\MSST001';
-addpath('D:\spm12')
+addpath('D:\spm')
 spm('defaults','EEG')
 addpath(genpath('D:\brainspineconnectivity'))
-warning('MAKE SURE TO CHANGE spm_eeg_filter to GRB version')
+%warning('MAKE SURE TO CHANGE spm_eeg_filter to GRB version')
 
 
 %% right and left hands
