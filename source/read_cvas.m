@@ -3,6 +3,7 @@ clear all;close all;
 subjectID='116';
 figsavedir='D:\FiguresForPaper';
 
+addpath(genpath('D:\brainspineconnectivity\plotting'))
 
 cols=colormap(brewermap([],"Paired"));
 col1=cols(1,:); col2=cols(2,:); 
@@ -79,6 +80,11 @@ varbrainemg_nonlin=sum(CVAemgbrain.r(1:Ncaneb).^2);
 %  varbraincord_nonlin=sum(CVAbrain.r(1:end).^2);
 %  varbrainemg_nonlin=sum(CVAemgbrain.r(1:end).^2);
 
+%bootstrap variance
+%stats = bootstrp(100,@(x)[mean(x) std(x)],y);
+
+
+
 f=figure;
 pos=[680   312   560   666];
 
@@ -87,7 +93,6 @@ h=bar([varemgcordlin varbraincordlin varemgbrainlin].*100);
 title('Linear')
 ylabel('Variance explained (%)')
 set(gca,'Xticklabel',strvcat('EMG-spinal cord','Brain-spinal cord','Brain-EMG'));
-ylim([0 20])
 set(h,'Facecolor',col2)
 ax = gca;
 ax.FontSize = 14;
@@ -96,7 +101,6 @@ box off
 
 subplot(2,1,2)
 h=bar([varemgcord_nonlin varbraincord_nonlin varbrainemg_nonlin].*100);
-ylim([0 80])
 box off
 ylabel('Variance explained (%)')
 title('Nonlinear')

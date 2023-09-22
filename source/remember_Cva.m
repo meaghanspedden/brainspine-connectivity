@@ -3,8 +3,8 @@ clear all;
 close all;
 addpath D:\spm12
 
-%lookforstr='envelope'
-lookforstr='phase/amp';
+lookforstr='envelope'
+%lookforstr='phase/amp';
 N=1000;
 Nt=512;
 t=1:Nt;

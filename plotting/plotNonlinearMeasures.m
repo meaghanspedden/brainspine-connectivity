@@ -5,11 +5,11 @@ col1=cols(1,:); col2=cols(2,:);
 
 figure;
 plot(usefreq,V,'LineWidth',3,'color',col1)
-xlabel('Frequency (Hz)')
-ylabel('Canonical vectors (AU)')
+% xlabel('Frequency (Hz)')
+% ylabel('Canonical vectors (AU)')
 box off
 ax = gca;
-ax.FontSize = 14;
+ax.FontSize = 18;
 ax.LineWidth=1.5; %change to the desired value     
 hold on
 yyaxis right

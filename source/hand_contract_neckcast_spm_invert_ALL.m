@@ -5,7 +5,7 @@ close all;
 clc
 
 mydir='D:\MSST001';
-subjectID ='123'; %122 or %123 
+subjectID ='116'; %122 or %123 
 %whatstr='emg+abs';
 whatstr='brainopt+abs';
 
@@ -517,6 +517,9 @@ plotOptOri(Jv,src,subject)
 
     end % for f
 
+    save(fullfile(savepath,sprintf('regdat_brainemg_%s_%s',subjectID,whatstr)), 'Ybrain2', 'Zemg','cind','rpcind')
+
+
     Fstatlin_emgbrain_real=Fstatlin_emgbrainri(cind(1,:));
     Fstatlin_emgbrain_imag=Fstatlin_emgbrainri(cind(2,:)); %% separate real and imag
 
@@ -584,6 +587,8 @@ plotOptOri(Jv,src,subject)
         rsqlin(f)=STATS(1);
         pvalsri(f)=STATS(3);
     end % for f
+
+    save(fullfile(savepath,sprintf('regdat_spine_%s_%s',subjectID,whatstr)), 'Y', 'X','cind','rpcind')
 
 
     Fstatlin_real=Fstatlinri(cind(1,:)); %% separate real and imag

@@ -21,12 +21,12 @@ end
 if ~isempty(imagSig)
     plot(usefreq(imagSig), ones(1,length(imagSig))*yValue2,'*','MarkerSize',8,'color',col4)
 end
-ylabel('F Statistic');
-xlabel('Frequency (Hz)');
+% ylabel('F Statistic');
+% xlabel('Frequency (Hz)');
 legend('Real', 'Imaginary','Location','best');
 legend boxoff
 ax = gca;
-ax.FontSize = 14;
+ax.FontSize = 18;
 ax.LineWidth=1.5; %change to the desired value     
 box off
 xlim([0 40])
@@ -37,11 +37,11 @@ if size(coh.cohspctrm,1) > 1
     coh.cohspctrm=squeeze(coh.cohspctrm(1,2,:));
 end
 plot(usefreq, coh.cohspctrm, 'LineWidth', 3,'color',col5);
-ylabel('Coherence');
-xlabel('Frequency (Hz)');
+% ylabel('Coherence');
+% xlabel('Frequency (Hz)');
 
 ax = gca;
-ax.FontSize = 14;
+ax.FontSize = 18;
 ax.LineWidth=1.5; %change to the desired value     
 box off
 xlim([0 40])

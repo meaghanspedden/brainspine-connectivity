@@ -1,23 +1,23 @@
 %% Pre process data from hand contraction. ~ July 2023
 % concurrent brain spinal cord OPM recordings
 
-%subject 123
+%subject 136
 
 clear all;
 close all;
 
-sub='OP00123';
+sub='OP00136';
 
 bids_session='001';
 dsprefix=1;
 
-brainchan_labels={'19','DG', 'OH', 'A1','1B', 'A9','JS','A6','DJ','MY','DS','OK','MI','17'};
-badchans={'ML-X','ML-Y','ML-Z','K4-Z','K4-X'}; %%
-posfileneck='D:\MSST001\sub-OP00124\ses-001\meg\ds_sub-OP00124_ses-001_positions.tsv';
+brainchan_labels={'MN','OI', 'MR', 'A4','K5', 'OG','DU','DH','DL','DO','35','MF','N2','MZ','MU','MK'};
+badchans={'KR-X', 'KR-Y', 'KR-Z', 'MJ-X', 'MJ-Y', 'MJ-Z'}; %%1B and DS were dropping out during 
+posfileneck='D:\MSST001\sub-OP00136\ses-001\meg\ds_sub-OP00136_ses-001_positions.tsv';
 
-EMGpath='D:\OP00123_experiment\EMGfiles';
-EMGfiletemplate='000123_static_';
-savedir='D:\MSST001\Coh_results00123';
+EMGpath='D:\OP00136_experiment\EMGfiles';
+EMGfiletemplate='000136_static_';
+savedir='D:\MSST001\Coh_results00136';
 
 
 
@@ -40,15 +40,15 @@ savedir='D:\MSST001\Coh_results00123';
 
 %% which opm files correspond to which emg files
 Bothexptorder={...
-    '001'  'R'  '08'
+    '002'  'R'  '08'
     '003'  'R'  '10';
-    '004'  'R'  '12';
-    '005'  'R'  '14';
+    '005'  'R'  '12';
+    '006'  'R'  '14';
 
-    '001'  'L'  '16';
-    '002'  'L'  '18';
-    '003'  'L'  '20';
-    '004'  'L'  '22'};
+    '002'  'L'  '16';
+    '003'  'L'  '18';
+    '004'  'L'  '20';
+    '005'  'L'  '22'};
 
 
 %% trig info
@@ -60,10 +60,9 @@ EMGtriglatency=0.05;
 %% paths
 
 datadir= 'D:\MSST001';
-addpath('D:\spm12')
+addpath('D:\spm')
 spm('defaults','EEG')
 addpath(genpath('D:\brainspineconnectivity'))
-rng(123) %dont think there is anything stochastic but just to be sure
 warning('MAKE SURE TO CHANGE spm_eeg_filter to GRB version')
 %% right and left hands
 
@@ -72,7 +71,7 @@ for RIGHT=1
     if RIGHT
         exptorder=Bothexptorder(1:4,:);
         pstr='rhand';
-        hbcomps=[1 2 1 2];
+        hbcomps=[2 2 3 3];
     else
         exptorder=Bothexptorder(5:8,:);
         pstr='lhand';
@@ -84,7 +83,7 @@ for RIGHT=1
     allfilenames=[];
     allxfilenames=[];
 
-    for exptind=1:size(exptorder,1) %loop through runs
+    for exptind=2%:size(exptorder,1) %loop through runs
 
         if strcmp(exptorder(exptind,2),'R')
             EMGchanname='EMG 1';
@@ -104,6 +103,7 @@ for RIGHT=1
 
         %% make SPM object
         [D,fullfilename]=convert_opm2spm(datadir,posfileneck,sub,bids_session,task,run,'single',dsprefix);
+        
 
         %% psd
         opms=D.indchannel(D.sensors('MEG').label);
@@ -153,6 +153,16 @@ for RIGHT=1
             S.prefix=sprintf('hi%d',fband(1));
             D=spm_eeg_filter(S);
 
+
+%         datsamp=D(opms,end-2000:end);
+%         figure; plot(datsamp')
+
+
+%         S=[];
+%         S.timewin=[0 135*1000]; %in ms %need to check this for all trials
+%         S.D=D;
+%         D=spm_eeg_crop(S);
+
         end
         %%  NOW LP FILTER JUST MEG
         if MEGLP
@@ -201,9 +211,12 @@ for RIGHT=1
         end
         D = badchannels(D, badind, 1); %% set channels to bad
 
+
+
         %% heartbeat estimation
         if HB   %% estimate heartbeat over all channels (will remove after merging files)
-            if exptind==1
+             
+             if exptind==1
                 [heartest,beatlen,megind]=grb_est_heartbeat(D,spineind,hbcomps(exptind));
                 allheart=zeros(size(exptorder,1),length(megind),beatlen);
             else

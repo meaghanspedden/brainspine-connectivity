@@ -14,6 +14,8 @@ if isempty(megind)
     megind=setdiff(D.indchantype('MEG'), D.badchannels);
 end
 
+chind=setdiff(chind,D.badchannels);
+
 remind=setdiff(megind,chind); %% indices of good chans not on back
 
 data=squeeze(D(chind,:,1));
