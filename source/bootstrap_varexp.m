@@ -7,6 +7,7 @@ subjectID='116';
 figsavedir='D:\FiguresForPaper';
 
 addpath(genpath('D:\brainspineconnectivity\plotting'))
+addpath('D:\spm')
 
 whichanalysis={'brainemg','cordemg','braincord'};
 
@@ -186,8 +187,7 @@ box off
 hold on
 num_bars = numel(data_linear);
 x = bar_data.XEndPoints;
-% get rid ofthird argument if you want error bars up and down
-errorbar(x, data_linear, zeros(size(data_linear)), std_linear, 'k', 'linestyle', 'none', 'linewidth', 1.5);
+errorbar(x, data_linear,  std_linear, 'k', 'linestyle', 'none', 'linewidth', 1.5);
 hold off
 
 subplot(2,1,2)
@@ -208,7 +208,7 @@ box off
 hold on
 num_bars = numel(data_nonlinear);
 x = bar_data.XEndPoints;
-errorbar(x, data_nonlinear, zeros(size(data_nonlinear)),std_nonlinear, 'k', 'linestyle', 'none', 'linewidth', 1.5);
+errorbar(x, data_nonlinear,std_nonlinear, 'k', 'linestyle', 'none', 'linewidth', 1.5);
 hold off
 
 % Set the figure position

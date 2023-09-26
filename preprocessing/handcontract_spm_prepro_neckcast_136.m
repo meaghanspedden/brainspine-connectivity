@@ -12,7 +12,7 @@ bids_session='001';
 dsprefix=1;
 
 brainchan_labels={'MN','OI', 'MR', 'A4','K5', 'OG','DU','DH','DL','DO','35','MF','N2','MZ','MU','MK'};
-badchans={'KR-X', 'KR-Y', 'KR-Z', 'MJ-X', 'MJ-Y', 'MJ-Z'}; %%1B and DS were dropping out during 
+badchans={'KR-X', 'KR-Y', 'KR-Z', 'MJ-X', 'MJ-Y', 'MJ-Z'}; %%
 posfileneck='D:\MSST001\sub-OP00136\ses-001\meg\ds_sub-OP00136_ses-001_positions.tsv';
 
 EMGpath='D:\OP00136_experiment\EMGfiles';
@@ -64,6 +64,7 @@ addpath('D:\spm')
 spm('defaults','EEG')
 addpath(genpath('D:\brainspineconnectivity'))
 warning('MAKE SURE TO CHANGE spm_eeg_filter to GRB version')
+
 %% right and left hands
 
 for RIGHT=1
@@ -71,11 +72,11 @@ for RIGHT=1
     if RIGHT
         exptorder=Bothexptorder(1:4,:);
         pstr='rhand';
-        hbcomps=[2 2 3 3];
+        hbcomps=[2 3 3 3];
     else
         exptorder=Bothexptorder(5:8,:);
         pstr='lhand';
-        hbcomps=[1 1 1 2]; %components containing heartbeat activity in each run. hard coded.
+        hbcomps=[2 2 2 1]; %components containing heartbeat activity in each run. hard coded.
     end
 
     %%
@@ -83,7 +84,7 @@ for RIGHT=1
     allfilenames=[];
     allxfilenames=[];
 
-    for exptind=2%:size(exptorder,1) %loop through runs
+    for exptind=1:size(exptorder,1) %loop through runs
 
         if strcmp(exptorder(exptind,2),'R')
             EMGchanname='EMG 1';
@@ -102,8 +103,16 @@ for RIGHT=1
         run=cell2mat(exptorder(exptind,1));
 
         %% make SPM object
-        [D,fullfilename]=convert_opm2spm(datadir,posfileneck,sub,bids_session,task,run,'single',dsprefix);
+         [D,fullfilename]=convert_opm2spm(datadir,posfileneck,sub,bids_session,task,run,'single',dsprefix);
         
+         %for 136 1b and ds come in and out
+        if strcmp(sub,'OP00136') 
+            chanlabs=D.chanlabels;
+            S=[];
+            S.channels=chanlabs(~contains(chanlabs,{'G2-1B-Y','G2-1B-Z','G2-DS-Y','G2-DS-Z'}));
+            S.D=D;
+            D=spm_eeg_crop(S);
+        end
 
         %% psd
         opms=D.indchannel(D.sensors('MEG').label);
@@ -154,8 +163,11 @@ for RIGHT=1
             D=spm_eeg_filter(S);
 
 
-%         datsamp=D(opms,end-2000:end);
-%         figure; plot(datsamp')
+        datft=spm2fieldtrip(D);
+        datft=rmfield(datft,'hdr');
+        cfg=[];
+        cfg.channel=datft.grad.label;
+        %dbfig=ft_databrowser(cfg,datft)
 
 
 %         S=[];
@@ -197,6 +209,12 @@ for RIGHT=1
             D=spm_eeg_filter(S);
 
         end
+
+%         datft=spm2fieldtrip(D);
+%         datft=rmfield(datft,'hdr');
+%         cfg=[];
+%         cfg.channel=datft.grad.label;
+%         dbfig=ft_databrowser(cfg,datft)
 %% get spine channel indices and channel labels
 
         spineind=D.indchannel(D.sensors('MEG').label);
@@ -207,11 +225,14 @@ for RIGHT=1
         %% mark bad channels
         badind=[];
         for f=1:length(badchans)
-            badind(f)=find(contains(D.chanlabels,deblank(badchans{f})));
+           badidx= find(contains(D.chanlabels,badchans{f}));
+           if ~isempty(badidx)
+            badind(f)=badidx;
+           end
         end
         D = badchannels(D, badind, 1); %% set channels to bad
 
-
+    
 
         %% heartbeat estimation
         if HB   %% estimate heartbeat over all channels (will remove after merging files)
@@ -274,6 +295,8 @@ for RIGHT=1
         dDep = spm_eeg_epochs(S);
 
 
+
+
         %% remove outliers
         S=[];
         S.D=dDep;
@@ -294,6 +317,12 @@ for RIGHT=1
     S.prefix=pstr;
     DAll=spm_eeg_merge(S);
 
+         datft=spm2fieldtrip(DAll);
+        datft=rmfield(datft,'hdr');
+        cfg=[];
+        cfg.channel=datft.grad.label;
+        %dbfig=ft_databrowser(cfg,datft)
+
     if HB==1
         avheart=squeeze(mean(allheart));
         figure
@@ -303,7 +332,11 @@ for RIGHT=1
         DAll=grb_remove_heartbeat(DAll,avheart,spineind,megind,BALANCE);
     end
 
-
+        datft=spm2fieldtrip(DAll);
+        datft=rmfield(datft,'hdr');
+        cfg=[];
+        cfg.channel=datft.grad.label;
+       % dbfig=ft_databrowser(cfg,datft)
 
     if HFCflag
         S=[];

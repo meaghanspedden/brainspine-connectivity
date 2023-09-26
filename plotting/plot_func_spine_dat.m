@@ -1,21 +1,29 @@
-function plot_func_spine_dat(mesh,src,func,grad)
+function plot_func_spine_dat(mesh,src,func,grad,sensstl)
 
       inside=src.pos(src.inside,:);
       colmaptouse=brewermap([],'YlGnBu');
-      ft_plot_mesh(mesh, 'edgealpha',0.05, 'facealpha', 0.3); hold on
+      ft_plot_mesh(mesh,'FaceColor', [0.8 0.8 1.0], 'facealpha', 0.2, 'EdgeColor','none',...
+        'AmbientStrength', 0.15); hold on
+      %camlight%('headlight');
+  
       ft_plot_cloud(inside,func,'scalerad','no', 'cloudtype','surf','ncirc',1,'radius',5,'colormap',colormap(flipud(colmaptouse)))
       xlabel('X'); ylabel('Y')
       axis image
 
       hold on
-      ft_plot_sens(grad,'coilshape', 'point','coilsize',18)
+      ft_plot_mesh(sensstl,'FaceColor', [0.7 0.7 1.0], 'facealpha', 0.75, 'EdgeColor','none',...
+        'AmbientStrength', 0.15);
       view(7,1)
       colorbar
+      camlight
+      material('dull')
 end
 
 
 
+      %ft_plot_sens(grad,'coilshape', 'point','coilsize',18)
 
+     % ft_plot_mesh(mesh, 'edgealpha',0.05, 'facealpha', 0.3); hold on
 
 
 

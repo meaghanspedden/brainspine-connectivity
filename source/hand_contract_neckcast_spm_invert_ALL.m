@@ -5,9 +5,9 @@ close all;
 clc
 
 mydir='D:\MSST001';
-subjectID ='116'; %122 or %123 
-%whatstr='emg+abs';
-whatstr='brainopt+abs';
+subjectID ='122'; %122 or %123 
+whatstr='emg+abs';
+%whatstr='brainopt+abs';
 
 %% paths
 addpath D:\torso_tools
@@ -30,6 +30,7 @@ badchans=dataOut.badchans;
 dpath=dataOut.dpath;
 savepath=dataOut.savepath;
 layoutfile=dataOut.layoutfile;
+sensorStl=dataOut.sensorstl;
 
 
 if ~exist(savepath,'dir')
@@ -63,6 +64,11 @@ for cnd=1%:size(filenames,1),
     cname=[a1 filesep 'clone_b1' b1 c1 ];
 
     D=DAll;
+      datft=spm2fieldtrip(D);
+        datft=rmfield(datft,'hdr');
+        cfg=[];
+        cfg.channel=datft.grad.label;
+       % dbfig=ft_databrowser(cfg,datft)
 
     %% identify channels on spine (the ones that have positions and ori)
 
@@ -96,20 +102,20 @@ for cnd=1%:size(filenames,1),
     fbrainind=setdiff(1:length(fdat_brain.label),fbemgind);
 
     %     %% plot some metrics of brain-emg interaction
-    %     nchansBrain=length(cspect_brain.labelcmb); %it was getting confused because csd mat is square
-    %
-    %     figure; subplot(4,1,1);
-    %     plot(cspect_brain.freq,real(cspect_brain.crsspctrm(1:nchansBrain,:))');
-    %     title('real cross')
-    %     subplot(4,1,2);
-    %     plot(cspect_brain.freq,imag(cspect_brain.crsspctrm(1:nchansBrain,:))');
-    %     title('imag cross')
-    %     subplot(4,1,3)
-    %     plot(cspect_brain.freq,abs(cspect_brain.crsspctrm(1:nchansBrain,:))');
-    %     title('abs cross')
-    %     subplot(4,1,4)
-    %     plot(cohbrain.freq,cohbrain.cohspctrm(1:nchansBrain,:)');
-    %     title('coh')
+        nchansBrain=length(cspect_brain.labelcmb); %it was getting confused because csd mat is square
+    
+        figure; subplot(4,1,1);
+        plot(cspect_brain.freq,real(cspect_brain.crsspctrm(1:nchansBrain,:))');
+        title('real cross')
+        subplot(4,1,2);
+        plot(cspect_brain.freq,imag(cspect_brain.crsspctrm(1:nchansBrain,:))');
+        title('imag cross')
+        subplot(4,1,3)
+        plot(cspect_brain.freq,abs(cspect_brain.crsspctrm(1:nchansBrain,:))');
+        title('abs cross')
+        subplot(4,1,4)
+        plot(cohbrain.freq,cohbrain.cohspctrm(1:nchansBrain,:)');
+        title('coh')
 
     %% get dominant spatial component that explains the brain-emg cross spectrum
 
@@ -124,7 +130,11 @@ for cnd=1%:size(filenames,1),
     Uinv=pinv(Ur); %% the spatial mixture of brain chans orthogonal to the ideal mixture for EMG-brain cross-spectrum
     replace.U=Ur(:,1); %% Ur or Uinv
     replace.ind=fbrainind;
+    if strcmp(subjectID,'136')
+        replace.label='G2-35-Y';
+    else
     replace.label='G2-19-Y';
+    end
 
     %calculate coherence with ideal mixture-EMG
     [~, fdat_brainmix,~]=xspectrum_meaghan(D,D.chanlabels(brainind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)],seedperm,[],replace);
@@ -136,7 +146,7 @@ for cnd=1%:size(filenames,1),
 
     brainmix_emg_coh      = ft_connectivityanalysis(cfg, fdat_brainmix);
 
-
+if ~isempty(layoutfile)
     load(layoutfile)
 
     cfg                  = [];
@@ -179,7 +189,7 @@ cfg.interplimits='electrodes';
 figure; ft_topoplotER(cfg, dat)
 colorbar
 title('opt brain mix')
-
+end
 
 
 
@@ -239,7 +249,7 @@ title('opt brain mix')
         Dclone(spineind,cind(1,:),1)=real(cspect.crsspctrm);
         Dclone(spineind,cind(2,:),1)=imag(cspect.crsspctrm);
     end
-    %% load optical scan stl
+    %% load optical scan stl and sensor stls (for visualization)
 
     [F, V]=stlread(backshape);
     sub=[];
@@ -247,10 +257,20 @@ title('opt brain mix')
     sub.faces = F;
     sub_red = reducepatch(sub,0.5);
 
+    [F1, V1]=stlread(sensorStl);
+    sensstl=[];
+    sensstl.vertices = V1;
+    sensstl.faces = F1;
+   sens_stl_red = reducepatch(sensstl,0.5);
+
     %put this in fieldtrip structure
     subject=[];
     subject.pos=sub_red.vertices;
     subject.tri=sub_red.faces;
+
+    sens_stl_ft=[];
+    sens_stl_ft.pos=sens_stl_red.vertices;
+    sens_stl_ft.tri=sens_stl_red.faces;
 
     %% Now set up a source space cylinder
 
@@ -434,7 +454,7 @@ plotOptOri(Jv,src,subject)
 
     %plot peak power
     figure;
-    plot_func_spine_dat(subject,src,magopt,grad)
+    plot_func_spine_dat(subject,src,magopt,grad,sens_stl_ft)
     hold on
     plot3(src.pos(peakind,1), src.pos(peakind,2),src.pos(peakind,3),'ro','MarkerSize',10,'MarkerFaceColor','r')
 

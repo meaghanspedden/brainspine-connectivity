@@ -32,13 +32,13 @@ src.pos=src.pos(src.inside,:);
 src.inside=true(length(src.pos),1);
 
 %% Plot
-% figure;
-% ft_plot_mesh(subject,'EdgeAlpha',0.2,'FaceAlpha',0.2); hold on
-% source_id = find(src.inside);
-% 
-% scatter3(src.pos(source_id,1),src.pos(source_id,2),src.pos(source_id,3),'r*');
-% axis image
-% xlabel('X'); ylabel('Y'); zlabel('Z')
+figure;
+ft_plot_mesh(subject,'EdgeAlpha',0.2,'FaceAlpha',0.2); hold on
+source_id = find(src.inside);
+
+scatter3(src.pos(source_id,1),src.pos(source_id,2),src.pos(source_id,3),'r*');
+axis image
+xlabel('X'); ylabel('Y'); zlabel('Z')
 
 
 fprintf('Source grid has %g points, inside only\n',length(src.pos))

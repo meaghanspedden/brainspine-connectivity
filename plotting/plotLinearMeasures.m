@@ -12,7 +12,7 @@ yValue1 = maxValue + 0.1 * maxValue; %
 yValue2 = yValue1 + 0.1 * maxValue;
 
 figure;
-subplot(2, 1, 1);
+%subplot(2, 1, 1);
 plot(usefreq, Fstat_real, 'color',col3,'LineWidth',3,'LineStyle',':'); hold on
 plot(usefreq, Fstat_imag, 'color',col4, 'LineWidth', 3);
 if ~isempty(realSig)
@@ -32,21 +32,21 @@ box off
 xlim([0 40])
 
 % Plot Coherence
-subplot(2, 1, 2);
-if size(coh.cohspctrm,1) > 1
-    coh.cohspctrm=squeeze(coh.cohspctrm(1,2,:));
-end
-plot(usefreq, coh.cohspctrm, 'LineWidth', 3,'color',col5);
-% ylabel('Coherence');
-% xlabel('Frequency (Hz)');
-
-ax = gca;
-ax.FontSize = 18;
-ax.LineWidth=1.5; %change to the desired value     
-box off
-xlim([0 40])
-sgtitle(figtitle, 'FontSize', 16, 'FontWeight', 'bold');
-set(gcf, 'Position', [100, 100, 600, 800]);  % Adjust figure size and position
+% subplot(2, 1, 2);
+% if size(coh.cohspctrm,1) > 1
+%     coh.cohspctrm=squeeze(coh.cohspctrm(1,2,:));
+% end
+% plot(usefreq, coh.cohspctrm, 'LineWidth', 3,'color',col5);
+% % ylabel('Coherence');
+% % xlabel('Frequency (Hz)');
+% 
+% ax = gca;
+% ax.FontSize = 18;
+% ax.LineWidth=1.5; %change to the desired value     
+% box off
+% xlim([0 40])
+% sgtitle(figtitle, 'FontSize', 16, 'FontWeight', 'bold');
+%set(gcf, 'Position', [100, 100, 600, 800]);  % Adjust figure size and position
 
 
 end
