@@ -452,6 +452,22 @@ plotOptOri(Jv,src,subject)
         [~,maxidx2]=maxk(magopt,2);
     end
 
+%% figure
+figure
+xvals=src.pos(:,1);
+plot(xvals,magopt,'ro','MarkerFillColor','r'); hold on
+
+% Create a set of points for a smooth curve
+xx = linspace(min(xvals), max(xvals), 138);
+
+% Fit a smoothing spline to the data
+pp = csape(xvals, magopt, 'variational');
+yy = ppval(pp, xx);
+plot(xx,yy,'b-','LineWidth')
+
+
+
+
     %plot peak power
     figure;
     plot_func_spine_dat(subject,src,magopt,grad,sens_stl_ft)

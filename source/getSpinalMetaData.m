@@ -1,4 +1,4 @@
-function dataOut = getMetaData (subID, mydir)
+function dataOut = getSpinalMetaData (subID, mydir)
 
 if strcmp(subID,'116')
     metadat.filenames=strvcat([mydir '\sub-OP00116\ses-001\meg\pprhandoe1000msfdfflo45hi5sub-OP00116_ses-001_task-staticright_run-001_meg.mat'],...
