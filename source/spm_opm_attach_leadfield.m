@@ -30,5 +30,6 @@ spm('FnBanner',mfilename,SVNid);
 fprintf('Attaching lead field to D object and saving to disk...\n')
 D.inv{val}.gainmat = ['SPMgainmatrix_' spm_file(D.fname, 'basename') '_' num2str(val) '.mat'];
 save(fullfile(D.path, D.inv{val}.gainmat), 'G', 'label', spm_get_defaults('mat.format'));
+D.save;
 fprintf('Done.\n')
 end

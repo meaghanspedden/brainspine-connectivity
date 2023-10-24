@@ -1,7 +1,7 @@
 function plot_func_spine_dat(mesh,src,func,grad,sensstl)
 
       inside=src.pos(src.inside,:);
-      colmaptouse=brewermap([],'YlGnBu');
+      colmaptouse=brewermap([],'RdYlBu');
       ft_plot_mesh(mesh,'FaceColor', [0.8 0.8 1.0], 'facealpha', 0.2, 'EdgeColor','none',...
         'AmbientStrength', 0.15); hold on
       %camlight%('headlight');
@@ -11,7 +11,7 @@ function plot_func_spine_dat(mesh,src,func,grad,sensstl)
       axis image
 
       hold on
-      ft_plot_mesh(sensstl,'FaceColor', [0.7 0.7 1.0], 'facealpha', 0.75, 'EdgeColor','none',...
+      ft_plot_mesh(sensstl,'FaceColor', [0.7 0.7 1.0], 'facealpha', 1, 'EdgeColor','none',...
         'AmbientStrength', 0.15);
       view(7,1)
       colorbar

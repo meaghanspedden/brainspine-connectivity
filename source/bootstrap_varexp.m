@@ -3,7 +3,7 @@
 
 clear all;close all;
 
-subjectID='116';
+subjectID='123';
 figsavedir='D:\FiguresForPaper';
 
 addpath(genpath('D:\brainspineconnectivity\plotting'))

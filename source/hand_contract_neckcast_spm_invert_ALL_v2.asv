@@ -6,7 +6,7 @@ clc
 restoredefaultpath
 
 mydir='D:\brainspine_data';
-subjectID ='123'; %122 or %123
+subjectID ='116'; %122 or %123
 
 whatstr='emg+abs';
 %whatstr='brainopt+abs';
@@ -57,7 +57,7 @@ invtype='IID';
 IMAGECROSS=0; %only image power not cross spectrum
 
 
-for cnd=1%:size(filenames,1)
+for cnd=2%:size(filenames,1)
 
     % load the data
     DAll=spm_eeg_load(filenames(cnd,:));
@@ -95,18 +95,13 @@ for cnd=1%:size(filenames,1)
     fbrainind=setdiff(1:length(fdat_brain.label),fbemgind);
 
 
-%% plot power for y channels on back
-
+  %% plot power for y channels on back
 yind=find(contains(fdat.grad.label,'-Y'));
 chpos=fdat.grad.chanpos(yind,1:2);
 chlab=fdat.grad.label(yind);
-powervals=abs(fdat.fourierspctrm).^2;
-%compute the power then take the mean
-meanpower=squeeze(mean(powervals,1));
-meanpower=mean(meanpower,2);
-
+fourierspec=sqfdat.fourierspctrm(:,yind,:)
 % in this coord frame.  , x up-down spine, y left-right, z is out of back ant-post
-spm_eeg_plotScalpData(meanpower(yind),chpos,chlab)
+spm_eeg_plotScalpData(fdat(yind,1),chpos,chlab)
 
     %% plot some metrics of brain-emg interaction
     nchansBrain=length(cspect_brain.labelcmb); 

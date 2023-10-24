@@ -77,7 +77,7 @@ cfg.complex='complex';
 cfg.channelcmb = combs;
 
 
-[cspect,trialdata]      = ft_connectivityanalysis_grb(cfg, fdat); %% GRB hack to get trialdata from this
+[cspect,trialdata]      = ft_connectivityanalysis_grb_v2(cfg, fdat); %% GRB hack to get trialdata from this
 
 trcspect=trialdata.crsspctrm(:,1:length(channels),:);
 % 

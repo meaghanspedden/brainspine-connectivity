@@ -12,7 +12,7 @@ yValue1 = maxValue + 0.1 * maxValue; %
 yValue2 = yValue1 + 0.1 * maxValue;
 
 figure;
-%subplot(2, 1, 1);
+%subplot(2, 1, 1); %got rid of coherence
 plot(usefreq, Fstat_real, 'color',col3,'LineWidth',3,'LineStyle',':'); hold on
 plot(usefreq, Fstat_imag, 'color',col4, 'LineWidth', 3);
 if ~isempty(realSig)

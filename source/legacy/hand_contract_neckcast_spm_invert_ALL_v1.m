@@ -3,9 +3,10 @@
 clear all;
 close all;
 clc
+restoredefaultpath
 
 mydir='D:\MSST001';
-subjectID ='123'; %122 or %123 
+subjectID ='116'; %122 or %123
 %whatstr='emg+abs';
 whatstr='brainopt+abs';
 
@@ -19,7 +20,7 @@ figsavedir='D:\FiguresForPaper';
 
 %% get meta data
 
-dataOut=getMetaData(subjectID, mydir);
+dataOut=getSpinalMetaData(subjectID, mydir);
 
 filenames=dataOut.filenames;
 posfile=dataOut.posfile;
@@ -43,7 +44,7 @@ cd(dpath)
 SHUFFLE=1; %this performs additional shuffled CVA at ROI
 allcanfilenames=[];
 
-FIXORIENT=[]; %empty means it calculates optimal orientation
+FIXORIENT=[1 0 0]; %empty means it calculates optimal orientation. 1 0 0 is up
 REMOVELIN=1; %I think this is be hard coded now, can remove?
 RMORTHBRAIN=contains(whatstr,'brain'); %% don't remove ortho brain if dealing with cord-muscle
 FIXMODES=0;%1 means force use of all channels in source recon
@@ -55,7 +56,7 @@ invtype='IID';
 IMAGECROSS=0;
 
 
-for cnd=1%:size(filenames,1),
+for cnd=1%:size(filenames,1)
 
     DAll=spm_eeg_load(filenames(cnd,:));
     [a1,b1,c1]=fileparts(DAll.fullfile);
@@ -64,11 +65,11 @@ for cnd=1%:size(filenames,1),
     cname=[a1 filesep 'clone_b1' b1 c1 ];
 
     D=DAll;
-      datft=spm2fieldtrip(D);
-        datft=rmfield(datft,'hdr');
-        cfg=[];
-        cfg.channel=datft.grad.label;
-       % dbfig=ft_databrowser(cfg,datft)
+    datft=spm2fieldtrip(D);
+    datft=rmfield(datft,'hdr');
+    cfg=[];
+    cfg.channel=datft.grad.label;
+    % dbfig=ft_databrowser(cfg,datft)
 
     %% identify channels on spine (the ones that have positions and ori)
 
@@ -87,11 +88,11 @@ for cnd=1%:size(filenames,1),
 
     emgind=D.indchantype('EMG');
 
-  
+
 
 
     %% now compute coherence and cross spectra between brain, emg, and sensors on cord
-   cd  D:\fieldtrip-master\fieldtrip-master\private %fix this?
+    cd  D:\fieldtrip-master\fieldtrip-master\private %fix this?
 
     seedperm=0;
     cohbrain=coh_meaghan(D,D.chanlabels(brainind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)]);
@@ -102,20 +103,20 @@ for cnd=1%:size(filenames,1),
     fbrainind=setdiff(1:length(fdat_brain.label),fbemgind);
 
     %     %% plot some metrics of brain-emg interaction
-        nchansBrain=length(cspect_brain.labelcmb); %it was getting confused because csd mat is square
-    
-        figure; subplot(4,1,1);
-        plot(cspect_brain.freq,real(cspect_brain.crsspctrm(1:nchansBrain,:))');
-        title('real cross')
-        subplot(4,1,2);
-        plot(cspect_brain.freq,imag(cspect_brain.crsspctrm(1:nchansBrain,:))');
-        title('imag cross')
-        subplot(4,1,3)
-        plot(cspect_brain.freq,abs(cspect_brain.crsspctrm(1:nchansBrain,:))');
-        title('abs cross')
-        subplot(4,1,4)
-        plot(cohbrain.freq,cohbrain.cohspctrm(1:nchansBrain,:)');
-        title('coh')
+    nchansBrain=length(cspect_brain.labelcmb); %it was getting confused because csd mat is square
+    %
+    %         figure; subplot(4,1,1);
+    %         plot(cspect_brain.freq,real(cspect_brain.crsspctrm(1:nchansBrain,:))');
+    %         title('real cross')
+    %         subplot(4,1,2);
+    %         plot(cspect_brain.freq,imag(cspect_brain.crsspctrm(1:nchansBrain,:))');
+    %         title('imag cross')
+    %         subplot(4,1,3)
+    %         plot(cspect_brain.freq,abs(cspect_brain.crsspctrm(1:nchansBrain,:))');
+    %         title('abs cross')
+    %         subplot(4,1,4)
+    %         plot(cohbrain.freq,cohbrain.cohspctrm(1:nchansBrain,:)');
+    %         title('coh')
 
     %% get dominant spatial component that explains the brain-emg cross spectrum
 
@@ -133,7 +134,7 @@ for cnd=1%:size(filenames,1),
     if strcmp(subjectID,'136')
         replace.label='G2-35-Y';
     else
-    replace.label='G2-19-Y';
+        replace.label='G2-19-Y';
     end
 
     %calculate coherence with ideal mixture-EMG
@@ -146,50 +147,50 @@ for cnd=1%:size(filenames,1),
 
     brainmix_emg_coh      = ft_connectivityanalysis(cfg, fdat_brainmix);
 
-if ~isempty(layoutfile)
-    load(layoutfile)
+    if ~isempty(layoutfile)
+        load(layoutfile)
 
-    cfg                  = [];
-    cfg.parameter        = 'cohspctrm';
-    cfg.xlim             = [15 30];
-    cfg.refchannel       = combs{2};
-    cfg.layout           = lay_head;
-    cfg.interplimits='electrodes';
-    figure; ft_topoplotER(cfg, cohbrain)
-    colorbar
-    title('Brain muscle coherence')
-
-
-    %% plot the optimal brain mixture weights
-    %I think we want to normalize these but how to calc cov for brain data
-
-brainlabs=fdat_brain.label(~contains(fdat_brain.label,'EMG'));
-
-dat=spm2fieldtrip(D);
-cfg=[];
-cfg.channel=brainlabs;
-dat=ft_selectdata(cfg,dat);
+        %     cfg                  = [];
+        %     cfg.parameter        = 'cohspctrm';
+        %     cfg.xlim             = [15 30];
+        %     cfg.refchannel       = combs{2};
+        %     cfg.layout           = lay_head;
+        %     cfg.interplimits='electrodes';
+        %     figure; ft_topoplotER(cfg, cohbrain)
+        %     colorbar
+        %     title('Brain muscle coherence')
 
 
-cfg=[];
-cfg.covariance='yes';
-datacov=ft_timelockanalysis(cfg,dat);
+        %% plot the optimal brain mixture weights
+        %I think we want to normalize these but how to calc cov for brain data
 
-dat=ft_timelockanalysis([],dat); %put into ft structure to plot
+        brainlabs=fdat_brain.label(~contains(fdat_brain.label,'EMG'));
 
-dat.avg=datacov.cov*Ur(:,1);
-dat.time=dat.time(2);
-dat.var=dat.var(:,1);
-dat.dof=dat.dof(:,1);
+        dat=spm2fieldtrip(D);
+        cfg=[];
+        cfg.channel=brainlabs;
+        dat=ft_selectdata(cfg,dat);
 
-cfg                  = [];
-cfg.parameter        = 'avg';
-cfg.layout           = lay_head;
-cfg.interplimits='electrodes';
-figure; ft_topoplotER(cfg, dat)
-colorbar
-title('opt brain mix')
-end
+
+        cfg=[];
+        cfg.covariance='yes';
+        datacov=ft_timelockanalysis(cfg,dat);
+
+        dat=ft_timelockanalysis([],dat); %put into ft structure to plot
+
+        dat.avg=datacov.cov*Ur(:,1);
+        dat.time=dat.time(2);
+        dat.var=dat.var(:,1);
+        dat.dof=dat.dof(:,1);
+        %
+        % cfg                  = [];
+        % cfg.parameter        = 'avg';
+        % cfg.layout           = lay_head;
+        % cfg.interplimits='electrodes';
+        % figure; ft_topoplotER(cfg, dat)
+        % colorbar
+        % title('opt brain mix')
+    end
 
 
 
@@ -283,39 +284,102 @@ end
 
     cyl_source=ft_read_headshape(cyl);
 
-    arbvals=strvcat('infinite');
-
-
+    res=10; %cylinder grid resolution
+    src=make_spine_grid_MES_cylinder(sub_red,cyl_source,res);
+    figure;plot3(src.pos(:,1),src.pos(:,2),src.pos(:,3),'r.');hold on;
+    plot3(grad.coilpos(:,1),grad.coilpos(:,2),grad.coilpos(:,3),'ko')
+    plot3(subject.pos(:,1),subject.pos(:,2),subject.pos(:,3),'m.')
+    axis equal
+    %% convert to SI units
+    src_m=ft_convert_units(src,'m');
+    grad_m=ft_convert_units(grad,'m');
+    [subject_m] = ft_convert_units(subject, 'm');
+    %% loop over forward models
+    arbvals=strvcat('infinite_currentdipole'); % 'singlesphere');
     for arbind=1:size(arbvals,1) %loop through volume conductors
 
-        res=10; %cylinder grid resolution
-
-        src=make_spine_grid_MES_cylinder(sub_red,cyl_source,res);
-
-        %% now set up torso model, this gives lead field
+        %now set up torso model, this gives lead field
         % mapping each point (and orientation) in source space to sensors
 
         Lf=[];
 
         switch deblank(arbvals(arbind,:))
 
-            case {'singleshell','singlesphere','localspheres','infinite'}
+            case {'infinite_currentdipole'}
 
-                cfg = [];
-                cfg.method = deblank(arbvals(arbind,:));
-                cfg.grad=grad;
+                cfg                     = [];
+                cfg.method              = 'infinite';
+                cfg.siunits=1;
+                cfg.grad=grad_m;
                 cfg.conductivity = 1;
-                cfg.unit='mm';
-                [bmodel] = ft_prepare_headmodel(cfg,subject);
 
+                vol                     = ft_prepare_headmodel(cfg,subject_m);
+                vol.type                = 'infinite_currentdipole';
+                %vol.type                = 'infinite';
+                vol.unit                = 'm';
+
+                % calculate forward
+                cfg                     = [];
+                cfg.sourcemodel         = src_m;
+                cfg.headmodel           = vol;
+                cfg.grad                = grad_m;
+                cfg.reducerank          = 'no';
+                cfg.normalize           = 'yes';
+                cfg.normalizeparam     = 0.75;
+
+                sourcemodel = ft_prepare_leadfield(cfg);
+                
+                src_curr=sourcemodel;
+                
+                startidx=1;
+                for k=1:size(src.pos,1) %for each source point
+                    Lf(:,startidx:startidx+2)=sourcemodel.leadfield{k};
+                    startidx=startidx+3;
+                end
+            case {'singleshell','singlesphere','localspheres','infinite'}
+                cfg=[];
+                cfg.grad=grad_m;
+                cfg.conductivity = 1;
+                cfg.units='m';
+                cfg.siunits=1;
+
+                cfg.method=deblank(arbvals(arbind,:));
+                [bmodel] = ft_prepare_headmodel(cfg,subject_m);
+
+                ps=subject_m.pos;
+                if findstr(arbvals(arbind,:),'sphere')
+                    bmodel.o(:,3)=bmodel.o(:,3);%+.1;
+                    figure;
+                    plot3(ps(:,1),ps(:,2),ps(:,3),'c.');
+                    hold on;
+                    plot3(bmodel.o(:,1),bmodel.o(:,2),bmodel.o(:,3),'r*');
+                end
+                bmodel.unit='m';
 
                 cfg = [];
-                cfg.headmodel = bmodel;
-                cfg.sourcemodel = src;
-                cfg.reducerank= 'no';
-                [sourcemodel] = ft_prepare_leadfield(cfg, grad);
 
-                %unravel lf
+                cfg.headmodel = bmodel;
+                src_moved=src_m;
+                src_moved.pos(:,3)=src_moved.pos(:,3)-0.05;
+                plot3(src_moved.pos(:,1),src_moved.pos(:,2),src_moved.pos(:,3),'gx');
+                plot3(grad_m.chanpos(:,1),grad_m.chanpos(:,2),grad_m.chanpos(:,3),'mo');
+                cfg.sourcemodel = src_moved;
+                cfg.reducerank= 'no';
+                cfg.grad=grad_m;
+                cfg.siunits=1;
+
+                [sourcemodel] = ft_prepare_leadfield(cfg);
+                for j=1:40:length(sourcemodel.pos)
+
+                    Z=sourcemodel.leadfield{j};
+                    yind=find(contains(grad_m.label,'-Z')); % sensor z is oriented ant-post
+                    chpos=grad_m.chanpos(yind,1:2);
+                    chlab=grad_m.label(yind);
+                    %% in this coord frame.  , x up-down spine, y left-right, z is out of back ant-post
+                    %                 spm_eeg_plotScalpData(Z(yind,1),chpos,chlab)
+                    %                 title(num2str(sourcemodel.pos(j,:)));
+                    %                 pause(0.1);
+                end % for j
 
                 startidx=1;
                 for k=1:size(src.pos,1) %for each source point
@@ -404,14 +468,19 @@ end
 
     Nx=length(src.pos);
     J=zeros(Nx*3,length(fcind),ntapers);
-
+    Jnoise=zeros(Nx*3,length(fcind),ntapers);
     Jcov=zeros(Nx*3,Nx*3);
+    Jnoisecov=zeros(Nx*3,Nx*3);
     for f=1:ntapers
         Jtrial=M*squeeze(spdata(f,:,fcind));
+        Jnoisetr=M*eye(size(squeeze(spdata(f,:,fcind))));
         Jcov=Jcov+cov(Jtrial');
         J(:,:,f)=Jtrial;
+        Jnoise(:,:,f)=Jnoisetr;
+        Jnoisecov=Jnoisecov+cov(Jnoisetr');
     end
     Jcov=Jcov./ntapers;
+    Jnoisecov=Jnoisecov./ntapers;
 
     xind=1:3:Nx*3; %indices for x y and z oriented sources
     yind=2:3:Nx*3;
@@ -422,49 +491,64 @@ end
     Jv=sqrt([sum(diag(Jcov(xind,xind))) sum(diag(Jcov(yind,yind))) sum(diag(Jcov(zind,zind)))]);
     Jv=Jv./sqrt(dot(Jv,Jv)); %this is optimal orientation
 
+    %get orientation of noise
+    Jvnoise=sqrt([sum(diag(Jnoisecov(xind,xind))) sum(diag(Jnoisecov(yind,yind))) sum(diag(Jnoisecov(zind,zind)))]);
+    Jvnoise=Jvnoise./sqrt(dot(Jvnoise,Jvnoise)); %this is optimal orientation
+
     if ~isempty(FIXORIENT) %if user specifies orientation use this instead
         Jv=FIXORIENT;
     end
 
-% plot optimal orientation
-plotOptOri(Jv,src,subject)
-
-
+    % plot optimal orientation
+    plotOptOri(Jvnoise,src,subject)
 
     Jorient=J(xind,:,:).*Jv(1)+J(yind,:,:).*Jv(2)+J(zind,:,:).*Jv(3); %source data for opt orientation or fixorient
+    Jnoiseorient=Jnoise(xind,:,:).*Jv(1)+Jnoise(yind,:,:).*Jv(2)+Jnoise(zind,:,:).*Jv(3);
     Jocov=zeros(length(xind),length(xind));
+    Jonoisecov=zeros(length(xind),length(xind));
 
     for f=1:ntapers
         Jtrial=Jorient(:,:,f);
+        Jnoisetrial=Jnoiseorient(:,:,f);
         Jocov=Jocov+cov(Jtrial');
+        Jonoisecov=Jonoisecov+cov(Jnoisetrial');
     end
 
     Jocov=Jocov./ntapers;
+    Jonoisecov=Jonoisecov./ntapers;
 
     %     magx=sqrt(diag(Jcov(xind,xind)));
     %     magy=sqrt(diag(Jcov(yind,yind)));
     %     magz=sqrt(diag(Jcov(zind,zind)));
 
     magopt=sqrt(diag(Jocov)); %power at each sourcepoint
+    magopt_noise=sqrt(diag(Jonoisecov));
     [~,peakind]=max(magopt); %% index for sourcepoint with peak power
 
-    if contains(filenames(cnd,:),'124') %need second max for this participant
-        [~,maxidx2]=maxk(magopt,2);
-    end
 
-%% figure
-figure
-xvals=src.pos(:,1);
-plot(xvals,magopt,'ro','MarkerFillColor','r'); hold on
 
-% Create a set of points for a smooth curve
-xx = linspace(min(xvals), max(xvals), 138);
+    %% figure
+    f1=figure;
+    xvals=src.pos(:,1);
+    scatter(xvals,magopt,'.','MarkerFaceColor',[0 .3 .3],'MarkerFaceAlpha',0.2,'MarkerEdgeColor',[0 .5 .5],'LineWidth',0.01);
+    ax = gca;
+    ax.FontSize = 18;
+    box off
+    set(gcf, 'Position', [570 769 670 227]);
 
-% Fit a smoothing spline to the data
-pp = csape(xvals, magopt, 'variational');
-yy = ppval(pp, xx);
-plot(xx,yy,'b-','LineWidth')
+    % Calculate the median y values for each unique x value
+    unique_x = unique(xvals);
+    median_y_values = splitapply(@median, magopt, findgroups(xvals));
 
+    hold on; % Hold the current plot
+    plot(unique_x(1:end-1), median_y_values(1:end-1), 'color',[0 .5 .5], 'LineWidth', 2);
+
+    %%
+
+    %savename=sprintf('%s %s magopt for sourceplot.pdf',subjectID,num2str(cnd));
+   % exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+    savename=sprintf('%s %s magopt for sourceplot',subjectID,num2str(cnd));
+    %save(fullfile(figsavedir,savename),'unique_x','median_y_values')
 
 
 
@@ -473,13 +557,17 @@ plot(xx,yy,'b-','LineWidth')
     plot_func_spine_dat(subject,src,magopt,grad,sens_stl_ft)
     hold on
     plot3(src.pos(peakind,1), src.pos(peakind,2),src.pos(peakind,3),'ro','MarkerSize',10,'MarkerFaceColor','r')
-
-    if contains(filenames(cnd,:),'124')
-        plot3(src.pos(maxidx2(2),1), src.pos(maxidx2(2),2),src.pos(maxidx2(2),3),'ro','MarkerSize',10,'MarkerFaceColor','r')
-        peakind=maxidx2(2);
-    end
     savename=sprintf('%s %s %g.png',subjectID,whatstr,cnd);
-    exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+    %exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+% 
+%     figure;
+%     plot_func_spine_dat(subject,src,magopt_noise,grad,sens_stl_ft)
+%     title('noise')
+% 
+%  savename=sprintf('%s %s %g_11.png',subjectID,whatstr,cnd);
+%  exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+
+
 
     %% Ybrain should be data from optimal linear mixture of channels to get emg coherence
     % Yibrain should be data from channel mixture orthogonal to this
@@ -779,12 +867,12 @@ plot(xx,yy,'b-','LineWidth')
 
 
 
-% to save:
-% CVA_shuf_emgbrain.p(1)
- %CVA_shuf.p(1)
-%CVA_precision.p(1)
-%Ns=size(X,1)
-%'linvar_rmvd','linvaremgbrain_rmvd'
+    % to save:
+    % CVA_shuf_emgbrain.p(1)
+    %CVA_shuf.p(1)
+    %CVA_precision.p(1)
+    %Ns=size(X,1)
+    %'linvar_rmvd','linvaremgbrain_rmvd'
 
 end % for filenames
 

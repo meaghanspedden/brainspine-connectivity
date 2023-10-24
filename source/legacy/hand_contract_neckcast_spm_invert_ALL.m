@@ -5,7 +5,7 @@ close all;
 clc
 
 mydir='D:\MSST001';
-subjectID ='123'; %122 or %123 
+subjectID ='122'; %122 or %123 
 %whatstr='emg+abs';
 whatstr='brainopt+abs';
 
@@ -19,7 +19,7 @@ figsavedir='D:\FiguresForPaper';
 
 %% get meta data
 
-dataOut=getMetaData(subjectID, mydir);
+dataOut=getSpinalMetaData(subjectID, mydir);
 
 filenames=dataOut.filenames;
 posfile=dataOut.posfile;
@@ -55,7 +55,7 @@ invtype='IID';
 IMAGECROSS=0;
 
 
-for cnd=1%:size(filenames,1),
+for cnd=2%:size(filenames,1)
 
     DAll=spm_eeg_load(filenames(cnd,:));
     [a1,b1,c1]=fileparts(DAll.fullfile);
@@ -452,6 +452,29 @@ plotOptOri(Jv,src,subject)
         [~,maxidx2]=maxk(magopt,2);
     end
 
+%% figure
+f1=figure;
+xvals=src.pos(:,1);
+plot(xvals,magopt,'ko','MarkerFaceColor','b'); 
+ax = gca;
+ax.FontSize = 18;
+box off
+set(gcf, 'Position', [570 769 670 227]); 
+
+
+% Create a set of points for a smooth curve
+% xx = linspace(min(xvals), max(xvals), 138);
+% 
+% % Fit a smoothing spline to the data
+% pp = csape(xvals, magopt, 'variational');
+% yy = ppval(pp, xx);
+% plot(xx,yy,'b-','LineWidth')
+
+savename=sprintf('%s %s magopt for sourceplot.pdf',subjectID,num2str(cnd));
+exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+
+
+
     %plot peak power
     figure;
     plot_func_spine_dat(subject,src,magopt,grad,sens_stl_ft)
@@ -464,6 +487,9 @@ plotOptOri(Jv,src,subject)
     end
     savename=sprintf('%s %s %g.png',subjectID,whatstr,cnd);
     exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+
+   
+
 
     %% Ybrain should be data from optimal linear mixture of channels to get emg coherence
     % Yibrain should be data from channel mixture orthogonal to this

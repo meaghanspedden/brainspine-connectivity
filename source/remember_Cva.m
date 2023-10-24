@@ -1,9 +1,9 @@
 
 clear all;
 close all;
-addpath D:\spm12
+addpath D:\spm
 
-lookforstr='envelope'
+lookforstr='envelope';
 %lookforstr='phase/amp';
 N=1000;
 Nt=512;
@@ -22,8 +22,9 @@ for tr=1:N,
     %% linear interation at lowest freq (t/10)
     %% non-linear coupling between lowest and medium freq (t/5)
     %% just envelope coupling at hightest freq (t/3)
-    x(tr,:)=a1*sin(t/10+phase1)+a2*sin(t/5+phase2)+a3*sin(t/3+rphase1)+randn(1,Nt);
-    y(tr,:)=a1*cos(t/10+phase1)+a1*cos(t/5+phase2)+a3*sin(t/3+rphase2)+randn(1,Nt);
+    x(tr,:)=a1*sin(t/10+phase1)+a3*sin(t/3+rphase1);%+randn(1,Nt);
+    y(tr,:)=a1*cos(t/10+phase1)+a1*cos(t/5+phase2)+a3*sin(t/3+rphase2);%+randn(1,Nt);
+    %y(tr,:)=a3*sin(t/3+rphase2);%+randn(1,Nt);
     fy=fft(y(tr,:));
     fx=fft(x(tr,:));
     
@@ -31,7 +32,18 @@ for tr=1:N,
     fX(tr,:)=fx(2:Nf);
 end;
 
+ figure;
+subplot(2,1,1);
+plot(t,x(1,:))
+subplot(2,1,2);
+plot(t,y(1,:))
+
+ 
+figure
 plot(mean(abs(fX)),'r');
+hold on
+plot(mean(abs(fY)),'b');
+
 ylabel('raw data')
 xlabel('freq')
 
@@ -59,21 +71,25 @@ for f=1:Nsig,
     figure;
     try,
         subplot(2,1,1);
+        figure
         plot(1:Nf-1,normW(1:Nf-1,f),'g',1:Nf-1,normW(Nf:2*(Nf-1),f),'r');
         legend('real','imag')
         ylabel('W (design)')
-        subplot(2,1,2);
+    hold on;
         plot(1:Nf-1,normV(1:Nf-1,f),'g',1:Nf-1,normV(Nf:2*(Nf-1),f),'r');
         ylabel('V (data)')
         xlabel('freq')
     catch
         subplot(2,1,1);
-        plot(1:Nf-1,normW(1:Nf-1,f),'r-o');
-        ylabel('W (design)')
-        subplot(2,1,2);
-        plot(1:Nf-1,normV(1:Nf-1,f),'m-o');
-        ylabel('V (data)')
-        xlabel('freq')
+        figure
+       plot(1:Nf-1,normV(1:Nf-1,f),'b-o','MarkerFaceColor','b');
+        hold on
+        plot(1:Nf-1,normW(1:Nf-1,f),'r-o','MarkerFaceColor','r');
+        ylabel('Canonical vectors (AU)')
+        hold on
+        xlabel('Frequency (Hz)')
+        ax = gca;
+        ax.FontSize = 18;
     end;
 
     title(sprintf('mode %d, p<%3.2f',f,CVA.p(f)))

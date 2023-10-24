@@ -1,4 +1,4 @@
-function [stat,trialdata] = ft_connectivityanalysis(cfg, data)
+function  [stat,trialdata] = ft_connectivityanalysis_grb_v2(cfg, data)
 
 % FT_CONNECTIVITYANALYSIS computes various measures of connectivity between
 % MEG/EEG channels or between source-level signals.
@@ -138,7 +138,6 @@ ft_preamble init
 ft_preamble debug
 ft_preamble loadvar data
 ft_preamble provenance data
-%ft_preamble trackconfig
 
 % the ft_abort variable is set to true or false in ft_preamble_init
 if ft_abort
@@ -172,7 +171,7 @@ normpow = 1; % default, has to be overruled e.g. in csd
 
 % select trials of interest
 if ~strcmp(cfg.trials, 'all')
-  tmpcfg = keepfields(cfg, {'trials', 'tolerance', 'showcallinfo', 'trackcallinfo', 'trackconfig', 'trackusage', 'trackdatainfo', 'trackmeminfo', 'tracktimeinfo'});
+  tmpcfg = keepfields(cfg, {'trials', 'tolerance', 'showcallinfo', 'trackcallinfo', 'trackusage', 'trackdatainfo', 'trackmeminfo', 'tracktimeinfo', 'checksize'});
   data = ft_selectdata(tmpcfg, data);
   [cfg, data] = rollback_provenance(cfg, data);
 end
@@ -200,7 +199,7 @@ if isfield(data, 'label')
   tmpcfg.channel = unique(selchan);
   data = ft_selectdata(tmpcfg, data);
   % restore the provenance information
-  [cfg, data] = rollback_provenance(cfg, data);
+ % [cfg, data] = rollback_provenance(cfg, data);
 elseif isfield(data, 'labelcmb')
   cfg.channel = ft_channelselection(cfg.channel, unique(data.labelcmb(:)));
   if ~isempty(cfg.partchannel)
@@ -268,9 +267,9 @@ switch cfg.method
   
   case {'wpli_debiased'}
     data = ft_checkdata(data, 'datatype', {'freqmvar' 'freq'});
-    if isfield(data, 'fourierspctrm') 
+    if isfield(data, 'fourierspctrm')
         inparam = 'fourierspctrm';
-    else 
+    else
         inparam = 'crsspctrm';
     end
     outparam = 'wpli_debiasedspctrm';
@@ -630,7 +629,7 @@ elseif hasrpt && ~ismember(cfg.method, {'wpli', 'wpli_debiased', 'ppc', 'wppc', 
   tmpcfg = [];
   tmpcfg.avgoverrpt = 'yes';
   tmpcfg.nanmean = 'yes';
-  trialdata=data; %% GRB addition
+  trialdata=data;
   data = ft_selectdata(tmpcfg, data);
   hasrpt = false;
 else
@@ -1316,9 +1315,8 @@ if exist('dof', 'var'), stat.dof = dof; end
 
 % do the general cleanup and bookkeeping at the end of the function
 ft_postamble debug
-%ft_postamble trackconfig
 ft_postamble previous   data
-%ft_postamble provenance stat
+ft_postamble provenance stat
 ft_postamble history    stat
 ft_postamble savevar    stat
 
