@@ -6,13 +6,14 @@ clc
 restoredefaultpath
 
 mydir='D:\brainspine_data';
-subjectID ='116'; %122 or %123
+subjectID ='123'; %122 or %123
+spmpath='D:\spm';
 
 whatstr='emg+abs';
 %whatstr='brainopt+abs';
 
 %% paths
-addpath D:\spm
+addpath(spmpath)
 spm('defaults','EEG');
 addpath(genpath('D:\brainspineconnectivity'))
 
@@ -45,7 +46,7 @@ cd(dpath)
 
 %% analysis options
 SHUFFLE=1; %this performs additional shuffled CVA at ROI
-FIXORIENT=1; %empty means it calculates optimal orientation. 
+FIXORIENT=1; %empty means it calculates optimal orientation. 1 is along spinal cord
 REMOVELIN=1; 
 RMORTHBRAIN=contains(whatstr,'brain'); %% don't remove ortho brain if dealing with cord-muscle
 FIXMODES=0;%1 means force use of all channels in source recon
@@ -57,7 +58,7 @@ invtype='IID';
 IMAGECROSS=0; %only image power not cross spectrum
 
 
-for cnd=2%:size(filenames,1)
+for cnd=1%:size(filenames,1)
 
     % load the data
     DAll=spm_eeg_load(filenames(cnd,:));
@@ -84,7 +85,7 @@ for cnd=2%:size(filenames,1)
     emgind=D.indchantype('EMG');
 
     %% now compute coherence and cross spectra between brain, emg, and sensors on cord
-    cd  D:\spm\external\fieldtrip\private
+    cd(fullfile(spmpath,'external\fieldtrip\private'))
 
     seedperm=0;
     cohbrain=coh_meaghan(D,D.chanlabels(brainind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)]);
@@ -95,13 +96,18 @@ for cnd=2%:size(filenames,1)
     fbrainind=setdiff(1:length(fdat_brain.label),fbemgind);
 
 
-  %% plot power for y channels on back
+%% plot power for y channels on back
+
 yind=find(contains(fdat.grad.label,'-Y'));
 chpos=fdat.grad.chanpos(yind,1:2);
 chlab=fdat.grad.label(yind);
-fourierspec=sqfdat.fourierspctrm(:,yind,:)
+powervals=abs(fdat.fourierspctrm).^2;
+%compute the power then take the mean
+meanpower=squeeze(mean(powervals,1));
+meanpower=mean(meanpower,2);
+
 % in this coord frame.  , x up-down spine, y left-right, z is out of back ant-post
-spm_eeg_plotScalpData(fdat(yind,1),chpos,chlab)
+%spm_eeg_plotScalpData(meanpower(yind),chpos,chlab)
 
     %% plot some metrics of brain-emg interaction
     nchansBrain=length(cspect_brain.labelcmb); 
@@ -292,7 +298,7 @@ spm_eeg_plotScalpData(fdat(yind,1),chpos,chlab)
 
     %% loop over forward models
 
-    arbvals=strvcat('singlesphere'); % 'singlesphere');
+    arbvals=strvcat('singlesphere'); 
     %arbvals=strvcat('singleshell','George','localspheres','singlesphere','infinite');
 
 
@@ -351,14 +357,14 @@ spm_eeg_plotScalpData(fdat(yind,1),chpos,chlab)
                 [bmodel] = ft_prepare_headmodel(cfg,subject_m);
 
                 % if we want to shift the center of the sphere----------
-                 if findstr(arbvals(arbind,:),'sphere')
-                     bmodel.o(:,3)=bmodel.o(:,3)+.1;
+                 %if findstr(arbvals(arbind,:),'sphere')
+                     %bmodel.o(:,3)=bmodel.o(:,3)+.1;
                      %warning('shifting sphere center')
 % %                     figure;
 % %                     plot3(ps(:,1),ps(:,2),ps(:,3),'c.');
 % %                     hold on;
 % %                     plot3(bmodel.o(:,1),bmodel.o(:,2),bmodel.o(:,3),'r*');
-                 end
+                 %end
                 bmodel.unit='m';
 
                 cfg = [];
@@ -368,21 +374,8 @@ spm_eeg_plotScalpData(fdat(yind,1),chpos,chlab)
                 cfg.grad=grad_m;
                 cfg.siunits=1;
                 
-
                 [sourcemodel] = ft_prepare_leadfield(cfg);
                 
-                
-%                 for j=1:40:length(sourcemodel.pos)
-% 
-%                     Z=sourcemodel.leadfield{j};
-%                     yind=find(contains(grad_m.label,'-Z')); % sensor z is oriented ant-post
-%                     chpos=grad_m.chanpos(yind,1:2);
-%                     chlab=grad_m.label(yind);
-%                     %% in this coord frame.  , x up-down spine, y left-right, z is out of back ant-post
-%                     %                 spm_eeg_plotScalpData(Z(yind,1),chpos,chlab)
-%                     %                 title(num2str(sourcemodel.pos(j,:)));
-%                     %                 pause(0.1);
-%                 end % for j
 
                 %unravel leadfields
                 startidx=1;
@@ -547,10 +540,8 @@ spm_eeg_plotScalpData(fdat(yind,1),chpos,chlab)
     plot(unique_x(1:end-1), median_y_values(1:end-1), 'color',[0 .5 .5], 'LineWidth', 2);
 
     savename=sprintf('%s %s magopt for sourceplot.pdf',subjectID,num2str(cnd));
-    exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
-    %savename=sprintf('%s %s magopt for sourceplot',subjectID,num2str(cnd));
-    %save(fullfile(figsavedir,savename),'unique_x','median_y_values')
-
+    %exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+   
 
     %plot peak power
     figure;
@@ -638,9 +629,8 @@ spm_eeg_plotScalpData(fdat(yind,1),chpos,chlab)
     end % for f
     
    
-    %save this to bootstrap variance explained in other script
+    %save this to bootstrap variance explained later
     save(fullfile(savepath,sprintf('regdat_brainemg_%s_%s',subjectID,whatstr)), 'Ybrain2', 'Zemg','cind','rpcind')
-
 
     Fstatlin_emgbrain_real=Fstatlin_emgbrainri(cind(1,:));
     Fstatlin_emgbrain_imag=Fstatlin_emgbrainri(cind(2,:)); %% separate real and imag
@@ -663,35 +653,84 @@ spm_eeg_plotScalpData(fdat(yind,1),chpos,chlab)
     plotLinearMeasures(usefreq, Fstatlin_emgbrain_real, Fstatlin_emgbrain_imag, realSig, imagSig, brainmix_emg_coh,'Brain','EMG')
     savename=sprintf('lin_sub%s_emg_brain_%g.pdf',subjectID,cnd);
     exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
-   
-    %% Non-linear emg-brain cva (using residuals from linear regression)
+   %% use residuals from linear regression to look at within frequency envelope correlations (abs)
 
     rYbrain_abs=abs([rYbrain(:,cind(1,:))+i*rYbrain(:,cind(2,:))]); %% put it back into complex numbers then abs
     Zemg_abs=abs([Zemg(:,cind(1,:))+i*Zemg(:,cind(2,:))]);
-
+    
     %mean centre
     rYbrain_abs=rYbrain_abs-mean(rYbrain_abs);
     Zemg_abs=Zemg_abs-mean(Zemg_abs);
 
-    CVAemgbrain_abs=spm_cva(rYbrain_abs,Zemg_abs);
+    %preallocate
+    Fstat_emgbrain_env=zeros(1,numel(usefreq));
+    pvals_emgbrain_env=zeros(1,numel(usefreq));
+    rYbrain2=zeros([size(rYbrain_abs)]); %% save residuals
+
+    %loop through frequencies
+    for f=1:numel(usefreq)
+        [B,BINT,R,RINT,STATS] = regress(rYbrain_abs(:,f),[Zemg_abs(:,f) ones(size(Zemg_abs,1),1)]);
+        rYbrain2(:,f)=R;
+        Fstat_emgbrain_env(f)=STATS(2);
+        pvals_emgbrain_env(f)=STATS(3);
+    end % for f
+
+% work out the threshold using FDR
+    [~, crit_p_env, ~, adj_p_env]=fdr_bh(pvals_emgbrain_env,0.05,'dep','yes');
+    env_Sig=find(adj_p_env<0.05);
+
+ %% plot linear results
+
+ %put this in a function at some point!
+cols=colormap(brewermap([],"Dark2"));
+col3=cols(3,:); col4=cols(4,:);
+col5=cols(8,:);
+
+% Where to put significance stars
+[maxValue, ~] = max(Fstat_emgbrain_env);
+yValue1 = maxValue + 0.1 * maxValue; %
+
+figure;
+plot(usefreq, Fstat_emgbrain_env, 'color',col3,'LineWidth',3); hold on
+if ~isempty(env_Sig)
+    plot(usefreq(env_Sig), ones(1,length(env_Sig))*yValue1,'*','MarkerSize',8,'color',col3)
+end
+ylabel('F Statistic');
+xlabel('Frequency (Hz)');
+ax = gca;
+ax.FontSize = 18;
+ax.LineWidth=1.5; %change to the desired value     
+box off
+xlim([0 40])
+title('EMG brain envelope correlation')
+
+
+savename=sprintf('lin_ENV_sub%s_emg_brain_%g.pdf',subjectID,cnd);
+%exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+
+    
+    %% emg-brain cva (using residuals from linear regression)
+    rYbrain2=rYbrain2-mean(rYbrain2);
+    CVAemgbrain_abs=spm_cva(rYbrain2,Zemg_abs);
     fprintf('EMG brain CVA chi2=%.2f p=%.3f\n',CVAemgbrain_abs.chi(1),CVAemgbrain_abs.p(1))
 
     if SHUFFLE
-        rYbrain_abs=rYbrain_abs(randperm(size(rYbrain,1)),:);
-        rYbrain_abs=rYbrain_abs-mean(rYbrain_abs);
-        CVA_shuf_emgbrain=spm_cva(rYbrain_abs,Zemg_abs);
+        rYbrain2=rYbrain2(randperm(size(rYbrain2,1)),:);
+        rYbrain2=rYbrain2-mean(rYbrain2);
+        CVA_shuf_emgbrain=spm_cva(rYbrain2,Zemg_abs);
         fprintf('CVA shuf data emg brain chi2=%.2f p=%.3f \n', CVA_shuf_emgbrain.chi(1),CVA_shuf_emgbrain.p(1))
     end
+
 
     %normalize canonical vectors
     Ncan_emgbrain=max(find(CVAemgbrain_abs.p<0.05));
     normV_emgbrain=(cov(CVAemgbrain_abs.Y))*CVAemgbrain_abs.V(:,1:Ncan_emgbrain)*inv(cov(CVAemgbrain_abs.v(:,1:Ncan_emgbrain)));
     normW_emgbrain=(cov(CVAemgbrain_abs.X))*CVAemgbrain_abs.W(:,1:Ncan_emgbrain)*inv(cov(CVAemgbrain_abs.w(:,1:Ncan_emgbrain)));
 
-    plotNonlinearMeasures(usefreq, abs(normV_emgbrain(:,1)),abs(normW_emgbrain(:,1)),'Brain','EMG')
-    savename=sprintf('nonlin_sub%s_emg_brain_%g.pdf',subjectID,cnd);
-    exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
-    
+     plotNonlinearMeasures(usefreq, abs(normV_emgbrain(:,1)),abs(normW_emgbrain(:,1)),'Brain','EMG')
+%     savename=sprintf('nonlin_sub%s_emg_brain_%g.pdf',subjectID,cnd);
+%     exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+%     
     %% Spinal cord and Y(EMG/brain) linear regression at source point where power is max
 
     Y=Y-mean(Y);
@@ -756,7 +795,7 @@ spm_eeg_plotScalpData(fdat(yind,1),chpos,chlab)
     savename=sprintf('linear_sub%s_%s_cord_%g.pdf',subjectID,lab1,cnd);
     exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
     
-    %% define X Y and X0 for Y (brain or EMG)-Spinal cord CVA, nonlinear
+    %% define X Y and X0 for Y (brain or EMG)-envelope corr
 
     switch whatstr %% flags  RMORTHBRAIN and REMOVELIN now take care of options
 
@@ -792,14 +831,12 @@ spm_eeg_plotScalpData(fdat(yind,1),chpos,chlab)
         otherwise
             error('not defined')
     end % switch
-
-    %% CVA Y (brain/EMG) and spinal cord, with linear part removed
-
-    X0=X0-mean(X0);
-    chi2=0;
-    chi2r=0;
-    pval=[];
-    allCVA=[];
+%% amplitude envelope cord and emg/brain
+ 
+%preallocate
+    Fstat_env=zeros(1,numel(usefreq));
+    pvals_env=zeros(1,numel(usefreq));
+    rYcord2=zeros([size(Ycord)]); %% save residuals
 
     X=squeeze(useJ(peakind,:,:))'; % cord data
 
@@ -814,6 +851,49 @@ spm_eeg_plotScalpData(fdat(yind,1),chpos,chlab)
 
     Y=Y-mean(Y);
     X=X-mean(X);
+
+    %loop through frequencies
+    for f=1:numel(usefreq)
+        [B,BINT,R,RINT,STATS] = regress(Y(:,f),[X(:,f) ones(size(X,1),1)]);
+        rYcord2(:,f)=R;
+        Fstat_env(f)=STATS(2);
+        pvals_env(f)=STATS(3);
+    end % for f
+
+    [~, crit_p_env, ~, adj_p_env]=fdr_bh(pvals_env,0.05,'dep','yes');
+    envSig=find(adj_p_env<0.05);
+
+% Where to put significance stars
+[maxValue, ~] = max(Fstat_env);
+yValue1 = maxValue + 0.1 * maxValue; %
+
+figure;
+plot(usefreq, Fstat_env, 'color',col3,'LineWidth',3); hold on
+if ~isempty(envSig)
+    plot(usefreq(envSig), ones(1,length(envSig))*yValue1,'*','MarkerSize',8,'color',col3)
+end
+ylabel('F Statistic');
+xlabel('Frequency (Hz)');
+ax = gca;
+ax.FontSize = 18;
+ax.LineWidth=1.5; %change to the desired value     
+box off
+xlim([0 40])
+title('Cord envelope correlation')
+
+
+    %% CVA Y (brain/EMG) and spinal cord, with linear part removed
+    
+    Y=squeeze(rYcord2(:,:)); %% use residuals from env corr
+    Y=Y-mean(Y);
+
+
+    X0=X0-mean(X0);
+    chi2=0;
+    chi2r=0;
+    pval=[];
+    allCVA=[];
+
 
     CVA=spm_cva(Y,X,X0);
 
@@ -832,7 +912,7 @@ spm_eeg_plotScalpData(fdat(yind,1),chpos,chlab)
 
     if SHUFFLE
         disp('SHUFFLING DATA !')
-        Y=squeeze(Ycord(:,:)); %% this will have had linear portion removed if required
+        Y=squeeze(rYcord2(:,:));
         rng('default') %
         Y=Y(randperm(size(Y,1)),:);
         X=squeeze(useJ(peakind,:,:))'; % cord data

@@ -35,6 +35,7 @@ event = round((events/(D.fsample/dD.fsample)));
 
 EMGstartsample=event; %
 
+
 for f=1:size(OPMchansreplace,1),
     [~, EMGstruct]= readSpikeData(fullEMGname,deblank(EMGchannames(f,:)));
     %EMGdata(f,:)=detrend(EMGstruct.trial{1});

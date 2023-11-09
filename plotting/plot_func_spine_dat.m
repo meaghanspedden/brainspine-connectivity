@@ -9,12 +9,27 @@ function plot_func_spine_dat(mesh,src,func,grad,sensstl)
       ft_plot_cloud(inside,func,'scalerad','no', 'cloudtype','surf','ncirc',1,'radius',5,'colormap',colormap(flipud(colmaptouse)))
       xlabel('X'); ylabel('Y')
       axis image
+      
+
+% Get the color limits for the first plot
+cmin = min(func(:));
+cmax = max(func(:));
+
+% Determine tick positions
+ticks = linspace(cmin, cmax, 4); % Change the number (here, 5) to position more ticks
+tickLabels = arrayfun(@(x) sprintf('%.1f', x), ticks, 'UniformOutput', false);
+
+% Apply colorbar settings
+h = colorbar;
+h.Ticks = ticks;
+%h.TickLabels = tickLabels;
+
+
 
       hold on
       ft_plot_mesh(sensstl,'FaceColor', [0.7 0.7 1.0], 'facealpha', 1, 'EdgeColor','none',...
         'AmbientStrength', 0.15);
       view(7,1)
-      colorbar
       camlight
       material('dull')
 end

@@ -80,12 +80,8 @@ cfg.channelcmb = combs;
 [cspect,trialdata]      = ft_connectivityanalysis_grb_v2(cfg, fdat); %% GRB hack to get trialdata from this
 
 trcspect=trialdata.crsspctrm(:,1:length(channels),:);
-% 
+ 
 
-% csmat=abs(cspect.crsspctrm(1:length(cspect.labelcmb),:))';
-% 
-% figure
-% plot(cspect.freq,csmat)
 
 
 

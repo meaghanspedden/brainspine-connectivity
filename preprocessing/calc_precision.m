@@ -2,9 +2,9 @@
 
 clear all; close all; clc
 
-sub='122';
+sub='123';
 hand='l';
-savedir='D:\MSST001\Coh_results00122';
+savedir='D:\MSST001\Coh_results00123';
 EMGdir=['D:\OP00',sub,'_experiment\EMGfiles\'];
 
 if strcmp(sub,'116')

@@ -1,22 +1,24 @@
 %% Pre process data from hand contraction. ~ July 2023
 % concurrent brain spinal cord OPM recordings
 
-%subject 123 (recorded under 124)
+%subject 123
 
 clear all;
 close all;
 
-sub='OP00124'; %clerical error. registered as 123 but in acq comp 124.
+sub='OP00124';
 
 bids_session='001';
 dsprefix=1;
 
 brainchan_labels={'19','DG', 'OH', 'A1','1B', 'A9','JS','A6','DJ','MY','DS','OK','MI','17'};
 badchans={'ML-X','ML-Y','ML-Z','K4-Z','K4-X'}; %%
+refsens={'GD','A2','N3'};
 posfileneck='D:\MSST001\sub-OP00124\ses-001\meg\ds_sub-OP00124_ses-001_positions.tsv';
 
 EMGpath='D:\OP00123_experiment\EMGfiles';
 EMGfiletemplate='000123_static_';
+savedir='D:\MSST001\Coh_results00123';
 
 
 
@@ -32,14 +34,22 @@ EMGfiletemplate='000123_static_';
     MEGHP=1;
     MEGLP=1;
     MEGBS=1; % stop band
-    HB=0; %% heartbeat removal
+    HB=1; %% heartbeat removal
     EMGHP=1; %% HP filter EMG
     ONEEPOCH=0; %% put this on if you just want single long epoch
-
+    SG=1;
 
 %% which opm files correspond to which emg files
 Bothexptorder={...
-    '001'  'R'  '08'};
+    '001'  'R'  '08'
+    '003'  'R'  '10';
+    '004'  'R'  '12';
+    '005'  'R'  '14';
+
+    '001'  'L'  '16';
+    '002'  'L'  '18';
+    '003'  'L'  '20';
+    '004'  'L'  '22'};
 
 
 %% trig info
@@ -51,25 +61,23 @@ EMGtriglatency=0.05;
 %% paths
 
 datadir= 'D:\MSST001';
-addpath('D:\spm12')
+addpath('D:\spm')
 spm('defaults','EEG')
 addpath(genpath('D:\brainspineconnectivity'))
 rng(123) %dont think there is anything stochastic but just to be sure
-warning('MAKE SURE TO CHANGE spm_eeg_filter to GRB version')
 %% right and left hands
 
-for RIGHT=1
+for RIGHT=0
 
     if RIGHT
-        exptorder=Bothexptorder;
+        exptorder=Bothexptorder(1:4,:);
         pstr='rhand';
-        hbcomps=[];
+        hbcomps=[1 2 1 2];
+    else
+        exptorder=Bothexptorder(5:8,:);
+        pstr='lhand';
+        hbcomps=[1 1 1 2]; %components containing heartbeat activity in each run. hard coded.
     end
-%     else
-%         exptorder=Bothexptorder(5:8,:);
-%         pstr='lhand';
-%         hbcomps=[1 1 1 2]; %components containing heartbeat activity in each run. hard coded.
-%     end
 
     %%
 
@@ -82,9 +90,15 @@ for RIGHT=1
             EMGchanname='EMG 1';
             otherEMGchan='EMG 2';
             EMGfilename=[EMGfiletemplate,cell2mat(exptorder(exptind,3)),'.smrx'];
-            task='noise';
+            task='staticright';
         end
 
+        if strcmp(exptorder(exptind,2),'L')
+            EMGchanname='EMG 2';
+            otherEMGchan='EMG 1';
+            EMGfilename=[EMGfiletemplate,cell2mat(exptorder(exptind,3)),'.smrx'];
+            task='staticleft';
+        end
 
         run=cell2mat(exptorder(exptind,1));
 
@@ -137,7 +151,7 @@ for RIGHT=1
             S.band='high';
             S.chans2filter=D.indchantype('MEG');
             S.prefix=sprintf('hi%d',fband(1));
-            D=spm_eeg_filter(S);
+            D=spm_eeg_filter_grb(S);
 
         end
         %%  NOW LP FILTER JUST MEG
@@ -149,7 +163,7 @@ for RIGHT=1
             S.band='low';
             S.prefix=sprintf('lo%d',fband(2));
             S.chans2filter=D.indchantype('MEG'); %% JUSTMEG NOT EMG
-            D=spm_eeg_filter(S);
+            D=spm_eeg_filter_grb(S);
         end
 
 
@@ -162,7 +176,7 @@ for RIGHT=1
             S.freq=stpband1;
             S.D=D;
             S.chans2filter=D.indchantype('MEG');
-            D=spm_eeg_filter(S);
+            D=spm_eeg_filter_grb(S);
 
             S=[];
             S.D=D;
@@ -170,7 +184,7 @@ for RIGHT=1
             S.order=3;
             S.freq=stpband2;
             S.chans2filter=D.indchantype('MEG'); % don't apply 2nd bandstop to emg
-            D=spm_eeg_filter(S);
+            D=spm_eeg_filter_grb(S);
 
         end
 %% get spine channel indices and channel labels
@@ -206,6 +220,18 @@ for RIGHT=1
         S.D=D;
         dD=spm_eeg_downsample(S);
 
+        %% synthetic gradiometry
+       if SG==1
+        refidx=find(contains(dD.chanlabels,refsens));
+        dD=chantype(dD,refidx,'REF');
+
+        S=[];
+        S.D=dD;
+        S.confounds={'REF'};
+
+        dD = spm_opm_synth_gradiometer(S);
+       end
+
         %% splice EMG data into the downsampled OPM dataset
 
         EMGchannames=strvcat(EMGchanname,otherEMGchan);
@@ -230,7 +256,6 @@ for RIGHT=1
             epochsamples=EpochTime*dD.fsample;
         end
 
-        EMGsamples=1:size(dD(:,:,:),2);
         Nepochs=floor(length(EMGsamples)/epochsamples);
 
         %make trl matrix for epoching
@@ -251,7 +276,9 @@ for RIGHT=1
         %% remove outliers
         S=[];
         S.D=dDep;
-        [dDep] = spm_opm_removeOutlierTrials(S);
+        [dDep,retain] = spm_opm_removeOutlierTrials(S);
+        savename=sprintf('retainedtrials%srun%s_%s',sub,run,pstr(1));
+        save(fullfile(savedir,savename),'retain')
 
 
         allfilenames=strvcat(allfilenames,dDep.fname);
