@@ -6,11 +6,11 @@ clc
 restoredefaultpath
 
 mydir='D:\brainspine_data';
-subjectID ='116'; %122 or %123
+subjectID ='123'; %122 or %123
 spmpath='D:\spm';
 
-whatstr='emg+abs';
-%whatstr='brainopt+abs';
+%whatstr='emg+abs';
+whatstr='brainopt+abs';
 
 %% paths
 addpath(spmpath)
@@ -60,7 +60,7 @@ invtype='IID';
 IMAGECROSS=0; %only image power not cross spectrum
 
 
-for cnd=2%:size(filenames,1)
+for cnd=1%:size(filenames,1)
 
     % load the data
     DAll=spm_eeg_load(filenames(cnd,:));
@@ -137,7 +137,7 @@ for cnd=2%:size(filenames,1)
     refdat_FC=squeeze(mean(fdat_ref.fourierspctrm,1)); %dimensions trialstapers x channels x freq
 
     refdat=refdat_FC-mean(refdat_FC); %mean centre
-    [Uref,S,~]=svd(real(refdat)*real(refdat)'); %% use real part
+    [Uref,S,~]=svd(refdat*refdat'); %% use real part
     varexp=cumsum(diag(S))./sum(diag(S));
     Nrcomp=min(find(varexp>0.95));
 
