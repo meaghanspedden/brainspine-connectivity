@@ -8,6 +8,7 @@ restoredefaultpath
 mydir='D:\brainspine_data';
 subjectID ='123'; %122 or %123
 spmpath='D:\spm';
+repopath='D:\brainspineconnectivity';
 
 %whatstr='emg+abs';
 whatstr='brainopt+abs';
@@ -15,7 +16,7 @@ whatstr='brainopt+abs';
 %% paths
 addpath(spmpath)
 spm('defaults','EEG');
-addpath(genpath('D:\brainspineconnectivity'))
+addpath(genpath(repopath))
 
 %% get meta data
 
@@ -46,15 +47,13 @@ cd(dpath)
 
 %% analysis options
 
-SHUFFLE=1; %this performs additional shuffled CVA at ROI
-FIXORIENT=2; %empty means it calculates optimal orientation. 1 is along spinal cord
-REMOVELIN=1;
-RMORTHBRAIN=contains(whatstr,'brain'); %% don't remove ortho brain if dealing with cord-muscle
-FIXMODES=0;%1 means force use of all channels in source recon
+SHUFFLE=1; %no longer used (permutation option)
+FIXORIENT=2; %which source orientation along spinal cord. Empty=>calculates optimal ori
+FIXMODES=0; %1 means force use of all channels in source recon
 CLONETRIALS=1; % use all trial data (1) rather than average (0)
 
-freqroi=[1 35];
-freqtest=5; %we only want to test from 5 hz
+freqroi=[1 35]; %we want to plot connectivity spectra from 1-35 Hz
+freqtest=5; %but we only want to test from 5 hz
 invtype='IID';
 
 IMAGECROSS=0; %only image power not cross spectrum
@@ -69,15 +68,14 @@ for cnd=1%:size(filenames,1)
     cname=[a1 filesep 'clone_b1' b1 c1 ];
     D=DAll; %keep a copy
 
-   
 
     %% identify channels on spine (the ones that have positions and ori)
 
     grad=D.sensors('MEG');
-    badgrad=badchannels(D);
+    badgrad=badchannels(D); %bad channels
     [a1,b1,spineind]=intersect(grad.label,D.chanlabels);
-    spineind=setdiff(spineind,D.badchannels); %% remove bad channels
-    refind=find(contains(chantype(D),'REF'));
+    spineind=setdiff(spineind,D.badchannels); % remove bad channels
+    refind=find(contains(chantype(D),'REF')); %indices for ref channesl
 
 
     %% get list of indices of channels on cortex
@@ -90,8 +88,10 @@ for cnd=1%:size(filenames,1)
     %get index for EMG
     emgind=D.indchantype('EMG');
 
-    %% now compute coherence and cross spectra between brain, emg, and sensors on cord
-    cd(fullfile(spmpath,'external\fieldtrip\private'))
+    %% compute coherence and cross spectra between brain, emg, and sensors on cord
+    
+    cd(fullfile(spmpath,'external\fieldtrip\private')) %hack because FT code is edited.
+    %can probably be fixed using built in function
 
     seedperm=0;
     cohbrain=coh_meaghan(D,D.chanlabels(brainind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)]);
@@ -99,7 +99,7 @@ for cnd=1%:size(filenames,1)
     [cspect,fdat,trialcspect]=xspectrum_meaghan(D,D.chanlabels(spineind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)],seedperm);
     [cspect_brain,fdat_brain,trialcspect_brain]=xspectrum_meaghan(D,D.chanlabels(brainind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)],seedperm);
 
-    fbemgind=find(contains(fdat_brain.label,D.chanlabels(emgind(1))));
+    fbemgind=find(contains(fdat_brain.label,D.chanlabels(emgind(1)))); %indices in freq dat struct
     fbrainind=setdiff(1:length(fdat_brain.label),fbemgind);
 
 
@@ -115,6 +115,7 @@ for cnd=1%:size(filenames,1)
     replace.ind=fbrainind;
 
     %replace one of the channels with this mixture
+
     if strcmp(subjectID,'136')
         replace.label='G2-35-Y';
     else
@@ -122,24 +123,31 @@ for cnd=1%:size(filenames,1)
     end
 
 
-    %% replace one of the chans with optimal linear mixture and compare to other channels
+    %% replace one of the chans with optimal linear mixture 
 
     [cspect_brainmix,fdat_brainmix,trialcspect_brainmix]=xspectrum_meaghan(D,D.chanlabels(brainind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)],seedperm,[],replace);
     ind=find(contains(cspect_brainmix.labelcmb,replace.label));
 
-    %% make control signal based on reference channels
-     [~,fdat_ref,~]=xspectrum_meaghan(D,D.chanlabels(refind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)],seedperm);
-    cfg=[];
-    cfg.channel=fdat_ref.label(~contains(fdat_ref.label,'EMG')); %get rid of EMG
+    %% make control signal for null space based on reference channels
+    
+    %get freq decomposition
+    [~,fdat_ref,~]=xspectrum_meaghan(D,D.chanlabels(refind),D.chanlabels(emgind(1)),[min(freqroi) max(freqroi)],seedperm);
+    
+    %get rid of EMG (function above requires)
+    cfg=[]; 
+    cfg.channel=fdat_ref.label(~contains(fdat_ref.label,'EMG')); 
     fdat_ref=ft_selectdata(cfg,fdat_ref);
 
-%     %mean over trials and tapers
+    %mean over trials and tapers
     refdat_FC=squeeze(mean(fdat_ref.fourierspctrm,1)); %dimensions trialstapers x channels x freq
 
     refdat=refdat_FC-mean(refdat_FC); %mean centre
-    [Uref,S,~]=svd(refdat*refdat'); %% use real part
+
+    [Uref,S,~]=svd(refdat*refdat'); 
+
     varexp=cumsum(diag(S))./sum(diag(S));
-    Nrcomp=min(find(varexp>0.95));
+
+    Nrcomp=min(find(varexp>0.95));%take nr comps that explain 95% var
 
     refX0=[]; %multiply data by weights.
 
@@ -153,6 +161,9 @@ for cnd=1%:size(filenames,1)
     end
 
     %% get indices of channels within the fdat structure
+
+%NOTE throughout the code I think there are some redundancies with vectors
+%of indicies, could clean this up
 
     fspemgind=find(contains(fdat.label,D.chanlabels(emgind(1))));
     spind=setdiff(1:length(fdat.label),fspemgind);
@@ -232,13 +243,12 @@ for cnd=1%:size(filenames,1)
     %% convert to SI units
     src_m=ft_convert_units(src,'m');
     grad_m=ft_convert_units(grad,'m');
-    [subject_m] = ft_convert_units(subject, 'm');
+    subject_m = ft_convert_units(subject, 'm');
 
     %% loop over forward models
 
     arbvals=strvcat('infinite_currentdipole');
     %arbvals=strvcat('singleshell','localspheres','singlesphere','infinite');
-
 
     allF=[]; %can loop over volume conductors and compare FE
     allR2=allF;
@@ -412,7 +422,7 @@ for cnd=1%:size(filenames,1)
 
     %get orientation of noise
     Jvnoise=sqrt([sum(diag(Jnoisecov(xind,xind))) sum(diag(Jnoisecov(yind,yind))) sum(diag(Jnoisecov(zind,zind)))]);
-    Jvnoise=Jvnoise./sqrt(dot(Jvnoise,Jvnoise)); %this is optimal orientation
+    Jvnoise=Jvnoise./sqrt(dot(Jvnoise,Jvnoise)); 
 
     if ~isempty(FIXORIENT) %if user specifies orientation use this instead
         Jv=u_src(:,FIXORIENT);
@@ -440,9 +450,8 @@ for cnd=1%:size(filenames,1)
     Jonoisecov=Jonoisecov./ntapers;
 
     magopt=sqrt(diag(Jocov)); %power at each sourcepoint
-    magopt_noise=sqrt(diag(Jonoisecov));
+    magopt_noise=sqrt(diag(Jonoisecov)); %same for noise
     [~,peakind]=max(magopt); %% index for sourcepoint with peak power
-
 
     %% Make source figure
     f1=figure;
@@ -457,8 +466,8 @@ for cnd=1%:size(filenames,1)
     cmax = max(magopt(:));
 
     % Calculate the median y values for each unique x value
-    unique_x = unique(xvals);
-    median_y_values = splitapply(@median, magopt, findgroups(xvals));
+    unique_x=unique(xvals);
+    median_y_values=splitapply(@median, magopt, findgroups(xvals));
 
     hold on; 
     plot(unique_x(1:end-1), median_y_values(1:end-1), 'color',[0 .5 .5], 'LineWidth', 2);
@@ -473,7 +482,7 @@ for cnd=1%:size(filenames,1)
     hold on
 
     if strcmp(subjectID,'116') && cnd==1
-    
+        warning('Hard coded to find local max for 116')
        plot3(src.pos(peakind,1), src.pos(peakind,2),src.pos(peakind,3),'ro','MarkerSize',10)
 
         [~,I]=maxk(magopt,6);
@@ -484,6 +493,7 @@ for cnd=1%:size(filenames,1)
 
     elseif strcmp(subjectID,'116') && cnd==2
     plot3(src.pos(peakind,1), src.pos(peakind,2),src.pos(peakind,3),'ro','MarkerSize',10)
+        warning('Hard coded to find local max for 116')
 
         [~,I]=maxk(magopt,7);
         peakind=I(7);
@@ -497,7 +507,7 @@ for cnd=1%:size(filenames,1)
     exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
 
 %    savename=sprintf('%s %s %g_backview.png',subjectID,whatstr,cnd);
-%     exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+%    exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
 
     %% Ybrain should be data from optimal linear mixture of channels to get cross spectrum with emg
 
@@ -513,9 +523,10 @@ for cnd=1%:size(filenames,1)
     emgdat_complex=emdata-mean(emdata);
 
     freqtestidx=find(usefreq==freqtest); %we only want to test functional connectivity from % hz
-
+    Prec=[]; %do not include precision here
+   
     whichanalysis='emgbrain';
-    new_CVA_FC2(Ybrain_complex,emgdat_complex,refX0,usefreq,freqtestidx,whichanalysis,figsavedir,subjectID,cnd);
+    [chi_lin_emgbr, chi_env_emgbr, chi_cross_emgbr]= new_CVA_FC2(Ybrain_complex,emgdat_complex,refX0,Prec,usefreq,freqtestidx,whichanalysis,figsavedir,subjectID,cnd);
     
     %compute coherence for comparison
     %XY_coh= cohxy(emgdat_complex,Ybrain_complex,fdat);
@@ -546,63 +557,38 @@ for cnd=1%:size(filenames,1)
     useJ = Jorient; %spinal cord data at all source points
     X=squeeze(useJ(peakind,:,:))'; % cord data where power is max
     X=X-mean(X);
+    Prec=[];
+    [chi_lin_spine, chi_env_spine, chi_cross_spine]= new_CVA_FC2(Y,X,refX0,Prec,usefreq,freqtestidx,whichanalysis,figsavedir,subjectID,cnd);
 
-    new_CVA_FC2(Y,X,refX0,usefreq,freqtestidx,whichanalysis,figsavedir,subjectID,cnd);
-
-   % XY_coh = cohxy(X,Y,fdat);
+    % XY_coh = cohxy(X,Y,fdat);
 
     %figure
     %plot(XY_coh.freq, squeeze(XY_coh.cohspctrm(1,2,:)))
 
-    %% final CVA between task precision and spinal cord
+    %% now add precision as acolumn to design matrix and run again
     
-
-    Xabs=abs(X);
-    Xabs=Xabs-mean(Xabs);
-
-    Yabs=abs(Y);
-    Yabs=Yabs-mean(Yabs);
-
-    Yabs=Yabs(:,freqtestidx:end); %select frequencies to test
-    Xabs=Xabs(:,freqtestidx:end);
-    
-    X0abs=squeeze(abs(refX0(:,1,freqtestidx:end))); %prepare null space-only 1st PC here.
-    X0abs=X0abs-mean(X0abs);
-
-    CVAout=spm_cva(Yabs,Xabs,X0abs); %this is the CVA we use to extract weights to multipy by high and low rpecision trials
-
     %load Error for all one second periods
     load(fullfile(savepath,sprintf('%s_error_all_%s',subjectID,pstr(3)))) %load trial wise errors
-    %var is called allErrors
+    %variable is called allErrors
    
-
-    tapspertrial=ntapers/size(D,3);
+    tapspertrial=ntapers/size(D,3); %repeat for number of tapers
     errorsrep = repelem(allErrors, tapspertrial);
-
-    medianValue = median(errorsrep);
-    belowMedianIndices = errorsrep < medianValue;
-    aboveMedianIndices = errorsrep >= medianValue;
-
-    %find corresponding X trials
-
-    W=CVAout.W;
-    XbelowMed=CVAout.X(belowMedianIndices,:);
-    XaboveMed=CVAout.X(aboveMedianIndices,:);
-
-    %plot X*W for each group
-
-    bel=XbelowMed*W(:,1);
-    abv=XaboveMed*W(:,1);
+    
+    %mean centre
+    errorsrep=errorsrep-mean(errorsrep);
+    Prec=errorsrep';
 
 
-    figure; plot(bel);
-    hold on; plot(abv)
-    legend({'low precision','high precision'})
-
-    [H,P,CI,STATS]=ttest2(bel,abv);
-     disp(P)
+   %spinal cord and brain or EMG WITH PRECISION
+   [chi_lin_P_spine, chi_env_P_spine, chi_cross_P_spine]=new_CVA_FC2(Y,X,refX0,Prec,usefreq,freqtestidx,whichanalysis,figsavedir,subjectID,cnd);
 
 
+   %EMG brain WITH PRECISION
+   whichanalysis='emgbrain';
+   [chi_lin_P_emgbr, chi_env_P_emgbr, chi_cross_P_emgbr]= new_CVA_FC2(Ybrain_complex,emgdat_complex,refX0,Prec,usefreq,freqtestidx,whichanalysis,figsavedir,subjectID,cnd);
+    
+    
+   
 
 end % for filenames
 

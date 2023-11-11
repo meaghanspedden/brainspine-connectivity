@@ -1,4 +1,4 @@
-function new_CVA_FC2(Ydat,Xdat,refdat,usefreq,freqtestidx,whichanalysis,figsavedir,subjectID,cnd)
+function [chi_lin, chi_env, chi_cross]= new_CVA_FC2(Ydat,Xdat,refdat,Prec,usefreq,freqtestidx,whichanalysis,figsavedir,subjectID,cnd)
 
 
 fY=Ydat;
@@ -16,6 +16,9 @@ resid_CVA=zeros(size(fY)); %save residuals for cross frequency analysis
 p_env=zeros(1,numel(usefreq)); %save p values
 p_lin=zeros(1,numel(usefreq));
 
+chi_env=zeros(1,numel(usefreq));
+chi_lin=zeros(1,numel(usefreq));
+
 for f=1:numel(usefreq)
 
     %% look for phase and amplitude relationship first
@@ -25,6 +28,10 @@ for f=1:numel(usefreq)
     X=[real(fX(:,f)) imag(fX(:,f))];
     Y=[real(fY(:,f)) imag(fY(:,f))];
     X0=[real(refdat(:,:,f)) imag(refdat(:,:,f))];
+
+    if~isempty(Prec)
+        X=[X Prec];
+    end
 
     % mean centre
     X=X-mean(X);
@@ -36,6 +43,7 @@ for f=1:numel(usefreq)
     Nsig(f)=length(find(CVA.p<0.05)); %% number significant components
     r2_lin(f)=CVA.r(1).^2; %% linear variance explained
     p_lin(f)=CVA.p(1); % p value
+    chi_lin(f)=CVA.chi(1);
 
     cvashift=CVA.W/CVA.V; %% prediction coeffs
     Ypred=X*cvashift; %% prediction of Y based on X
@@ -56,6 +64,10 @@ for f=1:numel(usefreq)
     Xe=abs([X(:,1)+X(:,2)*i]);
     X0e=abs(refdat(:,:,f));
 
+    if~isempty(Prec)
+        Xe=[Xe Prec];
+    end
+
     Xe=Xe-mean(Xe); %mean centre
     Ye=Ye-mean(Ye);
     X0e=X0e-mean(X0e);
@@ -65,6 +77,7 @@ for f=1:numel(usefreq)
     Nsigenv(f)=length(find(CVAenv.p<0.05)); %% number significant components
     r2_env_CVA(f)=CVAenv.r(1).^2; %% linear variance explained
     p_env(f)=CVAenv.p(1);
+    chi_env=CVAenv.chi(1);
 
     cvashiftenv=CVAenv.W/CVAenv.V; %% prediction coeffs
     Ypredenv=Xe*cvashiftenv; %% prediction of Y based on X
@@ -86,6 +99,11 @@ end % for frequency loop
 Ycross=resid_CVA-mean(resid_CVA); %already abs; now mean centre
 
 Xcross=abs(Xdat); %take the envelope
+
+if~isempty(Prec)
+        Xcross=[Xcross Prec];
+end
+
 Xcross=Xcross-mean(Xcross);
 
 
@@ -94,6 +112,7 @@ Ycross=Ycross(:,freqtestidx:end);
 Xcross=Xcross(:,freqtestidx:end);
 
 CVAcrossfreq=spm_cva(Ycross,Xcross);
+chi_cross=CVAcrossfreq.chi(1);
 
 fprintf('CVA cross freq env p = %.5f chi=%.3f\n',CVAcrossfreq.p(1),CVAcrossfreq.chi(1))
 
@@ -195,22 +214,23 @@ else
     lab2='Spinal cord';
 
 end
-
-figure;
-plot(usefreq(freqtestidx:end),abs(normV(:,1)),'LineWidth',3,'color',col1) %Y
-box off
-ax = gca;
-ax.FontSize = 18;
-ax.LineWidth=1.5; %change to the desired value
-hold on
-yyaxis right
-plot(usefreq(freqtestidx:end),abs(normW(:,1)),'LineWidth',3,'color', col2,'LineStyle','-.') %X
-legend({lab1,lab2},'Location','best')
-legend boxoff
-xlim([0 40])
-
-savename=sprintf('CANVECS_sub%s_%s_%g.pdf',subjectID,whichanalysis,cnd);
-exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+if isempty(Prec) %now have extra column 
+    figure;
+    plot(usefreq(freqtestidx:end),abs(normV(:,1)),'LineWidth',3,'color',col1) %Y
+    box off
+    ax = gca;
+    ax.FontSize = 18;
+    ax.LineWidth=1.5; %change to the desired value
+    hold on
+    yyaxis right
+    plot(usefreq(freqtestidx:end),abs(normW(:,1)),'LineWidth',3,'color', col2,'LineStyle','-.') %X
+    legend({lab1,lab2},'Location','best')
+    legend boxoff
+    xlim([0 40])
+    
+    savename=sprintf('CANVECS_sub%s_%s_%g.pdf',subjectID,whichanalysis,cnd);
+    exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+end
 
 else
     fprintf('CVA not significant\n')
