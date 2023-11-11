@@ -158,8 +158,10 @@ xlim([0 40])
 ylabel('R^2')
 title('Phase and amplitude')
 
+if ~isempty(Prec)
 savename=sprintf('PA_sub%s_%s_%g.pdf',subjectID,whichanalysis,cnd);
 exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+end
 
 
 %% plot envelope association
@@ -183,8 +185,10 @@ xlim([0 40])
 ylabel('R^2')
 title('Envelope')
 
+if ~isempty(Prec)
 savename=sprintf('ENV_sub%s_%s_%g.pdf',subjectID,whichanalysis,cnd);
 exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+end
 
 %% CVA cross freq plots for supplementary material
 
