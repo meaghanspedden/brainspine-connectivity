@@ -168,8 +168,10 @@ xlim([0 40])
 ylabel('R^2')
 title('Phase and amplitude')
 
+if ~isempty(Prec)
 savename=sprintf('PA_sub%s_%s_%g.pdf',subjectID,whichanalysis,cnd);
 exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+end
 
 
 %% plot envelope association
@@ -193,9 +195,10 @@ xlim([0 40])
 ylabel('R^2')
 title('Envelope')
 
-
+if ~isempty(Prec)
 savename=sprintf('ENV_sub%s_%s_%g.pdf',subjectID,whichanalysis,cnd);
 exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+end
 
 %% CVA cross freq plots for supplementary material
 
@@ -225,7 +228,7 @@ else
     lab2='Spinal cord';
 
 end
-
+if isempty(Prec) %now have extra column 
     figure;
     plot(usefreq(freqtestidx:end),abs(normV(:,1)),'LineWidth',3,'color',col1) %Y
     box off
@@ -241,7 +244,7 @@ end
     
     savename=sprintf('CANVECS_sub%s_%s_%g.pdf',subjectID,whichanalysis,cnd);
     exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
-
+end
 
 else
     fprintf('CVA not significant\n')

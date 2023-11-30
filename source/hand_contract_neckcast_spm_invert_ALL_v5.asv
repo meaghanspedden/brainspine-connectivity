@@ -6,12 +6,12 @@ clc
 restoredefaultpath
 
 mydir='D:\brainspine_data';
-subjectID ='122'; %122 or %123
+subjectID ='116'; %122 or %123
 spmpath='D:\spm';
 repopath='D:\brainspineconnectivity';
 
-whatstr='emg+abs';
-%whatstr='brainopt+abs';
+%whatstr='emg+abs';
+whatstr='brainopt+abs';
 
 %% paths
 addpath(spmpath)
@@ -59,7 +59,7 @@ invtype='IID';
 IMAGECROSS=0; %only image power not cross spectrum
 
 
-for cnd=2%:size(filenames,1)
+for cnd=1%:size(filenames,1)
 
     % load the data
     DAll=spm_eeg_load(filenames(cnd,:));
@@ -636,7 +636,7 @@ for cnd=2%:size(filenames,1)
     
     fprintf('p value for emgbr cross freq is %g\n',p_value_cross_emgbr)
     %% now do the same for spinal cord CVA comparisons
-    %phase
+
     p_values_lin_spine = 1 - fcdf(Fvals_lin_spine, df_lin_P_spine, df_lin_spine);
     
     [~, crit_p_lin_spine, ~, adj_p_lin_spine]=fdr_bh(p_values_lin_spine(freqtestidx:end),0.05,'dep','no');
@@ -651,10 +651,8 @@ for cnd=2%:size(filenames,1)
 
 %envelope
     p_values_env_spine = 1 - fcdf(Fvals_env_spine, df_env_P_spine, df_env_spine);
-    
-    [~, ~, ~, adj_p_env_spine]=fdr_bh(p_values_env_spine(freqtestidx:end),0.05,'dep','no');
-    
-    env_spine_Sig=find(adj_p_env_spine<0.05);
+    [~, crit_p_env_spine, ~, adj_p_env_spine]=fdr_bh(p_values_env_spine(freqtestidx:end),0.05,'dep','no');
+    env_spine_Sig=find(adj_p_env_spine<crit_p_env_spine);
 
      if ~isempty(env_spine_Sig)
         fprintf('sig change, check out which freqs\n')
@@ -664,7 +662,6 @@ for cnd=2%:size(filenames,1)
 
 
     p_value_cross_spine = 1 - fcdf(Fvals_cross_spine, df_cross_P_spine, df_cross_spine);
-   
     fprintf('p value for spine cross freq is %g\n',p_value_cross_emgbr)
 
 end % for filenames
