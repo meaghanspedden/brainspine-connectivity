@@ -10,8 +10,8 @@ subjectID ='122'; %122 or %123
 spmpath='D:\spm';
 repopath='D:\brainspineconnectivity';
 
-%whatstr='emg+abs';
-whatstr='brainopt+abs';
+whatstr='emg+abs';
+%whatstr='brainopt+abs';
 
 %% paths
 addpath(spmpath)
@@ -598,7 +598,7 @@ for cnd=1%:size(filenames,1)
 
     Fvals_lin_spine=(chi_lin_P_spine./df_lin_P_spine)./(chi_lin_spine./df_lin_spine);
     Fvals_env_spine=(chi_env_P_spine./df_env_P_spine)./(chi_env_spine./df_env_spine);
-    Fvals_cross_spine=(chi_cross_P_spine/df_cross_P_spine)/(chi_cross_spine;
+    Fvals_cross_spine=(chi_cross_P_spine/df_cross_P_spine)/(chi_cross_spine/df_cross_spine);
 
     
     %% calculate p values from F stats and df and correct for mult comp
@@ -609,6 +609,10 @@ for cnd=1%:size(filenames,1)
     [~, ~, ~, adj_p_lin_emgbr]=fdr_bh(p_values_lin_emgbr(freqtestidx:end),0.05,'dep','no');
     
     lin_emgbrain_Sig=find(adj_p_lin_emgbr<0.05);
+
+    figure; plot(usefreq,Fvals_lin_emgbr);
+    title('Phase emg brain F stats')
+
     
     if ~isempty(lin_emgbrain_Sig)
         fprintf('sig change, check out which freqs\n')
@@ -629,12 +633,17 @@ for cnd=1%:size(filenames,1)
     else
         fprintf('no sig change for env emg brain\n')
     end
+
+    figure;
+    plot(usefreq,Fvals_env_emgbr)
+    title('F stats for env emgbr')
    
     %% one p value for cross freq cva comparison
 
     p_value_cross_emgbr = 1 - fcdf(Fvals_cross_emgbr, df_cross_P_emgbr, df_cross_emgbr);
     
     fprintf('p value for emgbr cross freq is %g\n',p_value_cross_emgbr)
+   
     %% now do the same for spinal cord CVA comparisons
     %phase
     p_values_lin_spine = 1 - fcdf(Fvals_lin_spine, df_lin_P_spine, df_lin_spine);
@@ -647,9 +656,13 @@ for cnd=1%:size(filenames,1)
         fprintf('sig change, check out which freqs\n')
     else
         fprintf('no sig change for lin spine\n')
-    end
+     end
 
-%envelope
+     figure
+     plot(usefreq,Fvals_lin_spine)
+     title('F stats phase spine')
+
+    %envelope
     p_values_env_spine = 1 - fcdf(Fvals_env_spine, df_env_P_spine, df_env_spine);
     
     [~, ~, ~, adj_p_env_spine]=fdr_bh(p_values_env_spine(freqtestidx:end),0.05,'dep','no');
@@ -660,7 +673,11 @@ for cnd=1%:size(filenames,1)
         fprintf('sig change, check out which freqs\n')
     else
         fprintf('no sig change for env spine\n')
-    end
+     end
+
+     figure
+     plot(usefreq, Fvals_env_spine)
+     title('F stats env spine')
 
 
     p_value_cross_spine = 1 - fcdf(Fvals_cross_spine, df_cross_P_spine, df_cross_spine);

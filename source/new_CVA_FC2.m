@@ -26,9 +26,6 @@ for f=1:numel(usefreq)
 
     %% look for phase and amplitude relationship first
 
-    fX=fX./norm(fX); %if we want to remove amplitude component
-    fY=fY./norm(fY);
-    warning('dividing by norms to remove amp component')
 
     %separate into real and imaginary parts
     X=[real(fX(:,f)) imag(fX(:,f))];
@@ -57,11 +54,11 @@ for f=1:numel(usefreq)
     Yr=Y-Ypred; %% residuals after best linear prediction removed
 
     %test that relationship is gone
-        CVAresid=spm_cva(Yr,X,X0);
+    CVAresid=spm_cva(Yr,X,X0);
 
-        if CVAresid.p < 0.05
-            error('there is still a relationship p should not be sig!')
-        end
+    if CVAresid.p < 0.05
+        error('there is still a relationship p should not be sig!')
+    end
 
 
     %% now look for envelope
@@ -90,11 +87,11 @@ for f=1:numel(usefreq)
     cvashiftenv=CVAenv.W/CVAenv.V; %% prediction coeffs
     Ypredenv=Xe*cvashiftenv; %% prediction of Y based on X
     Yrenv=Ye-Ypredenv; %% residuals after best linear prediction removed
-    
+
     CVAenvresid=spm_cva(Yrenv,Xe,X0e);
-     if CVAenvresid.p < 0.05
+    if CVAenvresid.p < 0.05
         error('there is still a relationship p should not be sig!')
-     end
+    end
 
     resid_CVA(:,f)=Yrenv; %save residuals for cross-freq analysis
 
@@ -109,7 +106,7 @@ Ycross=resid_CVA-mean(resid_CVA); %already abs; now mean centre
 Xcross=abs(Xdat); %take the envelope
 
 if~isempty(Prec)
-        Xcross=[Xcross Prec];
+    Xcross=[Xcross Prec];
 end
 
 Xcross=Xcross-mean(Xcross);
@@ -130,169 +127,169 @@ fprintf('CVA cross freq env p = %.5f chi=%.3f\n',CVAcrossfreq.p(1),CVAcrossfreq.
 
 if isempty(Prec)
 
-[~, ~, ~, adj_p]=fdr_bh(p_lin(freqtestidx:end),0.05,'dep','no');
-linSig=find(adj_p<0.05);
+    [~, ~, ~, adj_p]=fdr_bh(p_lin(freqtestidx:end),0.05,'dep','no');
+    linSig=find(adj_p<0.05);
 
-[~, ~, ~, adj_p]=fdr_bh(p_env(freqtestidx:end),0.05,'dep','no');
-envSig=find(adj_p<0.05);
-
-
-%% plot phase amplitude association
-
-cols=colormap(brewermap([],"Dark2"));
-delete(gcf) %colormap command opens a figure, close it
-
-col1=cols(1,:); col2=cols(2,:);
-col3=cols(3,:); col4=cols(4,:);
-col5=cols(8,:);
-
-freqshift=freqtestidx-usefreq(1); %index shift because testing from 5 Hz
-
-% Where to put significance stars
-% [maxValue, ~] = max(r2_lin);
-% yValue1 = maxValue + 0.1 * maxValue;
-
-figure; pp=plot(usefreq,r2_lin,'color',col4,'LineWidth',3);
-%xlabel('Frequency (Hz)');
+    [~, ~, ~, adj_p]=fdr_bh(p_env(freqtestidx:end),0.05,'dep','no');
+    envSig=find(adj_p<0.05);
 
 
-if ~isempty(linSig)
-    
-    linSig=linSig+freqshift;
+    %% plot phase coupling
 
-    discontinuity_indices = find(diff(linSig) > 1);
+    cols=colormap(brewermap([],"Dark2"));
+    delete(gcf) %colormap command opens a figure, close it
 
-% If there are no discontinuities, there's only one part
-if isempty(discontinuity_indices)
-    Sigparts = {linSig};
-else
-    % Split the vector at the discontinuity indices
-    Sigparts = mat2cell(linSig, 1, diff([0, discontinuity_indices, length(linSig)]));
-end
+    col1=cols(1,:); col2=cols(2,:);
+    col3=cols(3,:); col4=cols(4,:);
+    col5=cols(8,:);
 
-    hold on
-    %plot(usefreq(linSig), ones(1,length(linSig))*yValue1,'*','MarkerSize',8,'color',col4)
+    freqshift=freqtestidx-usefreq(1); %index shift because testing from 5 Hz
 
-    for k=1:length(Sigparts)
-         fill([usefreq(Sigparts{k}), fliplr(usefreq(Sigparts{k}))], ...
-         [zeros(1, numel(Sigparts{k})), fliplr(r2_lin(Sigparts{k}))], col4, 'FaceAlpha', 0.3,'EdgeColor',col4,'LineWidth',2);
-      
+    % Where to put significance stars
+    % [maxValue, ~] = max(r2_lin);
+    % yValue1 = maxValue + 0.1 * maxValue;
+
+    figure; pp=plot(usefreq,r2_lin,'color',col4,'LineWidth',3);
+    %xlabel('Frequency (Hz)');
+
+
+    if ~isempty(linSig)
+
+        linSig=linSig+freqshift;
+
+        discontinuity_indices = find(diff(linSig) > 1);
+
+        % If there are no discontinuities, there's only one part
+        if isempty(discontinuity_indices)
+            Sigparts = {linSig};
+        else
+            % Split the vector at the discontinuity indices
+            Sigparts = mat2cell(linSig, 1, diff([0, discontinuity_indices, length(linSig)]));
+        end
+
+        hold on
+        %plot(usefreq(linSig), ones(1,length(linSig))*yValue1,'*','MarkerSize',8,'color',col4)
+
+        for k=1:length(Sigparts)
+            fill([usefreq(Sigparts{k}), fliplr(usefreq(Sigparts{k}))], ...
+                [zeros(1, numel(Sigparts{k})), fliplr(r2_lin(Sigparts{k}))], col4, 'FaceAlpha', 0.3,'EdgeColor',col4,'LineWidth',2);
+
+        end
+
+
     end
 
-
-end
-
-ax = gca;
-ax.FontSize = 18;
-ax.LineWidth=1.25;
-box off
-xlim([0 40])
-%ylabel('R^2')
-%title('Phase and amplitude')
-ax = ancestor(pp, 'axes');
-ax.YAxis.Exponent = 0;
-%ytickformat('%.0f')
-
-savename=sprintf('PA_sub%s_%s_%g.pdf',subjectID,whichanalysis,cnd);
-exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
-
-
-%% plot envelope association
-
-[maxValue, ~] = max(r2_env_CVA);
-yValue = maxValue + 0.1 * maxValue; %where to put significance stars
-
-figure; plot(usefreq,r2_env_CVA,'color',col5,'LineWidth',3)
-
-if ~isempty(envSig)
-    
-    envSig=envSig+freqshift;
-
-    discontinuity_indices = find(diff(envSig) > 1);
-
-% If there are no discontinuities, there's only one part
-if isempty(discontinuity_indices)
-    Sigparts = {envSig};
-else
-    % Split the vector at the discontinuity indices
-    Sigparts = mat2cell(envSig, 1, diff([0, discontinuity_indices, length(envSig)]));
-end
-
-    hold on
-    %plot(usefreq(linSig), ones(1,length(linSig))*yValue1,'*','MarkerSize',8,'color',col4)
-
-    for k=1:length(Sigparts)
-         fill([usefreq(Sigparts{k}), fliplr(usefreq(Sigparts{k}))], ...
-         [zeros(1, numel(Sigparts{k})), fliplr(r2_env_CVA(Sigparts{k}))], col5, 'FaceAlpha', 0.1,'EdgeColor',col5,'LineWidth',2);
-      
-    end
-
-
-end
-
-%xlabel('Frequency (Hz)');
-ax = gca;
-ax.FontSize = 18;
-ax.LineWidth=1.25; %change to the desired value
-box off
-xlim([0 40])
-% ylabel('R^2')
-% title('Envelope')
-
-
-savename=sprintf('ENV_sub%s_%s_%g.pdf',subjectID,whichanalysis,cnd);
-exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
-
-%% CVA cross freq plots for supplementary material
-
-%normalization according to Haufe
-
-%CVAcrossfreq
-Nsig=length(find(CVAcrossfreq.p<0.05)); %% number significant components
-if Nsig >= 1
-
-normV=cov(CVAcrossfreq.Y)*CVAcrossfreq.V(:,1:Nsig)*inv(cov(CVAcrossfreq.v(:,1:Nsig)));
-normW=cov(CVAcrossfreq.X)*CVAcrossfreq.W(:,1:Nsig)*inv(cov(CVAcrossfreq.w(:,1:Nsig)));
-
-
-if strcmp(whichanalysis,'emgbrain')
-
-    lab1='Brain';
-    lab2='EMG';
-
-elseif strcmp(whichanalysis,'cordemg')
-
-    lab1='EMG';
-    lab2='Spinal cord';
-
-else
-
-    lab1='Brain';
-    lab2='Spinal cord';
-
-end
-
-    figure;
-    plot(usefreq(freqtestidx:end),abs(normV(:,1)),'LineWidth',3,'color',col1) %Y
-    box off
     ax = gca;
     ax.FontSize = 18;
-    ax.LineWidth=1.25; %change to the desired value
-    hold on
-    yyaxis right
-    plot(usefreq(freqtestidx:end),abs(normW(:,1)),'LineWidth',3,'color', col2,'LineStyle','-.') %X
-    legend({lab1,lab2},'Location','best')
-    legend boxoff
+    ax.LineWidth=1.25;
+    box off
     xlim([0 40])
-    
-    savename=sprintf('CANVECS_sub%s_%s_%g.pdf',subjectID,whichanalysis,cnd);
+    %ylabel('R^2')
+    %title('Phase and amplitude')
+    ax = ancestor(pp, 'axes');
+    ax.YAxis.Exponent = 0;
+    %ytickformat('%.0f')
+
+    savename=sprintf('PA_sub%s_%s_%g.pdf',subjectID,whichanalysis,cnd);
     exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
 
 
-else
-    fprintf('CVA not significant\n')
+    %% plot envelope association
 
-end
+    [maxValue, ~] = max(r2_env_CVA);
+    yValue = maxValue + 0.1 * maxValue; %where to put significance stars
+
+    figure; plot(usefreq,r2_env_CVA,'color',col5,'LineWidth',3)
+
+    if ~isempty(envSig)
+
+        envSig=envSig+freqshift;
+
+        discontinuity_indices = find(diff(envSig) > 1);
+
+        % If there are no discontinuities, there's only one part
+        if isempty(discontinuity_indices)
+            Sigparts = {envSig};
+        else
+            % Split the vector at the discontinuity indices
+            Sigparts = mat2cell(envSig, 1, diff([0, discontinuity_indices, length(envSig)]));
+        end
+
+        hold on
+        %plot(usefreq(linSig), ones(1,length(linSig))*yValue1,'*','MarkerSize',8,'color',col4)
+
+        for k=1:length(Sigparts)
+            fill([usefreq(Sigparts{k}), fliplr(usefreq(Sigparts{k}))], ...
+                [zeros(1, numel(Sigparts{k})), fliplr(r2_env_CVA(Sigparts{k}))], col5, 'FaceAlpha', 0.1,'EdgeColor',col5,'LineWidth',2);
+
+        end
+
+
+    end
+
+    %xlabel('Frequency (Hz)');
+    ax = gca;
+    ax.FontSize = 18;
+    ax.LineWidth=1.25; %change to the desired value
+    box off
+    xlim([0 40])
+    % ylabel('R^2')
+    % title('Envelope')
+
+
+    savename=sprintf('ENV_sub%s_%s_%g.pdf',subjectID,whichanalysis,cnd);
+    exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+
+    %% CVA cross freq plots for supplementary material
+
+    %normalization according to Haufe
+
+    %CVAcrossfreq
+    Nsig=length(find(CVAcrossfreq.p<0.05)); %% number significant components
+    if Nsig >= 1
+
+        normV=cov(CVAcrossfreq.Y)*CVAcrossfreq.V(:,1:Nsig)*inv(cov(CVAcrossfreq.v(:,1:Nsig)));
+        normW=cov(CVAcrossfreq.X)*CVAcrossfreq.W(:,1:Nsig)*inv(cov(CVAcrossfreq.w(:,1:Nsig)));
+
+
+        if strcmp(whichanalysis,'emgbrain')
+
+            lab1='Brain';
+            lab2='EMG';
+
+        elseif strcmp(whichanalysis,'cordemg')
+
+            lab1='EMG';
+            lab2='Spinal cord';
+
+        else
+
+            lab1='Brain';
+            lab2='Spinal cord';
+
+        end
+
+        figure;
+        plot(usefreq(freqtestidx:end),abs(normV(:,1)),'LineWidth',3,'color',col1) %Y
+        box off
+        ax = gca;
+        ax.FontSize = 18;
+        ax.LineWidth=1.25; %change to the desired value
+        hold on
+        yyaxis right
+        plot(usefreq(freqtestidx:end),abs(normW(:,1)),'LineWidth',3,'color', col2,'LineStyle','-.') %X
+        legend({lab1,lab2},'Location','best')
+        legend boxoff
+        xlim([0 40])
+
+        savename=sprintf('CANVECS_sub%s_%s_%g.pdf',subjectID,whichanalysis,cnd);
+        exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
+
+
+    else
+        fprintf('CVA not significant\n')
+
+    end
 
 end %if prec
 

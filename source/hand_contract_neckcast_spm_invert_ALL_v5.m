@@ -6,12 +6,12 @@ clc
 restoredefaultpath
 
 mydir='D:\brainspine_data';
-subjectID ='122'; %122 or %123
+subjectID ='116'; %122 or %123
 spmpath='D:\spm';
 repopath='D:\brainspineconnectivity';
 
-%whatstr='emg+abs';
-whatstr='brainopt+abs';
+whatstr='emg+abs';
+%whatstr='brainopt+abs';
 
 %% paths
 addpath(spmpath)
@@ -59,7 +59,7 @@ invtype='IID';
 IMAGECROSS=0; %only image power not cross spectrum
 
 
-for cnd=1%:size(filenames,1)
+for cnd=2%:size(filenames,1)
 
     % load the data
     DAll=spm_eeg_load(filenames(cnd,:));
