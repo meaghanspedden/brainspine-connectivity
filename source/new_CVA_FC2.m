@@ -149,15 +149,37 @@ col5=cols(8,:);
 freqshift=freqtestidx-usefreq(1); %index shift because testing from 5 Hz
 
 % Where to put significance stars
-[maxValue, ~] = max(r2_lin);
-yValue1 = maxValue + 0.1 * maxValue;
+% [maxValue, ~] = max(r2_lin);
+% yValue1 = maxValue + 0.1 * maxValue;
 
-figure; plot(usefreq,r2_lin,'color',col4,'LineWidth',3)
-xlabel('Frequency (Hz)');
+figure; pp=plot(usefreq,r2_lin,'color',col4,'LineWidth',3);
+%xlabel('Frequency (Hz)');
+
 
 if ~isempty(linSig)
+    
+    linSig=linSig+freqshift;
+
+    discontinuity_indices = find(diff(linSig) > 1);
+
+% If there are no discontinuities, there's only one part
+if isempty(discontinuity_indices)
+    Sigparts = {linSig};
+else
+    % Split the vector at the discontinuity indices
+    Sigparts = mat2cell(linSig, 1, diff([0, discontinuity_indices, length(linSig)]));
+end
+
     hold on
-    plot(usefreq(linSig+freqshift), ones(1,length(linSig))*yValue1,'*','MarkerSize',8,'color',col4)
+    %plot(usefreq(linSig), ones(1,length(linSig))*yValue1,'*','MarkerSize',8,'color',col4)
+
+    for k=1:length(Sigparts)
+         fill([usefreq(Sigparts{k}), fliplr(usefreq(Sigparts{k}))], ...
+         [zeros(1, numel(Sigparts{k})), fliplr(r2_lin(Sigparts{k}))], col4, 'FaceAlpha', 0.3,'EdgeColor',col4,'LineWidth',2);
+      
+    end
+
+
 end
 
 ax = gca;
@@ -165,8 +187,11 @@ ax.FontSize = 18;
 ax.LineWidth=1.25;
 box off
 xlim([0 40])
-ylabel('R^2')
-title('Phase and amplitude')
+%ylabel('R^2')
+%title('Phase and amplitude')
+ax = ancestor(pp, 'axes');
+ax.YAxis.Exponent = 0;
+%ytickformat('%.0f')
 
 savename=sprintf('PA_sub%s_%s_%g.pdf',subjectID,whichanalysis,cnd);
 exportgraphics(gcf, fullfile(figsavedir,savename), 'Resolution', 600)
@@ -180,18 +205,39 @@ yValue = maxValue + 0.1 * maxValue; %where to put significance stars
 figure; plot(usefreq,r2_env_CVA,'color',col5,'LineWidth',3)
 
 if ~isempty(envSig)
-    hold on
-    plot(usefreq(envSig+freqshift), ones(1,length(envSig))*yValue,'*','MarkerSize',8,'color',col5)
+    
+    envSig=envSig+freqshift;
+
+    discontinuity_indices = find(diff(envSig) > 1);
+
+% If there are no discontinuities, there's only one part
+if isempty(discontinuity_indices)
+    Sigparts = {envSig};
+else
+    % Split the vector at the discontinuity indices
+    Sigparts = mat2cell(envSig, 1, diff([0, discontinuity_indices, length(envSig)]));
 end
 
-xlabel('Frequency (Hz)');
+    hold on
+    %plot(usefreq(linSig), ones(1,length(linSig))*yValue1,'*','MarkerSize',8,'color',col4)
+
+    for k=1:length(Sigparts)
+         fill([usefreq(Sigparts{k}), fliplr(usefreq(Sigparts{k}))], ...
+         [zeros(1, numel(Sigparts{k})), fliplr(r2_env_CVA(Sigparts{k}))], col5, 'FaceAlpha', 0.1,'EdgeColor',col5,'LineWidth',2);
+      
+    end
+
+
+end
+
+%xlabel('Frequency (Hz)');
 ax = gca;
 ax.FontSize = 18;
 ax.LineWidth=1.25; %change to the desired value
 box off
 xlim([0 40])
-ylabel('R^2')
-title('Envelope')
+% ylabel('R^2')
+% title('Envelope')
 
 
 savename=sprintf('ENV_sub%s_%s_%g.pdf',subjectID,whichanalysis,cnd);

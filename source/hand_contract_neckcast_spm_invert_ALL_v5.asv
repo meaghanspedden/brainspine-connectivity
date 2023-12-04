@@ -6,7 +6,7 @@ clc
 restoredefaultpath
 
 mydir='D:\brainspine_data';
-subjectID ='116'; %122 or %123
+subjectID ='122'; %122 or %123
 spmpath='D:\spm';
 repopath='D:\brainspineconnectivity';
 
@@ -591,14 +591,14 @@ for cnd=1%:size(filenames,1)
     [chi_lin_P_emgbr, chi_env_P_emgbr, chi_cross_P_emgbr, df_lin_P_emgbr, df_env_P_emgbr, df_cross_P_emgbr] ...
         = new_CVA_FC2(Ybrain_complex,emgdat_complex,refX0,Prec,usefreq,freqtestidx,whichanalysis,figsavedir,subjectID,cnd);
 
-    % ratio of chi square values is F stat
-    Fvals_lin_emgbr=chi_lin_P_emgbr./chi_lin_emgbr;
-    Fvals_env_emgbr=chi_env_P_emgbr./chi_env_emgbr;
-    Fvals_cross_emgbr=chi_cross_P_emgbr/chi_cross_emgbr;
+    % ratio of chi square values norm by df is F stat
+    Fvals_lin_emgbr=(chi_lin_P_emgbr./df_lin_P_emgbr)./(chi_lin_emgbr./df_lin_emgbr);
+    Fvals_env_emgbr=(chi_env_P_emgbr./df_env_P_emgbr)./(chi_env_emgbr./df_env_emgbr);
+    Fvals_cross_emgbr=(chi_cross_P_emgbr/df_cross_P_emgbr)/(chi_cross_emgbr/df_cross_emgbr);
 
-    Fvals_lin_spine=chi_lin_P_spine./chi_lin_spine;
-    Fvals_env_spine=chi_env_P_spine./chi_env_spine;
-    Fvals_cross_spine=chi_cross_P_spine/chi_cross_spine;
+    Fvals_lin_spine=(chi_lin_P_spine./df_lin_P_spine)./(chi_lin_spine./df_lin_spine);
+    Fvals_env_spine=(chi_env_P_spine./df_env_P_spine)./(chi_env_spine./df_env_spine);
+    Fvals_cross_spine=(chi_cross_P_spine/df_cross_P_spine)/(chi_cross_spine;
 
     
     %% calculate p values from F stats and df and correct for mult comp
@@ -636,7 +636,7 @@ for cnd=1%:size(filenames,1)
     
     fprintf('p value for emgbr cross freq is %g\n',p_value_cross_emgbr)
     %% now do the same for spinal cord CVA comparisons
-
+    %phase
     p_values_lin_spine = 1 - fcdf(Fvals_lin_spine, df_lin_P_spine, df_lin_spine);
     
     [~, crit_p_lin_spine, ~, adj_p_lin_spine]=fdr_bh(p_values_lin_spine(freqtestidx:end),0.05,'dep','no');
@@ -651,8 +651,10 @@ for cnd=1%:size(filenames,1)
 
 %envelope
     p_values_env_spine = 1 - fcdf(Fvals_env_spine, df_env_P_spine, df_env_spine);
-    [~, crit_p_env_spine, ~, adj_p_env_spine]=fdr_bh(p_values_env_spine(freqtestidx:end),0.05,'dep','no');
-    env_spine_Sig=find(adj_p_env_spine<crit_p_env_spine);
+    
+    [~, ~, ~, adj_p_env_spine]=fdr_bh(p_values_env_spine(freqtestidx:end),0.05,'dep','no');
+    
+    env_spine_Sig=find(adj_p_env_spine<0.05);
 
      if ~isempty(env_spine_Sig)
         fprintf('sig change, check out which freqs\n')
@@ -662,6 +664,7 @@ for cnd=1%:size(filenames,1)
 
 
     p_value_cross_spine = 1 - fcdf(Fvals_cross_spine, df_cross_P_spine, df_cross_spine);
+   
     fprintf('p value for spine cross freq is %g\n',p_value_cross_emgbr)
 
 end % for filenames
