@@ -67,7 +67,7 @@ addpath(genpath('D:\brainspineconnectivity'))
 rng(123) %dont think there is anything stochastic but just to be sure
 %% right and left hands
 
-for RIGHT=0
+for RIGHT=1
 
     if RIGHT
         exptorder=Bothexptorder(1:4,:);

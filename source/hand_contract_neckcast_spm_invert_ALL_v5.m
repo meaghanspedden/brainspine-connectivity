@@ -6,12 +6,12 @@ clc
 restoredefaultpath
 
 mydir='D:\brainspine_data';
-subjectID ='116'; %122 or %123
+subjectID ='123'; %122 or %123
 spmpath='D:\spm';
 repopath='D:\brainspineconnectivity';
 
-whatstr='emg+abs';
-%whatstr='brainopt+abs';
+%whatstr='emg+abs';
+whatstr='brainopt+abs';
 
 %% paths
 addpath(spmpath)
@@ -610,14 +610,19 @@ for cnd=2%:size(filenames,1)
     
     lin_emgbrain_Sig=find(adj_p_lin_emgbr<0.05);
 
-    figure; plot(usefreq,Fvals_lin_emgbr);
-    title('Phase emg brain F stats')
 
     
     if ~isempty(lin_emgbrain_Sig)
         fprintf('sig change, check out which freqs\n')
     else
         fprintf('no sig change for lin emg brain\n')
+    end
+
+
+    if sum(p_values_lin_emgbr<0.05)> 0
+        idx=find(p_values_lin_emgbr<0.05);
+        fprintf('P value %g for lin emg brain sig without MC correction at:\n',p_values_lin_emgbr(idx))
+        disp(usefreq(idx))
     end
 
     %% same for env
@@ -634,9 +639,12 @@ for cnd=2%:size(filenames,1)
         fprintf('no sig change for env emg brain\n')
     end
 
-    figure;
-    plot(usefreq,Fvals_env_emgbr)
-    title('F stats for env emgbr')
+    if sum(p_values_env_emgbr<0.05)> 0
+        idx=find(p_values_env_emgbr<0.05); %indexed from test freq
+        fprintf('P value %g for env emg brain sig without MC correction at:\n',p_values_env_emgbr(idx))
+        disp(usefreq(idx))
+    end
+
    
     %% one p value for cross freq cva comparison
 
@@ -658,9 +666,11 @@ for cnd=2%:size(filenames,1)
         fprintf('no sig change for lin spine\n')
      end
 
-     figure
-     plot(usefreq,Fvals_lin_spine)
-     title('F stats phase spine')
+    if sum(p_values_lin_spine<0.05)> 0
+        idx=find(p_values_lin_spine<0.05);
+        fprintf('P value %g for lin spine sig without MC correction at:\n',p_values_lin_spine(idx))
+        disp(usefreq(idx))
+    end
 
     %envelope
     p_values_env_spine = 1 - fcdf(Fvals_env_spine, df_env_P_spine, df_env_spine);
@@ -669,15 +679,21 @@ for cnd=2%:size(filenames,1)
     
     env_spine_Sig=find(adj_p_env_spine<0.05);
 
+
+   % pvalues_fdr = mafdr(p_values_env_spine, 'BHFDR', true);
+
+
      if ~isempty(env_spine_Sig)
         fprintf('sig change, check out which freqs\n')
     else
         fprintf('no sig change for env spine\n')
      end
 
-     figure
-     plot(usefreq, Fvals_env_spine)
-     title('F stats env spine')
+    if sum(p_values_env_spine<0.05)> 0
+        idx=find(p_values_env_spine<0.05);
+        fprintf('P value %g for env spine sig without MC correction at:\n',p_values_env_spine(idx))
+        disp(usefreq(idx))
+    end
 
 
     p_value_cross_spine = 1 - fcdf(Fvals_cross_spine, df_cross_P_spine, df_cross_spine);
