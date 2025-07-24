@@ -30,8 +30,11 @@ for f=1:numel(usefreq)
     %separate into real and imaginary parts
     X=[real(fX(:,f)) imag(fX(:,f))];
     Y=[real(fY(:,f)) imag(fY(:,f))];
-    X0=[real(refdat(:,:,f)) imag(refdat(:,:,f))];
-
+    if ~isempty(refdat)
+        X0=[real(refdat(:,:,f)) imag(refdat(:,:,f))];
+    else
+        X0=[];
+    end
     if ~isempty(Prec)
         X=[X Prec];
     end
@@ -66,7 +69,13 @@ for f=1:numel(usefreq)
 
     Ye=abs([Yr(:,1)+Yr(:,2)*i]); % put back into complex and take abs
     Xe=abs([X(:,1)+X(:,2)*i]);
-    X0e=abs(refdat(:,:,f));
+
+    if ~isempty(refdat)
+        X0e=abs(refdat(:,:,f));
+    else
+        X0e=[];
+    end
+
 
     if ~isempty(Prec)
         Xe=[Xe Prec];

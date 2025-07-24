@@ -138,14 +138,7 @@ for RIGHT=0
 
 
         if MEGHP
-            S=[];
-            S.D=D;
-            S.freq=min(fband);
-            S.order=5;
-            S.band='high';
-            S.chans2filter=D.indchantype('MEG');
-            S.prefix=sprintf('hi%d',fband(1));
-            D=spm_eeg_filter(S);
+    
 
         end
 

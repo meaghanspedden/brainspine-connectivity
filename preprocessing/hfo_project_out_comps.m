@@ -34,9 +34,6 @@ if isempty(s)==1
     error('Could not find sensor positions')
 end
 
-if isempty(S.channels)
-    S.channels = setxor(S.D.selectchannels('MEG'),S.D.badchannels);
-end
 
 spm_labs = S.D.chanlabels(S.channels);
 [ind, ft_labs] = match_str(spm_labs,s.label);

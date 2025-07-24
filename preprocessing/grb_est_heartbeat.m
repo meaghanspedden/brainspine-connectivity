@@ -24,6 +24,7 @@ cdata=data*data';
 
 [u,s,v]=svd(cdata);
 
+heartest=data'*u(:,hbcomp);
 heartest=abs(data'*u(:,hbcomp));
 
 thresh=std(heartest)*4;

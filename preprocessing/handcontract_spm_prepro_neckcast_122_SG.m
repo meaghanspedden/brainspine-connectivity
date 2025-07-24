@@ -104,7 +104,7 @@ for RIGHT=0
         run=cell2mat(exptorder(exptind,1));
 
         %% make SPM object
-        [D,fullfilename]=convert_opm2spm(datadir,posfileneck,sub,bids_session,task,run,'single',dsprefix);
+        [D,fullfilename]=convert_opm2spm_old(datadir,posfileneck,sub,bids_session,task,run,'single',dsprefix);
 
         %% psd
         opms=D.indchannel(D.sensors('MEG').label);
@@ -123,8 +123,8 @@ for RIGHT=0
 
         labs=D.chanlabels;
         datsamp=D(opms,1:4000);
-        figure; plot(datsamp')
-        legend(labs(opms))
+        %figure; plot(datsamp')
+        %legend(labs(opms))
 
         %% read in EMG data
         [~, EMGstruct]= readSpikeData(fullfile(EMGpath, EMGfilename),EMGchanname);
@@ -155,6 +155,15 @@ for RIGHT=0
             D=spm_eeg_filter(S);
 
         end
+
+ftdat=spm2fieldtrip(D);
+ftdat=rmfield(ftdat,'hdr');
+
+cfg=[];
+cfg.channel=ftdat.label(~contains(ftdat.label,'TRIG')& ~contains(ftdat.label,badchans));
+ft_databrowser(cfg,ftdat)
+
+
         %%  NOW LP FILTER JUST MEG
         if MEGLP
             S=[];
