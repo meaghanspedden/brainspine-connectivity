@@ -1,22 +1,22 @@
 
-% create leadfields for spinal cord
+%% create leadfields for spinal cord
 
-%% Load geometries
+%using same for all participants
 
 addpath('D:\torso_tools')
 
-sub='OP00219';
-analysis='static';
-save_dir = fullfile('D:\MSST001', [sub '_' analysis]);
+sub='OP00212';
+analysis='merged';
+save_dir = fullfile('D:\MSST001', ['generic_' analysis]);
 
-geoms_path = fullfile('D:\MSST001', [sub '_' analysis]);
+geoms_path = fullfile('D:\MSST001', ['generic_' analysis]);
 geoms = load(fullfile(geoms_path, 'geoms.mat'));
 
 filename = fullfile('D:\MSST001', ...
     ['sub-' sub], ...
     'ses-001', ...
     'meg', ...
-    ['pstaticoe1000mspddfflo45hi45hfcstatic_001_array1.mat']);
+    ['pmergedoe1000mspddfflo45hi45hfcstatic_001_array1.mat']);
 D=spm_eeg_load(filename);
 
 ordering = {'wm','bone','heart','lungs','torso'};
@@ -85,4 +85,3 @@ cfg.normalize = 'no';
 leadfield = ft_prepare_leadfield(cfg);
 
 save(fullfile(save_dir,'leadfields'), "leadfield")
-

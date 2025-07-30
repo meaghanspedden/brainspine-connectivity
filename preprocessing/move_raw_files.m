@@ -5,7 +5,7 @@
 % =========================================================================
 
 % === User‐configurable paths ===
-baseDir   = 'D:\MSST001\sub-OP00219\ses-001\meg';      % top of subject folder
+baseDir   = 'D:\MSST001\sub-OP00226\ses-001\meg';      % top of subject folder
 targetDir = baseDir;%fullfile(baseDir, 'ses-001', 'meg');  % existing destination
 
 % check destination exists

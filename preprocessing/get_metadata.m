@@ -61,11 +61,11 @@ elseif strcmp(subID, 'OP00215')
 elseif strcmp(subID, 'OP00219')
 
     if strcmp(analysis, 'static')
-        runs.opm={'001', '002', '003', '004'};
-        runs.emg={'1', '3', '5', '7'};
+        runs.opm={'001', '002', '003', '004', '005'};
+        runs.emg={'1', '3', '5', '7', '9'};
     else
-        runs.opm={'001', '002', '003', '004'};
-        runs.emg={'2', '4', '6', '8'};
+        runs.opm={'001', '002', '003', '004', '005'};
+        runs.emg={'2', '4', '6', '8', '10'};
     end
 
     ref='26';
@@ -75,11 +75,11 @@ elseif strcmp(subID, 'OP00219')
 elseif strcmp(subID, 'OP00220')
 
     if strcmp(analysis, 'static')
-        runs.opm={'001', '002', '003', '004'};
-        runs.emg={'1', '3', '5', '7'};
+        runs.opm={'001', '002', '003', '004', '005'};
+        runs.emg={'1', '3', '5', '7','9'};
     else
-        runs.opm={'001', '002', '003', '004'};
-        runs.emg={'2', '4', '6', '8'};
+        runs.opm={'001', '002', '003', '004', '005'};
+        runs.emg={'2', '4', '6', '8','10'};
     end
     ref='26';
     heartidx=3;
@@ -89,15 +89,59 @@ elseif strcmp(subID, 'OP00220')
 
 elseif strcmp(subID, 'OP00221')
     if strcmp(analysis, 'static')
-        runs.opm={'001', '002', '003', '004'};
-        runs.emg={'1', '3', '5', '7'};
+        runs.opm={'001', '002', '003', '004','005'};
+        runs.emg={'1', '3', '5', '7','9'};
     else
-        runs.opm={'001', '002', '003', '004'};
-        runs.emg={'2', '4', '6', '8'};
+        runs.opm={'001', '002', '003', '004','005'};
+        runs.emg={'2', '4', '6', '8','10'};
     end
     ref='26';
     heartidx=3;
     badsenslabels = {'X20', 'X46'};
+
+elseif strcmp(subID, 'OP00224')
+
+    if strcmp(analysis, 'static')
+        runs.opm={'002', '003', '004', '005', '006'};
+        runs.emg={'02', '05', '07', '09','11'};
+    else
+        runs.opm={'002', '003', '005', '006', '007'};
+        runs.emg={'04', '06', '08', '10', '12'};
+    end
+    ref='26';
+
+    heartidx=3;
+
+    badsenslabels = {'X57', 'Z57','Y44'};
+
+elseif strcmp(subID, 'OP00225')
+
+    if strcmp(analysis, 'static')
+        runs.opm={'001', '002', '003', '004', '005'};
+        runs.emg={'1', '3', '5', '7', '9'};
+    else
+        runs.opm={'001', '002', '003', '004', '005'};
+        runs.emg={'2', '4', '6', '8', '10'};
+    end
+    ref='26';
+
+    heartidx=3;
+    badsenslabels = {'X57', 'Z57','Y57','Y34', 'Z44'};
+
+elseif strcmp(subID, 'OP00226')
+
+    if strcmp(analysis, 'static')
+        runs.opm={'001', '002', '003', '004', '005'};
+        runs.emg={'1', '3', '5', '7', '9'};
+    else
+        runs.opm={'001', '002', '003', '004', '005'};
+        runs.emg={'2', '4', '6', '8', '10'};
+    end
+    ref='26';
+
+    heartidx=3;
+    badsenslabels = {'X57', 'Z57','Y57','Y34', 'Z44'};
+
 
 
 end

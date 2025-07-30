@@ -5,6 +5,9 @@ clear all;
 close all;
 
 sub='OP00212';
+
+rmchans=0; %remove bad channels from psd...for first round of analysis
+
 analysis={'static','rest'};
 save_dir = fullfile('D:\MSST001', [sub '_merged']);
 
@@ -86,27 +89,27 @@ for cond=1:length(analysis)
         S.triallength = 2000;
         S.wind = @hanning;
         
-%         if k==1 && cond==1
-%             S.selectbad=1;
-%             [~,~,badidx] = spm_opm_psd(S);
-% 
-%             if ~isempty(ref_labels)
-%                 refidx=find(contains(D.chanlabels,ref_labels));
-%                 badidx=[badidx refidx]; %for now set ref as bad
-%             end
-% 
-%             if~isempty(badchanlabels)
-%                 badsens=find(contains(D.chanlabels,badchanlabels));
-%                 badidx=[badidx badsens];
-%             end
-% 
-%             save(fullfile(save_dir,sprintf('%s_badchans',sub)), 'badidx')
+        if rmchans && k==1 && cond==1
+            S.selectbad=1;
+            [~,~,badidx] = spm_opm_psd(S);
 
-        %else %k==1 && strcmp(analysis{cond},'rest')
-            S.selectbad=0; %use same bad channels for rest and static
+            if ~isempty(ref_labels)
+                refidx=find(contains(D.chanlabels,ref_labels));
+                badidx=[badidx refidx]; %for now set ref as bad
+            end
+
+            if~isempty(badchanlabels)
+                badsens=find(contains(D.chanlabels,badchanlabels));
+                badidx=[badidx badsens];
+            end
+
+            save(fullfile(save_dir,sprintf('%s_badchans',sub)), 'badidx')
+
+        else 
+            S.selectbad=0; 
             spm_opm_psd(S);
             load(fullfile(save_dir,sprintf('%s_badchans',sub)), 'badidx') %same bad channels across runs
-       % end
+       end
 
         D=badchannels(D, badidx,1);
 
@@ -322,8 +325,6 @@ end
         cfg.channel=goodlabs;
         cfg.allowoverlap='yes';
         ft_databrowser(cfg,ftdat)
-
-        [coh] = getCoh(Dep,brainchan_labels);
 
 
     end % for runs

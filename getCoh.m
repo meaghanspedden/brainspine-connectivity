@@ -1,8 +1,8 @@
 %% sensor level coherence
 
 
-sub = 'OP00215';
-concat = 0;  % Set to 0 to load only one run
+sub = 'OP00225';
+concat = 1;  % Set to 0 to load only one run
 run2use='001';
 
 if concat %note that this has hb removed and has rest!!!
@@ -27,11 +27,15 @@ else
 end
 
 %%
+load('D:\brainspineconnectivity\brain_layout.mat')
 
-brainchan_labels={'H1', 'H6', 'B3', 'H8', 'G3', 'B6', 'H7', 'H4', 'G4', 'B4', 'B2', 'H2', 'B7', 'B8', 'B5', 'B1'};
+Zbrainchans=brainlay.label;
 
-brainchans=labelToIndex(brainchan_labels);
-brainchanidx=find(contains(DAll.chanlabels,brainchans));
+%brainchans=labelToIndex(brainchan_labels);
+% todel=find(startsWith(brainchans, {'39', '29', '19', '51', '58', '59', '49'}));
+% brainchans(todel)=[];
+%Zbrainchans = cellfun(@(x) ['Z' x], brainchans, 'UniformOutput', false);
+
 emgidx=find(contains(DAll.chanlabels,'EXG1'));
 
 ftdat=spm2fieldtrip(DAll);
@@ -41,11 +45,9 @@ if concat %only static condition
     ftdat=ft_selectdata(cfg,ftdat);
 end
 
-% could add excluding bad channels here
-Zchans=ftdat.label(contains(ftdat.label,brainchans) & contains(ftdat.label, 'Z'));
 
 cfg=[];
-cfg.channel=Zchans;
+cfg.channel=Zbrainchans;
 opmdat=ft_selectdata(cfg, ftdat);
 
 cfg=[];
@@ -70,7 +72,7 @@ freq_dat   = ft_freqanalysis(cfg, alldat);
 
 
 seed='EXG1';
-brain=Zchans;
+brain=Zbrainchans;
 tmpcmb=repmat({seed}, length(brain),1);
 combs=[brain tmpcmb];
 
@@ -95,11 +97,39 @@ coh      = ft_connectivityanalysis(cfg, freq_dat);
 
 figure; plot(coh.freq, coh.cohspctrm)
 
+betafreqs=find(coh.freq >=15 & coh.freq<=30);
+betacoh=mean(coh.cohspctrm(:,betafreqs),2);
+
+% braingrad=grad;
+% braingradidx=find(contains(grad.label,Zbrainchans));
+% 
+% braingrad.chanori=grad.chanori(braingradidx,:);
+% braingrad.chanpos=grad.chanpos(braingradidx,:);
+% braingrad.coilori=grad.coilori(braingradidx,:);
+% braingrad.coilpos=grad.coilpos(braingradidx,:);
+% braingrad.label=grad.label(braingradidx);
+% braingrad.chantype=grad.chantype(braingradidx);
+% braingrad.chanunit=grad.chanunit(braingradidx);
+% braingrad.tra=grad.tra(braingradidx,braingradidx);
+
+% figure; ft_plot_mesh(geoms.mesh_torso, 'facealpha',0.7, 'edgealpha', 0.2)
+% hold on
+% ft_plot_sens(grad,'label','on')
+% view(179.2635,  -6.3792)
+
+figure
+subplot(211)
+topobrain(brainlay, betacoh)
+
 % Sum coherence across frequencies for each channel
 coh_sum = sum(coh.cohspctrm, 2);  % sum over freqs (dim 2)
 
 % Find (local) index of maximum sum
 [~, max_idx] = max(coh_sum);
+brainlay.label(max_idx)
+
+subplot(212)
+plot(coh.freq, coh.cohspctrm(max_idx,:))
 
 % brainchan2use=labels(max_idx);
 % fprintf('brainchan max coh:%s/n', brainchan2use)

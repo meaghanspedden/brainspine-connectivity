@@ -1,19 +1,25 @@
 %% Setup for beamforming
 
-sub='OP00219';
-analysis='static';
+%this just needs to be run once, use same co reg for all
+sub='OP00212';
+analysis='merged';
 
+addpath('D:\spm')
+spm('defaults','EEG')
 addpath('D:\for_meaghan\')
 addpath('D:\msg_coreg')
-addpath('D:\scannercast\tableofinfo') %for the stlread function
+addpath('D:\brainspineconnectivity') %for the stlread function
 
 
-save_dir = fullfile('D:\MSST001', [sub '_' analysis]);
+save_dir = fullfile('D:\MSST001', ['generic_' analysis]);
+if~exist(save_dir, 'dir')
+    mkdir(save_dir)
+end
 filename = fullfile('D:\MSST001', ...
     ['sub-' sub], ...
     'ses-001', ...
     'meg', ...
-    ['p' analysis 'oe1000mspddfflo45hi45hfc' analysis '_001_array1.mat']);
+    ['p' analysis 'oe1000mspddfflo45hi45hfcstatic_001_array1.mat']);
 
 %% get sensor positions
 

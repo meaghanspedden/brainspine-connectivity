@@ -4,9 +4,9 @@ close all
 clear all
 clc
 
-sub='OP00220';
+sub='OP00226';
 freqband=[10 35];
-which_ori='1'; %'all', '1', '2', '3'
+which_ori='all'; %'all', '1', '2', '3'
 
 addpath('D:\brainspineconnectivity\stats')
 
@@ -26,7 +26,7 @@ datwithEMGmerged = fullfile('D:\MSST001', ...
     'meg', ...
     ['pmergedoe1000mspddfflo45hi45hfcstatic_001_array1.mat']);
 
-geomfile = fullfile('D:\MSST001', [sub '_merged'], 'geoms.mat');
+geomfile = 'D:\MSST001\generic_merged\geoms.mat';
 
 
 %% load
