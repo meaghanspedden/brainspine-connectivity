@@ -20,7 +20,8 @@ imagesc(x_range, z_range, Vgrid);
 set(gca, 'YDir', 'normal');
 colormap jet;
 colorbar;
-caxis([0 (max(max(Vgrid)))])
+clim = max(abs(Vgrid(:)));
+caxis([-clim clim])
 hold on;
 
 % Overlay Z-channel positions

@@ -2,9 +2,18 @@
 %outputs time series for each of the 3 orientations and each sourcepoint in
 %spinal cord
 
+%note that two subjects have filenames that deviate from the template. 224
+%use static_002 and 214 use 'spd' instead of 'spdd' (no ref) - so can't
+%loop through all.
 
-subs = {'OP00212', 'OP00213', 'OP00214', 'OP00215', 'OP00219', ...
-    'OP00220', 'OP00221', 'OP00224', 'OP00225', 'OP00226'};
+% subs = {'OP00212', 'OP00213', 'OP00214', 'OP00215', 'OP00219', ...
+%     'OP00220', 'OP00221', 'OP00224', 'OP00225', 'OP00226'};
+
+
+clear all
+close all
+clc
+subs={'OP00214'};
 
 generic_dir = 'D:\MSST001\generic_merged';
 
