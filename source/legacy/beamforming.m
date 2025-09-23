@@ -2,9 +2,8 @@
 %outputs time series for each of the 3 orientations and each sourcepoint in
 %spinal cord
 
-%note that two subjects have filenames that deviate from the template. 224
-%use static_002 and 214 use 'spd' instead of 'spdd' (no ref) - so can't
-%loop through all.
+%note that one subject havs filename that deviate from the template. 224
+%use static_002 
 
 % subs = {'OP00212', 'OP00213', 'OP00214', 'OP00215', 'OP00219', ...
 %     'OP00220', 'OP00221', 'OP00224', 'OP00225', 'OP00226'};
@@ -13,11 +12,11 @@
 clear all
 close all
 clc
-subs={'OP00214'};
+subs={'OP00212'};
 
 generic_dir = 'D:\MSST001\generic_merged';
 
-HFC=0;
+HFC=1;
 
 for k=1:length(subs)
 
@@ -50,9 +49,11 @@ for k=1:length(subs)
     % SETUP AND PARAMS
     lambda = 0.01;  % Regularization parameter
     covtime = [-Inf Inf];  % Covariance time window
-    hstep = 10;  % Grid spacing for mesh sampling brain
+    %hstep = 10;  % Grid spacing for mesh sampling brain
 
-    rootlf   = fullfile(generic_dir, 'leadfields.mat');
+    %rootlf   = fullfile(generic_dir, 'leadfields.mat');
+
+    [Gx, Gy, Gz] = build_leadfield_matrices('D:\new_leadfields_and_geom\cervical_cord_spineonly');
     geomfile = fullfile(generic_dir, 'geoms.mat');
     castforward = load(geomfile);
 

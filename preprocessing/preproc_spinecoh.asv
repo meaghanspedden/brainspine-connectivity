@@ -316,26 +316,25 @@ end
 
         allfilenames=strvcat(allfilenames,Dep.fname);
 
-        %visual inspection of time series
-%         ftdat=spm2fieldtrip(Dep);
-%         ftdat=rmfield(ftdat, 'hdr');
-%         badidx=D.badchannels;
-%         badlabs=ftdat.label(badidx);
-%         labels = ftdat.label;
-%         isGood = ~contains(labels, badlabs);
-%         hasXYZ = contains(labels, 'X') | contains(labels, 'Y') | contains(labels, 'Z');
-%         goodlabs = labels(isGood & hasXYZ);
-%         cfg=[];
-%         cfg.channel=goodlabs;
-%         cfg.allowoverlap='yes';
-%         ft_databrowser(cfg,ftdat)
+        ftdat=spm2fieldtrip(Dep);
+        ftdat=rmfield(ftdat, 'hdr');
+        badidx=D.badchannels;
+        badlabs=ftdat.label(badidx);
+        labels = ftdat.label;
+        isGood = ~contains(labels, badlabs);
+        hasXYZ = contains(labels, 'X') | contains(labels, 'Y') | contains(labels, 'Z');
+        goodlabs = labels(isGood & hasXYZ);
+        cfg=[];
+        cfg.channel=goodlabs;
+        cfg.allowoverlap='yes';
+        ft_databrowser(cfg,ftdat)
 
 close all
     end % for runs
 end %loop through conditions
+% now merge (before heartbeat removal)
 
 
-%% merge
 cd(opm_crop.path);
 S=[];
 S.D=allfilenames;
@@ -352,6 +351,9 @@ if HB==1
     DAll=remove_heartbeat(DAll,avheart,megind,BALANCE);
 end
 
+
+
+% [coh] = getCoh(DAll,brainchan_labels);
 
 
 %final merged file

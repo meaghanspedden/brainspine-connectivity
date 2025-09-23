@@ -1,9 +1,20 @@
                 
-%% setup minimum norm source reconstruction
 %'OP00220', 'OP00221', 'OP00225', 'OP00226'};
 %subs={'OP00224'}; %_002
 
-sub='OP00225';
+clear all
+close all
+clc
+
+addpath('D:\brainspineconnectivity')
+addpath('D:\spm')
+spm('defaults','EEG')
+
+subs={'OP00212'};
+generic_dir = 'D:\new_leadfields_and_geom';
+
+HFC=1;
+which_ori='all';
 
 geomfile = 'D:\MSST001\generic_merged\geoms.mat';
 

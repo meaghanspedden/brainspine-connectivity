@@ -1,0 +1,33 @@
+%% plot C7
+
+load('geometries_new.mat')
+
+bone=ft_read_headshape('mri_bone.stl');
+
+figure;
+
+% Torso mesh - light blue transparent
+ft_plot_mesh(mesh_torso, ...
+    'facecolor', [0.6 0.8 1], ...    % light blue
+    'facealpha', 0.2, ...
+    'edgecolor', [0.4 0.6 0.8], ...  % darker blue edges
+    'edgealpha', 0.2);
+hold on;
+
+% Bone mesh - light beige transparent
+ft_plot_mesh(bone, ...
+    'facecolor', [0.9 0.85 0.7], ... % beige
+    'facealpha', 0.2, ...
+    'edgecolor', [0.7 0.65 0.5], ...
+    'edgealpha', 0.2);
+
+% Source points - filled red circles
+plot3(sources_cent.pos(:,1), ...
+      sources_cent.pos(:,2), ...
+      sources_cent.pos(:,3), ...
+      'ro', ...
+      'MarkerFaceColor', 'r', ...
+      'MarkerSize', 4);
+%ft_plot_sens(grad)
+
+

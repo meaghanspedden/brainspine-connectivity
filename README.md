@@ -1,9 +1,14 @@
 # brainspine-connectivity
 Preproc and source recon for concurrent brain spinal cord OPM recordings.  
 
+Latest scripts used: preprocessing/preproc_spinecoh.m
+source/beamforming_FT_brainspine (beamforming brain and spine in fieldtrip)
+Also see
+
+
 
 Script overview:
-1. preproc_spinecoh
+1. preproc_spinecoh: preprocesses and merges data across rest and contract runs
 2. prep for source recon:setup_source; create_leadfields; (run once,not pr subject) beamforming (spinal cord only)
 3. source_freq: analyses data pr. subject. t test and permutation test for difference between rest and contraction for each spinal cord source point.
 4. group_analysis: visualises prevalence of significant results over subjects (based on permutation testing primarily)
