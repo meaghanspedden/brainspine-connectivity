@@ -5,29 +5,32 @@ clear all
 close all
 clc
 
-addpath('D:\brainspineconnectivity\source')
-addpath('D:\spm')
+addpath('C:\Users\mspedden\Documents\brainspineconnectivity\source')
+addpath('C:\Users\mspedden\Documents\spm')
 spm('defaults','EEG')
 
+addpath('C:\Users\mspedden\Documents\fieldtrip')
+ft_defaults
+
 sub='OP00212';
-generic_dir = 'D:\new_leadfields_and_geom'; %where I have saved folder with brainspione leadfields and geoms (meshes)
+generic_dir = 'C:\Users\mspedden\Documents\new_leadfields_and_geom'; %where I have saved folder with brainspione leadfields and geoms (meshes)
 geomfile = fullfile(generic_dir, 'geometries_realistic_cervical_brainspine_fine.mat');
 
 HFC=1;
 which_ori='all';
 
 
-datwithEMGmerged = fullfile('D:\MSST001', ...
+datwithEMGmerged = fullfile('C:\Users\mspedden\Documents', ...
     ['sub-' sub], ...
     'ses-001', ...
     'meg', ...
-    ['pmergedoe1000mspddfflo45hi45hfcstatic_001_array1.mat']);
+    'pmergedoe1000mspddfflo45hi45hfcstatic_001_array1.mat');
 
 
 load(geomfile)
 D=spm_eeg_load(datwithEMGmerged);
 grad_mm=D.sensors('MEG');
-ftdat=spm2fieldtrip(D);
+ftdat = spm2fieldtrip(D);
 
 badchans=D.chanlabels(D.badchannels);
 
@@ -38,16 +41,14 @@ ftdat=ft_selectdata(cfg,ftdat);
 
 [Gx, Gy, Gz] = build_leadfield_matrices(fullfile(generic_dir,'complex_bone_fields_cervical_brainspine_finegrid'));
 
-
 sources_combined.pos    = [sources_cent.pos; sources_brain.pos];
 sources_combined.inside = [logical(sources_cent.inside); sources_brain.inside];
 sources_combined.unit   = sources_cent.unit;  % keep same unit
 
-
 nsourcepoints = size(Gx,1);
 nchannels     = size(Gx,2);
 
-Lf.pos    = sources_combined.pos;                  % nsourcepoints x 3
+Lf.pos    = sources_combined.pos;     % nsourcepoints x 3
 Lf.inside = sources_combined.inside;     % all points inside
 Lf.unit   = 'mm';
 Lf.label  = grad_mm.label;              % nchannels x 1 cell
@@ -71,6 +72,7 @@ cfg.keeptrials = 'no';
 freqdat=ft_freqanalysis(cfg,ftdat);
 
 
+%% need to make sure that this is ignored
 cfg                     = [];
 cfg.method              = 'infinite';
 cfg.siunits=1;
@@ -80,7 +82,7 @@ cfg.conductivity = 1;
 dummyvol = ft_prepare_headmodel(cfg,mesh_torso);
 
 
-%construct filter for both conditions
+%construct filter for both conditions - use averaged data
 cfg=[];
 cfg.grid = sources_combined;
 cfg.headmodel=dummyvol;
@@ -103,7 +105,7 @@ statdat=ft_selectdata(cfg,ftdat);
 cfg.trials=restidx;
 restdat=ft_selectdata(cfg,ftdat);
 
-cfg=[];
+cfg=[]; %do this again because other didnt keep individ trials
 cfg.output     = 'powandcsd';
 cfg.method     = 'mtmfft';
 cfg.foilim     = [10 35];

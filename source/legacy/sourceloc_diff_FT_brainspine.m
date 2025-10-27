@@ -1,0 +1,257 @@
+
+%% beamforming in fieldtrip using BEM leadfields brain and spine
+
+clear all
+close all
+clc
+
+addpath('C:\Users\mspedden\Documents\brainspineconnectivity\source')
+addpath('C:\Users\mspedden\Documents\spm')
+spm('defaults','EEG')
+
+addpath('C:\Users\mspedden\Documents\fieldtrip')
+ft_defaults
+
+sub='OP00212';
+generic_dir = 'C:\Users\mspedden\Documents\new_leadfields_and_geom'; %where I have saved folder with brainspione leadfields and geoms (meshes)
+geomfile = fullfile(generic_dir, 'geometries_realistic_cervical_brainspine_fine.mat');
+
+HFC=1;
+which_ori='all';
+
+
+datwithEMGmerged = fullfile('C:\Users\mspedden\Documents', ...
+    ['sub-' sub], ...
+    'ses-001', ...
+    'meg', ...
+    'pmergedoe1000mspddfflo45hi45hfcstatic_001_array1.mat');
+
+
+load(geomfile)
+D=spm_eeg_load(datwithEMGmerged);
+grad_mm=D.sensors('MEG');
+ftdat = spm2fieldtrip(D);
+
+badchans=D.chanlabels(D.badchannels);
+
+%remove bad channels here.
+cfg=[];
+cfg.channel=setdiff(ftdat.label,badchans);
+ftdat=ft_selectdata(cfg,ftdat);
+
+[Gx, Gy, Gz] = build_leadfield_matrices(fullfile(generic_dir,'complex_bone_fields_cervical_brainspine_finegrid'));
+
+sources_combined.pos    = [sources_cent.pos; sources_brain.pos];
+sources_combined.inside = [logical(sources_cent.inside); sources_brain.inside];
+sources_combined.unit   = sources_cent.unit;  % keep same unit
+
+nsourcepoints = size(Gx,1);
+nchannels     = size(Gx,2);
+
+Lf.pos    = sources_combined.pos;     % nsourcepoints x 3
+Lf.inside = sources_combined.inside;     % all points inside
+Lf.unit   = 'mm';
+Lf.label  = grad_mm.label;              % nchannels x 1 cell
+Lf.leadfielddimord = '{pos}_chan_ori';
+
+% Allocate leadfield cell array
+Lf.leadfield = cell(1,nsourcepoints);
+
+for k = 1:nsourcepoints
+    % Combine X/Y/Z components
+    Lf.leadfield{k} = [Gx(k,:)' Gy(k,:)' Gz(k,:)']; % nchannels x 3
+end
+
+%iSource=3000;
+% lf = Lf.leadfield{iSource};  % [nChan x nOrient]
+% figure
+% ft_plot_topo3d(ftdat.grad.chanpos, lf(:,1), 'facealpha', 0.8, 'refine',5); hold on
+% plot3(Lf.pos(iSource,1), Lf.pos(iSource,2), Lf.pos(iSource,3), ...
+%       'ro', 'MarkerSize', 10, 'LineWidth', 2);
+% hold on
+% ft_plot_sens(ftdat.grad)
+%hold on;
+%ft_plot_mesh(Lf.pos(46:end,:), 'vertexcolor', 'k', 'vertexsize', 5);
+
+cfg=[];
+cfg.output     = 'fourier';
+cfg.method     = 'mtmfft';
+cfg.foilim     = [10 35];
+cfg.tapsmofrq  = 1;
+freqdat=ft_freqanalysis(cfg,ftdat);
+
+
+%% need to make sure that this is ignored
+cfg                     = [];
+cfg.method              = 'infinite';
+cfg.siunits=1;
+cfg.grad=grad_mm;
+cfg.conductivity = 1;
+
+dummyvol = ft_prepare_headmodel(cfg,mesh_torso);
+
+%% separate conditions
+
+statidx=find(ftdat.trialinfo==1);
+restidx=find(ftdat.trialinfo==2);
+
+cfg=[];
+cfg.trials=statidx;
+statdat=ft_selectdata(cfg,freqdat);
+
+cfg.trials=restidx;
+restdat=ft_selectdata(cfg,freqdat);
+
+%% BEM and minimum norm
+cfg=[];
+cfg.grid = sources_combined;
+cfg.headmodel=dummyvol;
+cfg.sourcemodel.leadfield=Lf;
+%cfg.dics.filter=source_all.avg.filter;
+cfg.method = 'mne';
+cfg.mne.prewhiten='yes';
+cfg.mne.lambda=10;
+source_stat_avg=ft_sourceanalysis(cfg,statdat); %sourcepts x freq
+source_rest_avg=ft_sourceanalysis(cfg,restdat);
+
+
+%%
+nspinesources=length(sources_cent.pos);
+spinepowrest=mean(source_rest_avg.avg.pow(1:nspinesources,:),2);
+spinepowcont=mean(source_stat_avg.avg.pow(1:nspinesources,:),2);
+figure; plot(sources_cent.pos(:,2),spinepowrest,'LineWidth',1.5); hold on
+plot(sources_cent.pos(:,2), spinepowcont, 'LineWidth', 1.5)
+legend({'rest', 'contraction'})
+ylabel('Source pwr')
+xlabel('Cranial caudal position')
+title('minimum norm and BEM mean each condition')
+
+%% trialwise estimates
+cfg=[];
+cfg.grid = sources_cent;
+cfg.headmodel=dummyvol;
+cfg.sourcemodel.leadfield=Lf;
+%cfg.dics.filter=source_all.avg.filter;
+cfg.method = 'mne';
+cfg.mne.prewhiten='yes';
+cfg.mne.lambda=10;
+source_stat_avg=ft_sourceanalysis(cfg,statdat); %sourcepts x freq
+source_rest_avg=ft_sourceanalysis(cfg,restdat);
+
+
+
+
+
+
+%% to plot difference between mean across trials
+source_diff=source_stat_avg; %copy
+statmean=mean(source_stat_avg.avg.pow,2); %average over frequency
+restmean=mean(source_rest_avg.avg.pow,2);
+source_diff.avg.pow = (restmean - statmean) ./ restmean * 100;
+source_diff.avg.pow = log10(statmean./restmean);
+
+
+%figure; plot(sources_cent.pos(:,2), source_diff.avg.pow)
+%sep back to two source structures for plotting
+
+n_spine = length(sources_cent.pos); 
+n_total = length(source_diff.pos);   
+
+spine_idx = 1:n_spine;
+brain_idx = (n_spine+1):n_total;
+
+%% --- Spine sources---
+source_spine = struct();
+source_spine.freq   = source_diff.freq;
+source_spine.cfg    = source_diff.cfg;
+source_spine.inside = source_diff.inside(spine_idx);
+source_spine.pos    = source_diff.pos(spine_idx,:);
+source_spine.unit   = source_diff.unit;
+source_spine.method = source_diff.method;
+source_spine.avg.pow    = source_diff.avg.pow(spine_idx); 
+
+%% --- Brain sources---
+source_brain = struct();
+source_brain.freq   = source_diff.freq;
+source_brain.cfg    = source_diff.cfg;
+source_brain.inside = source_diff.inside(brain_idx);
+source_brain.pos    = source_diff.pos(brain_idx,:);
+source_brain.unit   = source_diff.unit;
+source_brain.method = source_diff.method;
+source_brain.avg.pow    = source_diff.avg.pow(brain_idx); 
+
+% interpolate on meshes
+cfg = [];
+cfg.parameter = {'pow'};
+brain_int = ft_sourceinterpolate(cfg, source_brain, mesh_brain); 
+spine_int=ft_sourceinterpolate(cfg,source_spine, mesh_wm);
+
+
+
+%% source plots
+figure
+cfg = [];
+cfg.figure='gcf';
+cfg.method = 'surface';
+cfg.funparameter = 'pow';
+cfg.funcolormap = 'jet';
+cfg.funcolorlim = [-.034 -.03];
+cfg.projmethod = 'nearest';
+cfg.surffile = mesh_brain;   
+ft_sourceplot(cfg, brain_int); 
+view(180,-8)
+camlight
+
+
+
+% hold on
+% plot3(surfpos(1), surfpos(2), surfpos(3), 'ro', 'MarkerSize', 14, 'LineWidth', 3,...
+%     'MarkerFaceColor','r')
+
+%subplot(122)
+cfg2=cfg;
+%cfg2.funcolorlim = 'zeromax';
+cfg2.projmethod = 'nearest';
+cfg2.surffile = mesh_wm;   % your mesh struct with .pos and .tri
+% cb2 = colorbar;
+% cb2.Position = [0.85 0.15 0.02 0.3]; % manual placement
+% ylabel(cb2,'t (spine)','FontSize',10)
+ft_sourceplot(cfg2, spine_int);
+view(80,25)
+camlight
+% hold on
+% plot3(surfpossp(1), surfpossp(2), surfpossp(3), 'ro', 'MarkerSize', 12, 'LineWidth', 3,...
+%     'MarkerFaceColor', 'r')
+
+
+
+figure; plot(sources_cent.pos(:,2), tvals(spine_idx),'LineWidth',2)
+hold on; plot(sources_cent.pos(:,2), thresholds(spine_idx),'k--')
+hold on; plot(sources_cent.pos(:,2), thresholds_neg(spine_idx),'k--')
+%%
+figure; plot(sources_cent.pos(:,2), source_diff.avg.pow(spine_idx),'LineWidth',2)
+
+%%
+figure;
+
+% Brain mesh: semitransparent red/pink
+ft_plot_mesh(mesh_brain, 'facecolor', [0.8 0.3 0.3], 'facealpha', 0.5, 'edgecolor', 'none');
+hold on;
+
+% Torso mesh: transparent blue shell
+ft_plot_mesh(mesh_torso, 'facecolor', [0.3 0.3 0.9], 'facealpha', 0.1, 'edgecolor', 'none');
+
+% White matter mesh: solid white/grey core
+ft_plot_mesh(mesh_wm, 'facecolor', [0.9 0.9 0.9], 'facealpha', 1, 'edgecolor', 'none');
+
+% Bone mesh: light beige, semitransparent
+ft_plot_mesh(mesh_bone, 'facecolor', [0.9 0.85 0.7], 'facealpha', 0.3, 'edgecolor', 'none');
+
+axis equal; 
+camlight; lighting gouraud
+%%
+figure
+ft_plot_mesh(mesh_torso, 'facecolor', [0.3 0.3 0.9], 'facealpha', 0.1, 'edgecolor', 'none');
+hold on
+plot3(sources_combined.pos(:,1), sources_combined.pos(:,2), sources_combined.pos(:,3),'b.')
+
