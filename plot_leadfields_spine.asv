@@ -1,0 +1,92 @@
+%% plot spinal leadfields
+% ---------load stuff here--------------
+
+grad_sp = grad_mm;
+grad_sp.label = grad_mm.label(spchanidx);
+grad_sp.chanpos = grad_mm.chanpos(spchanidx, :);
+grad_sp.chanori = grad_mm.chanori(spchanidx, :);  % if available
+grad_sp.chanunit = grad_mm.chanunit(spchanidx);
+grad_sp.coilori = grad_mm.coilori(spchanidx,:);
+grad_sp.coilpos = grad_mm.coilpos(spchanidx,:);
+grad_sp.tra=grad_mm.tra(spchanidx,spchanidx);
+
+%only tangential chans
+selZ = contains(grad_sp.label, 'Z');
+
+gradZ = struct(); %make new grad structrue
+gradZ.label = grad_sp.label(selZ);
+gradZ.chanpos = grad_sp.chanpos(selZ, :);
+gradZ.chanori = grad_sp.chanori(selZ, :);  
+gradZ.chanunit = grad_sp.chanunit;  % keep units
+gradZ.coilori = grad_sp.coilori(selZ,:);
+gradZ.coilpos = grad_sp.coilpos(selZ,:);
+gradZ.tra=grad_sp.tra(selZ,selZ);
+
+% Also select the corresponding leadfield subset
+GxZ = Gx(:, selZ);
+GyZ = Gy(:, selZ);
+GzZ = Gz(:, selZ);
+
+iSource = 11; % source idx
+dipPos=sources_cent.pos(iSource,:);
+
+dipOriVec=[0 0 1];
+Lf = GzZ(iSource, :); % e.g., choose orientation leadfield
+
+Lf_mag = sqrt(GxZ(iSource,:).^2 + GyZ(iSource,:).^2 + GzZ(iSource,:).^2);
+
+data = [];
+data.label = gradZ.label;
+data.dimord = 'chan';
+data.avg = Lf_mag';   % channel vector
+data.grad = gradZ;
+
+F = scatteredInterpolant(gradZ.chanpos(:,1), gradZ.chanpos(:,2), gradZ.chanpos(:,3), data.avg, 'natural', 'none');
+vals_on_mesh = F(mesh_torso.vertices(:,1), mesh_torso.vertices(:,2), mesh_torso.vertices(:,3));
+
+figure;
+ft_plot_mesh(mesh_torso, 'facecolor', [0.7 0.7 0.7], 'facealpha', 1, 'edgecolor', 'none');
+mask = ~isnan(vals_on_mesh); hold on
+ft_plot_mesh(mesh_torso, 'vertexcolor', vals_on_mesh, 'facealpha', 1, 'vertexcolormask', mask);
+view(180,-79.5)
+colorbar
+
+% Plot dipole and orientation
+
+ft_plot_mesh(mesh_torso, 'facecolor', [0.7 0.7 0.7], 'facealpha', .3, 'edgecolor', 'none'); hold on
+quiver3(dipPos(1), dipPos(2), dipPos(3), ...
+        dipOriVec(1), dipOriVec(2), dipOriVec(3), ...
+        20, 'r', 'LineWidth', 2, 'MaxHeadSize', 1);
+plot3(dipPos(1), dipPos(2), dipPos(3), 'ko', 'MarkerFaceColor','k', 'MarkerSize',8);
+view(180,-79.5)
+
+
+%% visualize leadfield strength along the spinal cord (using Y positions)
+leadfield_strength = sqrt(sum(GxZ.^2 + GyZ.^2 + GzZ.^2, 2));  %norm across sensor orientations and sensors
+spine_y = sources_cent.pos(:,2);  % Y positions of sources (head->foot)
+
+%another way to quantify:
+absmax_X=abs(max(GxZ'));
+absmax_Y=abs(max(GyZ'));
+absmax_Z=abs(max(GyZ'));
+
+
+figure;
+plot(spine_y, absmax_X)
+hold on
+plot(spine_7,absmax_Y)
+plot(spine_y)
+%%
+
+
+figure;
+plot(spine_y, leadfield_strength, '-o', 'LineWidth', 2);
+xlabel('Spinal Y position ');
+ylabel('Leadfield magnitude (sum across sensors)');
+title('Leadfield strength along spinal cord');
+grid on;
+
+% so for this is it computed as abs max across Z channels for each sourcepoint
+
+
+

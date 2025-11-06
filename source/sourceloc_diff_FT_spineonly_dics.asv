@@ -76,6 +76,7 @@ for ss=1:length(subs)
 
     end
 
+
     [Gx, Gy, Gz] = build_leadfield_matrices(fullfile(generic_dir,'cervical_realistic_brain_spine'), LFop);
 
     nsourcepoints = size(Gx,1);
@@ -101,7 +102,7 @@ for ss=1:length(subs)
         Lf.leadfield{k} = [Gx(k,:)' Gy(k,:)' Gz(k,:)']; % nchannels x 3
     end
 
-    % 2. dummy head model for input config only
+ % 2. dummy head model for input config only
     cfg                     = [];
     cfg.method              = 'infinite';
     cfg.siunits=1;
@@ -110,7 +111,8 @@ for ss=1:length(subs)
 
     dummyvol = ft_prepare_headmodel(cfg,mesh_torso);
     
- 
+  
+
     %% BEM and beamforming----------------------------
     %1. trial wise freq dat
     cfg=[];
@@ -153,6 +155,10 @@ for ss=1:length(subs)
     cfg.avgoverfreq='yes';
     freqdat=ft_selectdata(cfg,freqdat);
 
+    freqdat.grad=grad_mm;
+    statdat.grad=grad_mm;
+    restdat.grad=grad_mm;
+
     %% DICS coherence filter constructed on both conditions
 
     cfg=[];
@@ -162,7 +168,7 @@ for ss=1:length(subs)
     cfg.dics.keepfilter='yes';
     cfg.dics.lambda=10;
     cfg.method = 'dics';
-    cfg.refchan='EXG1';
+    cfg.refchan=refChan;
 
     coh_source = ft_sourceanalysis(cfg,freqdat);
 
@@ -175,9 +181,9 @@ for ss=1:length(subs)
     cfg.dics.filter=coh_source.avg.filter;
     cfg.dics.lambda=10;
     cfg.method = 'dics';
-    cfg.refchan='EXG1';
+    cfg.refchan=refChan;
 
-    %source_stat = ft_sourceanalysis(cfg,statdat); %struct per condition with single trials
+    source_stat = ft_sourceanalysis(cfg,statdat); %struct per condition with single trials
     % source_rest = ft_sourceanalysis(cfg,restdat);
 
     cfg.permutation = 'yes';
@@ -303,6 +309,7 @@ for ss=1:length(subs)
 
 end
 
+error('stop')
 nSubjects = length(subs);
 sig_pos = false(nSubjects,1);
 
