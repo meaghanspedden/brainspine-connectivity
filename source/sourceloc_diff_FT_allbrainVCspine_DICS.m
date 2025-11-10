@@ -1,5 +1,5 @@
 
-%% source recon fieldtrip brain
+%% source recon fieldtrip brain maximally coherence with spinal cord virtual electrode
 
 clear all
 close all
@@ -28,7 +28,6 @@ generic_dir = 'C:\Users\mspedden\Documents\new_leadfields_and_geom'; %where I ha
 geomfile = fullfile(generic_dir, 'geometries_cervical_realistic.mat');
 
 HFC=1;
-rectify=1;
 mult_comp_corr=1;
 fband=[10 35];
 
@@ -64,17 +63,6 @@ for ss=1:length(subs)
     cfg.channel=setdiff(ftdat.label,badchans);
     ftdat=ft_selectdata(cfg,ftdat);
 
-    if rectify
-        cfg=[];
-        cfg.rectify='yes';
-        cfg.channel='EXG1';
-        ftdatr=ft_preprocessing(cfg,ftdat);
-
-        for k=1:length(ftdat.trial)
-            ftdat.trial{k}(end,:)=ftdatr.trial{k}; %ftdat has rectified emg
-        end
-
-    end
 
     brainlabs=[];
     for f = 1:length(grad_mm.label)
@@ -83,7 +71,7 @@ for ss=1:length(subs)
         end
     end
 
-    %% new brain only dataset and grad
+    %% new brain only grad
 
 brainidx = find(grad_mm.chanpos(:,2) > 200);
 braingrad = grad_mm;
@@ -104,9 +92,10 @@ braingrad.tra = grad_mm.tra(brainidx, brainidx);
 % cfg=[];
 % cfg.channel=[brainlabs 'EXG1']; %only use brain channels
 % braindat=ft_selectdata(cfg,ftdat);
-braindat=ftdat;
 
+braindat=ftdat;
 mesh_brain.unit='mm';
+
 %single shell volume conductor
 cfg = [];
 cfg.method = 'singleshell';
@@ -131,7 +120,7 @@ LF = ft_prepare_leadfield(cfg);
     cfg.foilim     = fband;
     cfg.tapsmofrq  = 1;
     cfg.keeptrials='yes';
-    freqdat_tr=ft_freqanalysis(cfg,braindat); %trial wise freq
+    freqdat_tr=ft_freqanalysis(cfg,braindat); %trial wise freq dat
 
     cfg=[];
     cfg.avgoverfreq='yes';
@@ -157,7 +146,7 @@ LF = ft_prepare_leadfield(cfg);
     cfg.foilim     = fband;
     cfg.tapsmofrq  = 1;
     cfg.keeptrials = 'no';
-    freqdat=ft_freqanalysis(cfg,ftdat);
+    freqdat=ft_freqanalysis(cfg,ftdat); %avg struct to create filter
 
     cfg=[];
     cfg.avgoverfreq='yes';
@@ -171,7 +160,7 @@ LF = ft_prepare_leadfield(cfg);
     cfg.dics.keepfilter='yes';
     cfg.dics.lambda=10;
     cfg.method = 'dics';
-    cfg.refchan='EXG1';
+    cfg.refchan='VC';
 
     coh_source = ft_sourceanalysis(cfg,freqdat);
 
@@ -182,7 +171,7 @@ LF = ft_prepare_leadfield(cfg);
     cfg.dics.filter=coh_source.avg.filter;
     cfg.dics.lambda=10;
     cfg.method = 'dics';
-    cfg.refchan='EXG1';
+    cfg.refchan='VC';
 
     source_stat = ft_sourceanalysis(cfg,statdat); %struct per condition with single trials
     % source_rest = ft_sourceanalysis(cfg,restdat);
@@ -253,20 +242,20 @@ coh_diff_masked(~mask) = -Inf;  % or NaN, but -Inf works nicely for max()
 % Now you can safely map back to coordinates
 max_pos = sources_brain(max_idx, :);
     
-   f= figure;
-    cfg = [];
-    cfg.figure='gcf';
-    cfg.method = 'surface';
-    cfg.funparameter = 'coh';
-    cfg.funcolormap = 'magma';
-    cfg.funcolorlim=[0 8e-4];
-    cfg.projmethod = 'nearest';
-    cfg.surffile = mesh_brain;
-    ft_sourceplot(cfg, brain_int);
-
-    view(176,-10)
-    camlight
-    waitfor(f)
+%    f= figure;
+%     cfg = [];
+%     cfg.figure='gcf';
+%     cfg.method = 'surface';
+%     cfg.funparameter = 'coh';
+%     cfg.funcolormap = 'magma';
+%     cfg.funcolorlim='zeromax';
+%     cfg.projmethod = 'nearest';
+%     cfg.surffile = mesh_brain;
+%     ft_sourceplot(cfg, brain_int);
+% 
+%     view(176,-10)
+%     camlight
+    %waitfor(f)
 
     subjResults(ss).subjID = sub;
     subjResults(ss).coh_diff = coh_diff;
@@ -277,7 +266,7 @@ max_pos = sources_brain(max_idx, :);
 
 end
 
-save(fullfile(save_dir,'groupRes_brain_DICS'), 'subjResults')
+save(fullfile(save_dir,'groupRes_brain_spineVE_DICS'), 'subjResults')
 
 nSubs = length(subjResults);
 

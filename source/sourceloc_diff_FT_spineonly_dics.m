@@ -271,10 +271,10 @@ for ss=1:length(subs)
     view( -250, -1)
     camlight
 %% plot static only
-
-    cfg = [];
-    cfg.parameter = {'coh'};
-    spine_int=ft_sourceinterpolate(cfg,source_stat, mesh_wm);
+% 
+%     cfg = [];
+%     cfg.parameter = {'coh'};
+%     spine_int=ft_sourceinterpolate(cfg,source_stat, mesh_wm);
 
     %% with mask
 %     figure
@@ -300,6 +300,9 @@ for ss=1:length(subs)
 
     subjResults(ss).coh_diff=coh_diff;        % source_perm.avgA.coh - avgB.coh
     subjResults(ss).thr95=thr95;
+    subjResults(ss).sig_mask = source_mask_int.pow; % binary 0/1 map
+    subjResults(ss).pos = source_mask_int.pos; % save positions (same across subjects)
+    subjResults(ss).inside = source_mask_int.inside;
 
 end
 
@@ -354,47 +357,104 @@ grid on;
 
 %% sorted by height
 
-heighttable=readtable('C:\Users\mspedden\Documents\SC_subs_heights.csv');
-heights=heighttable.Var2;
+% heighttable=readtable('C:\Users\mspedden\Documents\SC_subs_heights.csv');
+% heights=heighttable.Var2;
+% 
+% [sortedHeights, sortIdx] = sort(heights, 'descend');  % tallest first
+% subjResultsSorted = subjResults(sortIdx);
+% 
+% cmapSorted = cmap(sortIdx, :);
+% 
+% nSubj = numel(subjResultsSorted);
+% figure; hold on;
+% 
+% for s = 1:nSubj
+%     cdiff = subjResultsSorted(s).coh_diff;
+%     thr   = subjResultsSorted(s).thr95;
+%     sig   = cdiff > thr;
+% 
+%     if any(sig)
+%         c = cmapSorted(s,:);
+%     else
+%         c = [0.7 0.7 0.7];
+%     end
+% 
+%     for i = 1:length(x)-1
+%         if sig(i) && sig(i+1)
+%             plot(x(i:i+1), cdiff(i:i+1), '-', 'Color', c, 'LineWidth', 1.5, 'HandleVisibility', 'off')
+%         else
+%             plot(x(i:i+1), cdiff(i:i+1), '-', 'Color', [0.7 0.7 0.7], 'HandleVisibility', 'off')
+%         end
+%     end
+% 
+%     plot(x(sig), cdiff(sig), '.', 'Color', c, 'MarkerSize', 12, 'HandleVisibility', 'off')
+%     h(s) = plot(nan, nan, '-', 'Color', c, 'LineWidth', 1.5);
+% end
+% 
+% yline(0, ':k', 'HandleVisibility', 'off');
+% xlabel('Cranial caudal position (mm)');
+% ylabel('Coherence difference');
+% title('Significant coherence differences height sorted');
+% legend(h, arrayfun(@(s) sprintf('Subj %d', s), 1:nSubj, 'UniformOutput', false), 'Location', 'bestoutside');
+% set(gca, 'FontSize', 13)
+% grid on;
 
-[sortedHeights, sortIdx] = sort(heights, 'descend');  % tallest first
-subjResultsSorted = subjResults(sortIdx);
+%% group prevalence
 
-cmapSorted = cmap(sortIdx, :);
+nSubs = length(subjResults);
 
-nSubj = numel(subjResultsSorted);
-figure; hold on;
+% Stack all binary significance masks
+all_masks = cat(2, subjResults(:).sig_mask);
 
-for s = 1:nSubj
-    cdiff = subjResultsSorted(s).coh_diff;
-    thr   = subjResultsSorted(s).thr95;
-    sig   = cdiff > thr;
+% Compute prevalence (fraction of subjects with significance per voxel)
+group_prevalence = mean(all_masks, 2);
 
-    if any(sig)
-        c = cmapSorted(s,:);
-    else
-        c = [0.7 0.7 0.7];
-    end
+% Create a group source structure for plotting
+group_source = subjResults(1); % use one subject as template
+group_source.pow = group_prevalence;
+group_source = rmfield(group_source, {'coh_diff', 'sig_mask'}); % clean up
 
-    for i = 1:length(x)-1
-        if sig(i) && sig(i+1)
-            plot(x(i:i+1), cdiff(i:i+1), '-', 'Color', c, 'LineWidth', 1.5, 'HandleVisibility', 'off')
-        else
-            plot(x(i:i+1), cdiff(i:i+1), '-', 'Color', [0.7 0.7 0.7], 'HandleVisibility', 'off')
-        end
-    end
+group_ft = [];
+group_ft.pos = group_source.pos;
+group_ft.inside = group_source.inside;
+group_ft.pow = group_prevalence;
 
-    plot(x(sig), cdiff(sig), '.', 'Color', c, 'MarkerSize', 12, 'HandleVisibility', 'off')
-    h(s) = plot(nan, nan, '-', 'Color', c, 'LineWidth', 1.5);
-end
 
-yline(0, ':k', 'HandleVisibility', 'off');
-xlabel('Cranial caudal position (mm)');
-ylabel('Coherence difference');
-title('Significant coherence differences height sorted');
-legend(h, arrayfun(@(s) sprintf('Subj %d', s), 1:nSubj, 'UniformOutput', false), 'Location', 'bestoutside');
-set(gca, 'FontSize', 13)
-grid on;
+%% Interpolate group map onto the mesh
+cfg = [];
+cfg.parameter = 'pow';
+cfg.interpmethod = 'nearest';
+group_int = ft_sourceinterpolate(cfg, group_ft, mesh_wm);
+
+%% Plot group prevalence map
+figure;
+cfg = [];
+cfg.method = 'surface';
+cfg.funparameter = 'pow';
+cfg.funcolorlim = [.3 .7];
+cfg.funcolormap = 'magma';
+cfg.projmethod = 'nearest';
+cfg.surffile = mesh_wm;
+ft_sourceplot(cfg, group_int);
+view(90,18);
+camlight;
+title('Proportion of subjects showing significant CMC');
+
+
+
+
+%% VE at max
+[max_val, max_idx] = max(group_ft.pow);
+
+max_pos = group_ft.pos(max_idx, :);
+
+save(fullfile(save_dir,'max_spineEMG_pos'),'max_pos', 'max_idx')
+
+%% check location
+% 
+figure; ft_plot_mesh(mesh_wm,'facealpha',0.2);hold on
+plot3(max_pos(1), max_pos(2), max_pos(3), 'ro', 'MarkerSize', 10, 'LineWidth', 2);
+title(sprintf('Max prevalence voxel (%.3f)', max_val));
 
 %%
 figure;

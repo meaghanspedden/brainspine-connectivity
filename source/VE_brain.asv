@@ -20,17 +20,18 @@ end
 % sensors) and other couldnt close headcast
 
 subs = {'OP00212','OP00213','OP00215', 'OP00219', ...
- 'OP00225', 'OP00221', 'OP00224'}; %have brain spine and emg
+ 'OP00225', 'OP00221', 'OP00224'}; %have brain 
 
 generic_dir = 'C:\Users\mspedden\Documents\new_leadfields_and_geom'; %where I have saved folder with brainspione leadfields and geoms (meshes)
 geomfile = fullfile(generic_dir, 'geometries_cervical_realistic.mat');
 
 HFC=1;
 rectify=1;
-mult_comp_corr=1;
 fband=[10 35];
 
-load('C:\Users\mspedden\Documents\brainspine_save\max_brainEMG_pos.mat')
+%load('C:\Users\mspedden\Documents\brainspine_save\max_brainEMG_pos.mat')
+%%choose this if you want to load group avg...
+load('C:\Users\mspedden\Documents\brainspine_save\groupRes_brain_DICS.mat')
 
 for ss=1:length(subs)
 
@@ -94,7 +95,7 @@ braingrad.coilpos = grad_mm.coilpos(brainidx, :);
 braingrad.label = grad_mm.label(brainidx);
 braingrad.tra = grad_mm.tra(brainidx, brainidx);
 
-figure; ft_plot_sens(braingrad)
+%figure; ft_plot_sens(braingrad)
 
 
 cfg=[];
@@ -102,6 +103,7 @@ cfg.channel=[brainlabs 'EXG1']; %only use brain channels
 braindat=ft_selectdata(cfg,ftdat);
 
 mesh_brain.unit='mm';
+
 %single shell volume conductor
 cfg = [];
 cfg.method = 'singleshell';
@@ -118,6 +120,15 @@ cfg.reducerank          = 'no';
 
 LF = ft_prepare_leadfield(cfg);
 
+
+%% get pos and index for point with max coherence with EMG
+
+load('brain_group_max_coh.mat')
+f=figure; ft_plot_mesh(mesh_brain,'facealpha',0.1);hold on
+plot3(max_pos(1), max_pos(2), max_pos(3), 'ro', 'MarkerSize', 10, 'LineWidth', 2);
+waitfor(f)
+
+
 %% lcmv
 
 cfg                   = [];
@@ -127,12 +138,24 @@ tlock = ft_timelockanalysis(cfg, braindat);
 cfg                     = [];
 cfg.method              = 'lcmv';
 cfg.headmodel           = vol;
-cfg.sourcemodel.LF     = LF.leadfield{max_idx};
-cfg.sourcemodel.pos     = LF.pos(max_idx, :);
-cfg.sourcemodel.inside  = true(1);
+cfg.sourcemodel.LF     = LF;
+cfg.grid     = sources_brain;
+%cfg.sourcemodel.inside  = true(1);
 cfg.unit                = LF.unit;
 cfg.lcmv.keepfilter     = 'yes';
 source_idx = ft_sourceanalysis(cfg, tlock);
+
+cfg=[];
+cfg.pos=max_pos;
+cfg.radius=20;
+cfg.method='pca';
+
+VE = ft_virtualchannel(cfg, braindat, source_idx)
+
+
+
+%%
+
 
 beamformer=source_idx.avg.filter{1};
 
@@ -161,6 +184,7 @@ end
 
 savename=sprintf('brain_VC_%s',sub);
 save(fullfile(save_dir,savename), 'virtualchannelbrain')
+error('stop')
 
 % cfg = [];
 % cfg.channel = 'EXG1';

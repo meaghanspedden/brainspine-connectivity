@@ -1,5 +1,5 @@
 
-%% source recon fieldtrip brain
+%% DICS spinal VE to brain
 
 clear all
 close all
@@ -96,14 +96,25 @@ braingrad.coilpos = grad_mm.coilpos(brainidx, :);
 braingrad.label = grad_mm.label(brainidx);
 braingrad.tra = grad_mm.tra(brainidx, brainidx);
 
-figure; ft_plot_sens(braingrad)
+%figure; ft_plot_sens(braingrad)
 
 
-cfg=[];
-cfg.channel=[brainlabs 'EXG1']; %only use brain channels
-braindat=ft_selectdata(cfg,ftdat);
+%use all channels but only brain grad
+
+% cfg=[];
+% cfg.channel=[brainlabs 'EXG1']; %only use brain channels
+% braindat=ft_selectdata(cfg,ftdat);
+braindat=ftdat;
+loadfile=sprintf('VE_spine_sub%s.mat',sub);
+load(fullfile('C:\Users\mspedden\Documents\brainspine_save',loadfile))
+
+trialinfo=ftdat.trialinfo; %lost when merging
+braindat=ft_appenddata([],braindat,VE);
+braindat.trialinfo=trialinfo;
 
 mesh_brain.unit='mm';
+braindat.grad=braingrad;
+
 %single shell volume conductor
 cfg = [];
 cfg.method = 'singleshell';
@@ -115,7 +126,7 @@ cfg.sourcemodel         = sources_brain;
 cfg.headmodel           = vol;
 cfg.grad                = braingrad;
 cfg.reducerank          = 'no';
-%cfg.normalize           = 'yes';
+cfg.normalize           = 'no';
 %cfg.normalizeparam     = 0.5;
 
 LF = ft_prepare_leadfield(cfg);
@@ -154,7 +165,7 @@ LF = ft_prepare_leadfield(cfg);
     cfg.foilim     = fband;
     cfg.tapsmofrq  = 1;
     cfg.keeptrials = 'no';
-    freqdat=ft_freqanalysis(cfg,ftdat);
+    freqdat=ft_freqanalysis(cfg,braindat);
 
     cfg=[];
     cfg.avgoverfreq='yes';
@@ -168,7 +179,7 @@ LF = ft_prepare_leadfield(cfg);
     cfg.dics.keepfilter='yes';
     cfg.dics.lambda=10;
     cfg.method = 'dics';
-    cfg.refchan='EXG1';
+    cfg.refchan='virtualchannel001';
 
     coh_source = ft_sourceanalysis(cfg,freqdat);
 
@@ -179,32 +190,30 @@ LF = ft_prepare_leadfield(cfg);
     cfg.dics.filter=coh_source.avg.filter;
     cfg.dics.lambda=10;
     cfg.method = 'dics';
-    cfg.refchan='EXG1';
+    cfg.refchan='virtualchannel001';
 
-     source_stat = ft_sourceanalysis(cfg,statdat); %struct per condition with single trials
+    %source_stat = ft_sourceanalysis(cfg,statdat); %struct per condition with single trials
     % source_rest = ft_sourceanalysis(cfg,restdat);
-
-    cfg = [];
-    cfg.parameter = {'coh'};
-    brain_int=ft_sourceinterpolate(cfg,source_stat, mesh_brain);
-    
-    figure
-    cfg = [];
-    cfg.figure='gcf';
-    cfg.method = 'surface';
-    cfg.funparameter = 'coh';
-    cfg.funcolormap = 'magma';
-    cfg.funcolorlim='zeromax';
-    cfg.projmethod = 'nearest';
-    cfg.surffile = mesh_brain;
-    ft_sourceplot(cfg, brain_int);
-    view(0,90)
-%     
-    
     cfg.permutation = 'yes';
     cfg.numpermutation=500;
     source_perm = ft_sourceanalysis(cfg, statdat, restdat);
     
+%     cfg = [];
+%     cfg.parameter = {'coh'};
+%     brain_int=ft_sourceinterpolate(cfg,source_stat, mesh_brain);
+%     
+%     figure
+%     cfg = [];
+%     cfg.figure='gcf';
+%     cfg.method = 'surface';
+%     cfg.funparameter = 'coh';
+%     cfg.funcolormap = 'magma';
+%     cfg.funcolorlim='zeromax';
+%     cfg.projmethod = 'nearest';
+%     cfg.surffile = mesh_brain;
+%     ft_sourceplot(cfg, brain_int);
+%     view(0,90)
+%     
     
     nsourcepoints=length(source_perm.inside);
 
@@ -240,21 +249,31 @@ LF = ft_prepare_leadfield(cfg);
     cfg.interpmethod = 'nearest';
     source_mask_int = ft_sourceinterpolate(cfg, source_mask, mesh_brain);
     brain_int.mask=source_mask_int.pow;
+
+
+mask = source_mask.avg.pow;  % logical array same size as coh_diff
+
+% Find the max only where mask == true
+coh_diff_masked = coh_diff;
+coh_diff_masked(~mask) = -Inf;  % or NaN, but -Inf works nicely for max()
+[max_val, max_idx] = max(coh_diff_masked(:));
+
+max_pos = sources_brain(max_idx, :);
     
-%    f= figure;
-%     cfg = [];
-%     cfg.figure='gcf';
-%     cfg.method = 'surface';
-%     cfg.funparameter = 'coh';
-%     cfg.funcolormap = 'magma';
-%     cfg.funcolorlim='zeromax';
-%     cfg.projmethod = 'nearest';
-%     cfg.surffile = mesh_brain;
-%     ft_sourceplot(cfg, brain_int);
-% 
-%     view(176,-10)
-%     camlight
-    %waitfor(f)
+    f= figure;
+    cfg = [];
+    cfg.figure='gcf';
+    cfg.method = 'surface';
+    cfg.funparameter = 'coh';
+    cfg.funcolormap = 'magma';
+    cfg.funcolorlim='zeromax';
+    cfg.projmethod = 'nearest';
+    cfg.surffile = mesh_brain;
+    ft_sourceplot(cfg, brain_int);
+
+    view(176,-10)
+    camlight
+    waitfor(f)
 
     subjResults(ss).subjID = sub;
     subjResults(ss).coh_diff = coh_diff;
@@ -265,7 +284,7 @@ LF = ft_prepare_leadfield(cfg);
 
 end
 
-save(fullfile(save_dir,'groupRes_brain_DICS'), 'subjResults')
+save(fullfile(save_dir,'groupRes_brain_DICS_spineVC'), 'subjResults')
 
 nSubs = length(subjResults);
 
@@ -312,16 +331,16 @@ hold on;
 
 
 
-%% VE at max
-[max_val, max_idx] = max(group_ft.pow);
-
-max_pos = group_ft.pos(max_idx, :);
-
-save(fullfile(save_dir,'max_brainEMG_pos'))
-
-%% check location
+% %% VE at max
+% [max_val, max_idx] = max(group_ft.pow);
 % 
-% figure; ft_plot_mesh(mesh_brain);hold on
+% max_pos = group_ft.pos(max_idx, :);
+% 
+% save(fullfile(save_dir,'max_brainEMG_pos'),'max_pos', 'max_idx')
+% 
+% %% check location
+% % 
+% figure; ft_plot_mesh(mesh_brain,'facealpha',0.2);hold on
 % plot3(max_pos(1), max_pos(2), max_pos(3), 'ro', 'MarkerSize', 10, 'LineWidth', 2);
 % title(sprintf('Max prevalence voxel (%.3f)', max_val));
-
+% 

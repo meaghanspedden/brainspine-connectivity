@@ -1,6 +1,7 @@
 
 %% source recon  in fieldtrip using BEM leadfields spine
-% brain-spinal cord coherence
+% brain-spinal cord coherence- finds point in spinal cord max coherent with
+% brain virtual electrode
 clear all
 close all
 clc
@@ -51,8 +52,8 @@ for ss=1:length(subs)
     end
 
 
-    load(sprintf('brain_VC_%s.mat',sub))
-
+   % load(sprintf('brain_VC_%s.mat',sub))
+    load VE
 
     load(geomfile)
     D=spm_eeg_load(datwithEMGmerged);
@@ -117,7 +118,7 @@ for ss=1:length(subs)
     dummyvol = ft_prepare_headmodel(cfg,mesh_torso);
     
     trialinfo=ftdat.trialinfo; %lost when merging
-    ftdat=ft_appenddata([],ftdat,virtualchannelbrain);
+    ftdat=ft_appenddata([],ftdat,VE);
     ftdat.trialinfo=trialinfo;
 
     %% BEM and beamforming----------------------------
@@ -175,7 +176,7 @@ for ss=1:length(subs)
     cfg.dics.keepfilter='yes';
     cfg.dics.lambda=10;
     cfg.method = 'dics';
-    cfg.refchan='motor';
+    cfg.refchan='virtualchannel001';
 
     coh_source = ft_sourceanalysis(cfg,freqdat);
 
@@ -188,7 +189,7 @@ for ss=1:length(subs)
     cfg.dics.filter=coh_source.avg.filter;
     cfg.dics.lambda=10;
     cfg.method = 'dics';
-    cfg.refchan='motor';
+    cfg.refchan='virtualchannel001';
 
     %source_stat = ft_sourceanalysis(cfg,statdat); %struct per condition with single trials
     % source_rest = ft_sourceanalysis(cfg,restdat);
@@ -290,25 +291,25 @@ for ss=1:length(subs)
     spine_int=ft_sourceinterpolate(cfg,source_stat, mesh_wm);
 
     %% with mask
-%     figure
-%     cfg = [];
-%     cfg.figure='gcf';
-%     cfg.method = 'surface';
-%     cfg.funparameter = 'coh';
-%     cfg.funcolormap = 'magma';
-%     cfg.maskparameter = 'mask';
-%     cfg.maskstyle='opacity';
-%     %cfg.funcolorlim='minzero';
-%     %cfg.funcolorlim = [-.034 -.03];
-%     cfg.projmethod = 'nearest';
-%     cfg.surffile = mesh_wm;
-%     ft_sourceplot(cfg, spine_int);
-%     hold on
-%     ft_plot_mesh(mesh_brain, 'facecolor', [0.8 0.3 0.3], 'facealpha', 0.2, 'edgecolor', 'none');
-%     ft_plot_mesh(mesh_cut, 'facecolor', [0.3 0.3 0.9], 'facealpha', 0.07, 'edgecolor', 'none');
-%     ft_plot_mesh(mesh_bone, 'facecolor', [0.9 0.85 0.7], 'facealpha', 0.1, 'edgecolor', 'none');
-%     view( -250, -1)
-%     camlight
+    figure
+    cfg = [];
+    cfg.figure='gcf';
+    cfg.method = 'surface';
+    cfg.funparameter = 'coh';
+    cfg.funcolormap = 'magma';
+    cfg.maskparameter = 'mask';
+    cfg.maskstyle='opacity';
+    %cfg.funcolorlim='minzero';
+    %cfg.funcolorlim = [-.034 -.03];
+    cfg.projmethod = 'nearest';
+    cfg.surffile = mesh_wm;
+    ft_sourceplot(cfg, spine_int);
+    hold on
+    ft_plot_mesh(mesh_brain, 'facecolor', [0.8 0.3 0.3], 'facealpha', 0.2, 'edgecolor', 'none');
+    ft_plot_mesh(mesh_cut, 'facecolor', [0.3 0.3 0.9], 'facealpha', 0.07, 'edgecolor', 'none');
+    ft_plot_mesh(mesh_bone, 'facecolor', [0.9 0.85 0.7], 'facealpha', 0.1, 'edgecolor', 'none');
+    view( -250, -1)
+    camlight
 
 
     subjResults(ss).coh_diff=coh_diff;        % source_perm.avgA.coh - avgB.coh
