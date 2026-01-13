@@ -66,7 +66,7 @@ if length(x)>1  % vector input
 else
     switch nargin
     case 1
-        linetype='r:';
+        linetype='k:';
         label='';
     case 2
         linetype=in1;
@@ -81,7 +81,7 @@ else
     g=ishold(gca);
     hold on
     y=get(gca,'ylim');
-    h=plot([x x],y,linetype,'LineWidth',2);
+    h=plot([x x],y,linetype,'LineWidth',1.2);
     if length(label)
         xx=get(gca,'xlim');
         xrange=xx(2)-xx(1);

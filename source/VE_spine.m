@@ -1,9 +1,9 @@
-% virtual electrode spine to correlate with brain
+% virtual electrode spinal cord (from prevalence analysis) 
 clear all
 close all
 clc
 
-addpath('C:\Users\mspedden\Documents\brainspineconnectivity\source')
+addpath('C:\Users\mspaedden\Documents\brainspineconnectivity\source')
 addpath('C:\Users\mspedden\Documents\spm')
 spm('defaults','EEG')
 
@@ -30,8 +30,38 @@ HFC=1;
 rectify=1;
 fband=[10 35];
 
-%load structure with position where group prev of sig diff is max
-load('C:\Users\mspedden\Documents\brainspine_save\max_spineEMG_pos.mat')
+%load structure with position
+load('C:\Users\mspedden\Documents\brainspine_save\cluster_spineEMG_pos.mat')
+
+
+cmap = magma(256);          
+pointColor = cmap(90,:);
+meshColor = cmap(40,:);   % dark purple/black end of magma
+outlineColor=cmap(240,:);
+
+ facecol=[0.72 0.70 0.61];
+
+figure
+ft_plot_mesh(mesh_wm, ...
+    'facecolor', facecol, ...   % FT default: light gray
+    'facealpha', 1, ...               % opaque by default
+    'edgecolor', 'none');             % no edges
+hold on
+
+% for kk = 1:size(ROIpos,1)
+%     plot3(ROIpos(kk,1), ROIpos(kk,2), ROIpos(kk,3), 'o', ...
+%         'MarkerFaceColor', pointColor, ...
+%         'MarkerEdgeColor', pointColor*0.8, ...
+%         'MarkerSize', 8, ...
+%         'LineWidth', 1.5)
+% end
+view(-250, -1)
+lighting gouraud
+camlight
+
+
+
+
 
 for ss=1:length(subs)
 
@@ -113,7 +143,7 @@ for ss=1:length(subs)
    
 
 %% get pos and index for point with max coherence with EMG
-
+if ss==1
 f = figure('Color', 'w'); % white background
 
 % magma colormap-inspired tone for spinal cord mesh
@@ -127,7 +157,7 @@ hold on
 
 % highlight point (bright magma yellow/orange)
 highlightColor = [1 0.4 0.1];
-plot3(max_pos(1), max_pos(2), max_pos(3), 'o', ...
+plot3(ROIpos(:,1), ROIpos(:,2), ROIpos(:,3), 'o', ...
     'MarkerSize', 10, ...
     'MarkerEdgeColor', [0.9 0.3 0], ...
     'MarkerFaceColor', highlightColor, ...
@@ -135,18 +165,19 @@ plot3(max_pos(1), max_pos(2), max_pos(3), 'o', ...
 
 % optional aura/glow sphere
 [sx, sy, sz] = sphere(40);
-r = 1.5;
-surf(max_pos(1)+r*sx, max_pos(2)+r*sy, max_pos(3)+r*sz, ...
-    'FaceAlpha', 0.08, ...
-    'EdgeColor', 'none', ...
-    'FaceColor', highlightColor);
+r = .5;
+% surf(max_pos(1)+r*sx, max_pos(2)+r*sy, max_pos(3)+r*sz, ...
+%     'FaceAlpha', 0.08, ...
+%     'EdgeColor', 'none', ...
+%     'FaceColor', highlightColor);
 
 % lighting and view
 camlight headlight
 material dull
 lighting gouraud
 axis equal off
-view([45 20])
+view(90,18)
+end
 
 %% lcmv
 
@@ -165,13 +196,12 @@ cfg.lcmv.keepfilter     = 'yes';
 source_idx = ft_sourceanalysis(cfg, tlock);
 
 cfg=[];
-cfg.pos=max_pos;
-cfg.radius=10;
+cfg.pos=ROIpos;
+%cfg.radius=10;
 cfg.method='pca';
-
 VE = ft_virtualchannel(cfg, ftdat, source_idx);
 
-savename=sprintf('VE_spine_sub%s', sub);
+savename=sprintf('VE_spine_sub%s_cluster', sub, 'VE');
 save(fullfile(save_dir,savename))
 %%
 

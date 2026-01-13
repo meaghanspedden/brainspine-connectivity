@@ -17,7 +17,6 @@ if ~exist(save_dir,'dir')
     mkdir(save_dir)
 end
 
-%subs={'OP00212'};
 % exclude two subejcts because one had very small head (very far away from
 % sensors) and other couldnt close headcast
 
@@ -26,6 +25,7 @@ subs = {'OP00212','OP00213','OP00215', 'OP00219', ...
 
 generic_dir = 'C:\Users\mspedden\Documents\new_leadfields_and_geom'; %where I have saved folder with brainspione leadfields and geoms (meshes)
 geomfile = fullfile(generic_dir, 'geometries_cervical_realistic.mat');
+rng(1)
 
 HFC=1;
 rectify=1;
@@ -100,12 +100,8 @@ braingrad.tra = grad_mm.tra(brainidx, brainidx);
 
 
 %use all channels but only brain grad
-
-% cfg=[];
-% cfg.channel=[brainlabs 'EXG1']; %only use brain channels
-% braindat=ft_selectdata(cfg,ftdat);
 braindat=ftdat;
-loadfile=sprintf('VE_spine_sub%s.mat',sub);
+loadfile=sprintf('VE_spine_sub%s_cluster.mat',sub);
 load(fullfile('C:\Users\mspedden\Documents\brainspine_save',loadfile))
 
 trialinfo=ftdat.trialinfo; %lost when merging
@@ -127,7 +123,6 @@ cfg.headmodel           = vol;
 cfg.grad                = braingrad;
 cfg.reducerank          = 'no';
 cfg.normalize           = 'no';
-%cfg.normalizeparam     = 0.5;
 
 LF = ft_prepare_leadfield(cfg);
 
@@ -197,24 +192,7 @@ LF = ft_prepare_leadfield(cfg);
     cfg.permutation = 'yes';
     cfg.numpermutation=500;
     source_perm = ft_sourceanalysis(cfg, statdat, restdat);
-    
-%     cfg = [];
-%     cfg.parameter = {'coh'};
-%     brain_int=ft_sourceinterpolate(cfg,source_stat, mesh_brain);
-%     
-%     figure
-%     cfg = [];
-%     cfg.figure='gcf';
-%     cfg.method = 'surface';
-%     cfg.funparameter = 'coh';
-%     cfg.funcolormap = 'magma';
-%     cfg.funcolorlim='zeromax';
-%     cfg.projmethod = 'nearest';
-%     cfg.surffile = mesh_brain;
-%     ft_sourceplot(cfg, brain_int);
-%     view(0,90)
-%     
-    
+   
     nsourcepoints=length(source_perm.inside);
 
     nPerm = numel(source_perm.trialA);
@@ -227,20 +205,36 @@ LF = ft_prepare_leadfield(cfg);
     end
 
     maxPerm = max(cohDiff_perm, [], 1); % max over sources
+
     if mult_comp_corr
         thr95 = prctile(maxPerm, 95,2);   % family-wise threshold
     else
-        thr95=(ones(1,nsourcepoints)*thr95)';
+        thr95=prctile(cohDiff_perm,95,2);
     end
+    
+    %% source structure with coh diff
     coh_diff=source_perm.avgA.coh-source_perm.avgB.coh;
     source_diff=coh_source;
     source_diff.avg.coh=coh_diff;
 
+    permMean = mean(cohDiff_perm, 2);
+    permStd  = std(cohDiff_perm, 0, 2);
+    
+    z_coh = (coh_diff - permMean) ./ permStd;
+    permStd(permStd == 0) = NaN;
+
+    source_z = coh_source;        %source structure
+    source_z.avg.coh = z_coh; 
+
     cfg = [];
     cfg.parameter = {'coh'};
     brain_int=ft_sourceinterpolate(cfg,source_diff, mesh_brain);
+
+    cfg = []; %interpolate z score
+    cfg.parameter = {'coh'};
+    brain_int_z=ft_sourceinterpolate(cfg,source_z, mesh_brain);
     %% add a mask
-    source_mask=coh_source; %copy
+    source_mask=coh_source;
     source_mask.avg.pow = coh_diff > thr95;
 
     %interpolate the mask
@@ -249,13 +243,14 @@ LF = ft_prepare_leadfield(cfg);
     cfg.interpmethod = 'nearest';
     source_mask_int = ft_sourceinterpolate(cfg, source_mask, mesh_brain);
     brain_int.mask=source_mask_int.pow;
+    brain_int_z.mask=source_mask_int.pow;
 
+    mask = source_mask.avg.pow;  % logical
 
-mask = source_mask.avg.pow;  % logical array same size as coh_diff
 
 % Find the max only where mask == true
 coh_diff_masked = coh_diff;
-coh_diff_masked(~mask) = -Inf;  % or NaN, but -Inf works nicely for max()
+coh_diff_masked(~mask) = -Inf;  
 [max_val, max_idx] = max(coh_diff_masked(:));
 
 max_pos = sources_brain(max_idx, :);
@@ -264,16 +259,19 @@ max_pos = sources_brain(max_idx, :);
     cfg = [];
     cfg.figure='gcf';
     cfg.method = 'surface';
+    cfg.maskparameter='mask';
     cfg.funparameter = 'coh';
-    cfg.funcolormap = 'magma';
+    cfg.funcolormap = flipud(colormap(magma));
     cfg.funcolorlim='zeromax';
     cfg.projmethod = 'nearest';
     cfg.surffile = mesh_brain;
-    ft_sourceplot(cfg, brain_int);
-
-    view(176,-10)
+    ft_sourceplot(cfg, brain_int_z);
+    view(178,-33)
     camlight
-    waitfor(f)
+    material dull
+    ax = gca;              
+    ax.FontSize = 14;
+   
 
     subjResults(ss).subjID = sub;
     subjResults(ss).coh_diff = coh_diff;
@@ -288,19 +286,27 @@ save(fullfile(save_dir,'groupRes_brain_DICS_spineVC'), 'subjResults')
 
 nSubs = length(subjResults);
 
-% Stack all binary significance masks
+nSubjects = numel(subjResults);
+sig_res = false(nSubjects,1);  % preallocate
+
+for i = 1:nSubjects
+    % Define subject as significant if any vertex is significant
+    sig_res(i) = any(subjResults(i).sig_mask(:));
+end
+
+fprintf('%g/%g subjects show sig coherence anywhere\n', sum(sig_res), nSubjects)
+
 all_masks = cat(2, subjResults(:).sig_mask);
 
-% Compute prevalence (fraction of subjects with significance per voxel)
+% Compute prevalence 
 group_prevalence = mean(all_masks, 2);
 
-% Create a group source structure for plotting
-group_source = subjResults(1); % use one subject as template
+% Create a group source structure
+group_source = subjResults(1); 
 group_source.pow = group_prevalence;
-group_source = rmfield(group_source, {'coh_diff', 'sig_mask'}); % clean up
+group_source = rmfield(group_source, {'coh_diff', 'sig_mask'}); 
 group_source = rmfield(group_source, {'subjID'}); % optional
 
-% For plotting, convert to FieldTrip-style structure
 group_ft = [];
 group_ft.pos = group_source.pos;
 group_ft.inside = group_source.inside;
@@ -314,33 +320,29 @@ cfg.parameter = 'pow';
 cfg.interpmethod = 'nearest';
 group_int = ft_sourceinterpolate(cfg, group_ft, mesh_brain);
 
+threshold = 0.3;
+
+group_int.pow_thresh = group_int.pow;          % copy original
+group_int.pow_thresh(group_int.pow < threshold) = NaN;   % subthreshold = NaN
+
 %% Plot group prevalence map
 figure;
 cfg = [];
 cfg.method = 'surface';
-cfg.funparameter = 'pow';
-cfg.funcolorlim = [0.3 .7];
-cfg.funcolormap = 'magma';
+cfg.funparameter = 'pow_thresh';
+cfg.funcolorlim =  [threshold max(group_int.pow)];
+cfg.funcolormap = flipud(colormap(magma));
 cfg.projmethod = 'nearest';
 cfg.surffile = mesh_brain;
+cfg.atlas=atlas;
+cfg.atlasparam   = 'tissue';      % use the label values
+cfg.atlaslabel   = 'tissuelabel'; % optional: label names
+cfg.labeloutline = 'on';  
 ft_sourceplot(cfg, group_int);
-title('Proportion of subjects showing significant CMC');
 view(176, -10);
-camlight;
+material dull       % reduces shiny highlights
+lighting gouraud    % smooth shading
 hold on;
+ax = gca;                  
+ax.FontSize = 14;
 
-
-
-% %% VE at max
-% [max_val, max_idx] = max(group_ft.pow);
-% 
-% max_pos = group_ft.pos(max_idx, :);
-% 
-% save(fullfile(save_dir,'max_brainEMG_pos'),'max_pos', 'max_idx')
-% 
-% %% check location
-% % 
-% figure; ft_plot_mesh(mesh_brain,'facealpha',0.2);hold on
-% plot3(max_pos(1), max_pos(2), max_pos(3), 'ro', 'MarkerSize', 10, 'LineWidth', 2);
-% title(sprintf('Max prevalence voxel (%.3f)', max_val));
-% 

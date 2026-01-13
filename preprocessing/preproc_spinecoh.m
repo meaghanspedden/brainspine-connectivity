@@ -9,14 +9,14 @@ sub='OP00212';
 rmchans=0; %remove bad channels from psd...for first round of analysis
 
 analysis={'static','rest'};
-save_dir = fullfile('D:\MSST001', [sub '_merged']);
+save_dir = 'C:\Users\mspedden\Documents\brainspine_save';
 
 if ~exist(save_dir, 'dir')
     mkdir(save_dir);
 end
 
 %% heartbeat estimate from 'best segment'
-if strcmp(sub, 'OP00220')
+if strcmp(sub, 'OP00220') % difficult heart signal
 
     flag=1;
 else
@@ -40,11 +40,11 @@ spine_labels={'C2', 'C3', 'C4', 'C7', 'D8', 'D5', 'D6', 'C5', 'C8', 'C6', 'D7', 
     'G8', 'A6', 'A3', 'A2', 'A8', 'A5', 'A1', 'A4'};
 trigger_label='T5';
 
-filetemplate = fullfile('D:\MSST001', ['sub-' sub], 'ses-001', 'meg');
+filetemplate = fullfile('C:\Users\mspedden\Documents', ['sub-' sub], 'ses-001', 'meg');
 
 posfile=fullfile(filetemplate, 'static_001_ar_positions.tsv');
 
-EMGpath = fullfile('D:\', [sub '_experiment'], 'EMG');
+EMGpath = fullfile('C:\Users\mspedden\Documents', [sub '_experiment'], 'EMG');
 
 EMGfiletemplate = [sub '_00'];
 
@@ -53,7 +53,7 @@ EMGfiletemplate = [sub '_00'];
 fband=[5 45]; %% filter band
 stpband1=[48 52];
 stpband2=[98 102];
-EpochTime=1; %  %% length of epoch in seconds
+EpochTime=1; %  length of epoch in seconds
 DataTime=115; %length to crop opm and emg to, seconds
 
 % flags to turn these filters on/off
@@ -77,7 +77,6 @@ for cond=1:length(analysis)
         S.positions = posfile;
         D = spm_opm_create(S);
 
-
         %% psd
         opms=D.indchannel(D.sensors('MEG').label);
 
@@ -92,7 +91,6 @@ for cond=1:length(analysis)
             S.selectbad=1;
             [~,~,badidx] = spm_opm_psd(S);
 
-           
 
             if~isempty(badchanlabels)
                 badsens=find(contains(D.chanlabels,badchanlabels));
