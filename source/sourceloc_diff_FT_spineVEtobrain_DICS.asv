@@ -1,5 +1,5 @@
 
-%% script that runs DICS in FT to image brain coherence with ref chan (EMG) 
+%% DICS spinal VE to brain
 
 clear all
 close all
@@ -17,8 +17,6 @@ if ~exist(save_dir,'dir')
     mkdir(save_dir)
 end
 
-% exclude two subejcts because one had very small head (very far away from
-% sensors) and other couldnt close headcast
 
 subs = {'OP00212','OP00213','OP00215', 'OP00219', ...
  'OP00225', 'OP00221', 'OP00224'};
@@ -100,9 +98,16 @@ braingrad.tra = grad_mm.tra(brainidx, brainidx);
 
 
 %use all channels but only brain grad
-
 braindat=ftdat;
+loadfile=sprintf('VE_spine_sub%s_forspectraVE_spine_subVE_forspectra.mat',sub);
+load(fullfile('C:\Users\mspedden\Documents\brainspine_save',loadfile))
+
+trialinfo=ftdat.trialinfo; %lost when merging
+braindat=ft_appenddata([],braindat,VE);
+braindat.trialinfo=trialinfo;
+
 mesh_brain.unit='mm';
+braindat.grad=braingrad;
 
 %single shell volume conductor
 cfg = [];
@@ -115,6 +120,7 @@ cfg.sourcemodel         = sources_brain;
 cfg.headmodel           = vol;
 cfg.grad                = braingrad;
 cfg.reducerank          = 'no';
+cfg.normalize           = 'no';
 
 LF = ft_prepare_leadfield(cfg);
 
@@ -152,7 +158,7 @@ LF = ft_prepare_leadfield(cfg);
     cfg.foilim     = fband;
     cfg.tapsmofrq  = 1;
     cfg.keeptrials = 'no';
-    freqdat=ft_freqanalysis(cfg,ftdat);
+    freqdat=ft_freqanalysis(cfg,braindat);
 
     cfg=[];
     cfg.avgoverfreq='yes';
@@ -166,7 +172,7 @@ LF = ft_prepare_leadfield(cfg);
     cfg.dics.keepfilter='yes';
     cfg.dics.lambda=10;
     cfg.method = 'dics';
-    cfg.refchan='EXG1';
+    cfg.refchan='virtualchannel001';
 
     coh_source = ft_sourceanalysis(cfg,freqdat);
 
@@ -177,7 +183,7 @@ LF = ft_prepare_leadfield(cfg);
     cfg.dics.filter=coh_source.avg.filter;
     cfg.dics.lambda=10;
     cfg.method = 'dics';
-    cfg.refchan='EXG1';
+    cfg.refchan='virtualchannel001';
 
     %source_stat = ft_sourceanalysis(cfg,statdat); %struct per condition with single trials
     % source_rest = ft_sourceanalysis(cfg,restdat);
@@ -187,6 +193,7 @@ LF = ft_prepare_leadfield(cfg);
     source_perm = ft_sourceanalysis(cfg, statdat, restdat);
    
     nsourcepoints=length(source_perm.inside);
+
     nPerm = numel(source_perm.trialA);
     cohDiff_perm = zeros(nsourcepoints, nPerm);
 
@@ -197,18 +204,14 @@ LF = ft_prepare_leadfield(cfg);
     end
 
     maxPerm = max(cohDiff_perm, [], 1); % max over sources
-    
-    if mult_comp_corr
-        thr95 = prctile(maxPerm, 95,2);   % family-wise threshold (dim 1x1)
-    else
-        thr95=(ones(1,nsourcepoints)*thr95)'; %otherwise get one per source point
-    end
-   
-    coh_diff=source_perm.avgA.coh-source_perm.avgB.coh;
-    source_diff=coh_source;
-    source_diff.avg.coh=coh_diff; %raw coh difference
 
-    % One-sided permutation p-value 
+    if mult_comp_corr
+        thr95 = prctile(maxPerm, 95,2);   % family-wise threshold
+    else
+        thr95=prctile(cohDiff_perm,95,2);
+    end
+    
+% One-sided permutation p-value (uncorrected)
 pvals = zeros(nsourcepoints,1);
 for s = 1:nsourcepoints
     permDist = cohDiff_perm(s, :);
@@ -224,6 +227,11 @@ invp_masked = invp;
 invp_masked(~mask) = 0;     % or NaN if
 
 
+    %% source structure with coh diff
+    coh_diff=source_perm.avgA.coh-source_perm.avgB.coh;
+    source_diff=coh_source;
+    source_diff.avg.coh=coh_diff;
+
     % sources structure with p values
     source_p=coh_source;
     source_p.avg.coh=invp_masked;
@@ -232,7 +240,6 @@ invp_masked(~mask) = 0;     % or NaN if
     cfg.parameter = 'coh';
     brain_int = ft_sourceinterpolate(cfg, source_p, mesh_brain);
 
-    
 %     permMean = mean(cohDiff_perm, 2);
 %     permStd  = std(cohDiff_perm, 0, 2);
 %     
@@ -242,7 +249,7 @@ invp_masked(~mask) = 0;     % or NaN if
 %     source_z = coh_source;        %source structure
 %     source_z.avg.coh = z_coh; 
 
-%     cfg = []; %interpolate raw coherence diff
+%     cfg = [];
 %     cfg.parameter = {'coh'};
 %     brain_int=ft_sourceinterpolate(cfg,source_diff, mesh_brain);
 % 
@@ -250,18 +257,28 @@ invp_masked(~mask) = 0;     % or NaN if
 %     cfg.parameter = {'coh'};
 %     brain_int_z=ft_sourceinterpolate(cfg,source_z, mesh_brain);
     
-    %% add a mask for stat significance
-    source_mask=coh_source; %copy
-    source_mask.avg.pow = coh_diff > thr95;
-
+    %% add a mask
+%     source_mask=coh_source;
+%     source_mask.avg.pow = coh_diff > thr95;
+% 
 %     %interpolate the mask
 %     cfg = [];
 %     cfg.parameter = 'pow';
 %     cfg.interpmethod = 'nearest';
 %     source_mask_int = ft_sourceinterpolate(cfg, source_mask, mesh_brain);
 %     brain_int.mask=source_mask_int.pow;
-%     
 %     brain_int_z.mask=source_mask_int.pow;
+% 
+%     mask = source_mask.avg.pow;  % logical
+
+
+% Find the max only where mask == true
+% coh_diff_masked = coh_diff;
+% coh_diff_masked(~mask) = -Inf;  
+% [max_val, max_idx] = max(coh_diff_masked(:));
+% 
+% max_pos = sources_brain(max_idx, :);
+
 
 source_mask = coh_source;
 source_mask.avg.coh = double(mask);  % logical → double for FT
@@ -269,152 +286,196 @@ cfg = [];
 cfg.parameter = 'coh';
 cfg.interpmethod = 'nearest';
 source_mask_int = ft_sourceinterpolate(cfg, source_mask, mesh_brain);
-%     
-% brain_int.mask = source_mask_int.coh;  % same as before
+    
+brain_int.mask = source_mask_int.coh;  % same as before
 
-
-% mask = source_mask.avg.pow;  % logical array same size as coh_diff
-% 
-% % Find the max only where mask == true (not using this pt)
-% coh_diff_masked = coh_diff;
-% coh_diff_masked(~mask) = -Inf;  
-% [max_val, max_idx] = max(coh_diff_masked(:));
-% 
-% % Now  map back to coordinates
-% max_pos = sources_brain(max_idx, :);
-
-ncol = 256;
-addpath('C:\Users\mspedden\Documents\fieldtrip\external\matplotlib\') 
-brain_color = [0.92 0.92 0.92];   % first color = background
-hotmap = flipud(magma(ncol-1));       
-
-cmap = [brain_color; hotmap];
-%     
     f= figure;
     cfg = [];
     cfg.figure='gcf';
     cfg.method = 'surface';
+    cfg.maskparameter='mask';
     cfg.funparameter = 'coh';
-    cfg.surfalpha=.3;
-    cfg.funcolormap = cmap;
-    cfg.funcolorlim  = [0 max(brain_int.coh(:))];  % 0 maps to brain_color
+    cfg.funcolormap = flipud(colormap("parula"));
+    cfg.funcolorlim='zeromax';
     cfg.projmethod = 'nearest';
-    cfg.surffile = 'mesh_brain';
+    cfg.surffile = mesh_brain;
     ft_sourceplot(cfg, brain_int);
-    view(176,-10)
+    view(178,-33)
     camlight
-    ax = gca;                  
+    material dull
+    ax = gca;              
     ax.FontSize = 14;
-hpatch = findobj(gcf, 'Type', 'patch');
-set(hpatch, 'FaceAlpha',0.9)
+   
 
-    subjResults(ss).coh_diff = coh_diff; %orig brain space (not interpolated)
-    subjResults(ss).sig_mask = source_mask_int.coh; % binary 0/1 map
-    subjResults(ss).pos = source_mask_int.pos; 
+    subjResults(ss).subjID = sub;
+    subjResults(ss).coh_diff = coh_diff;
+    subjResults(ss).sig_mask = source_mask_int.pow; % binary 0/1 map
+    subjResults(ss).pos = source_mask_int.pos; % save positions (same across subjects)
     subjResults(ss).inside = source_mask_int.inside;
-    subjResults(ss).thr95=thr95;
 
 
 end
 
-
-%cd C:\Users\mspedden\Documents\brainspine_save
-load('groupRes_brain_DICS.mat')
-
-save(fullfile(save_dir,'groupRes_brain_DICS'), 'subjResults')
+save(fullfile(save_dir,'groupRes_brain_DICS_spineVC'), 'subjResults')
 
 nSubs = length(subjResults);
 
-% cat all binary significance masks
-all_masks = cat(2, subjResults(:).sig_mask);
-sig_pos = false(nSubs,1);
+nSubjects = numel(subjResults);
+sig_res = false(nSubjects,1);  % preallocate
 
-%number of subjects with at least one significant source anywhere
-for ss = 1:nSubs
-    diffCoh = subjResults(ss).coh_diff;   % source_perm.avgA.coh - avgB.coh
-    thr95    = subjResults(ss).thr95; % 95th percentile from permutation
-
-    if any(diffCoh > thr95)
-        sig_pos(ss) = true;
-    end
+for i = 1:nSubjects
+    % Define subject as significant if any vertex is significant
+    sig_res(i) = any(subjResults(i).sig_mask(:));
 end
 
-fprintf('%g out of %g subjects show sig coherence in brain\n', sum(sig_pos), nSubs)
+fprintf('%g/%g subjects show sig coherence anywhere\n', sum(sig_res), nSubjects)
 
-% binomial p and CI
-x = sum(sig_pos);
-n = nSubs;
-alpha=0.05;
-phat = x/n;
-lower = betainv(alpha/2, x,     n-x+1);
-upper = betainv(1-alpha/2, x+1, n-x);
+all_masks = cat(2, subjResults(:).sig_mask);
 
-ci = [lower upper];
-p = 1 - binocdf(x-1, n, alpha);
-
-
-%% prevalence sig res
+% Compute prevalence 
 group_prevalence = mean(all_masks, 2);
 
-%  group source structure for plotting
-group_source = subjResults(1); % use one subject as template
+% Create a group source structure
+group_source = subjResults(1); 
 group_source.pow = group_prevalence;
-group_source = rmfield(group_source, {'coh_diff', 'sig_mask'}); % clean up
+group_source = rmfield(group_source, {'coh_diff', 'sig_mask'}); 
+group_source = rmfield(group_source, {'subjID'}); % optional
 
-group_ft = []; %combine this with code above
+group_ft = [];
 group_ft.pos = group_source.pos;
 group_ft.inside = group_source.inside;
 group_ft.pow = group_prevalence;
 
-
-%% Interpolate group map onto the brain mesh
-cfg = [];
-cfg.parameter = 'pow';
-cfg.interpmethod = 'nearest';
-group_int = ft_sourceinterpolate(cfg, group_ft, mesh_brain);
-
 threshold = 0.3;
-group_prevalence_masked = group_prevalence;
-group_prevalence_masked(group_prevalence < threshold) =0;  % or 0
 
-group_ft.pow    = group_prevalence_masked;
+%% Mask for volumetric data
+mask_vol = false(size(group_ft.pow));
+mask_vol(group_ft.inside) = group_ft.pow(group_ft.inside) >= threshold;
 
+%% Find neighbours for clustering
+inside_idx = find(group_ft.inside);       % indices of valid voxels
+voxel_pos  = group_ft.pos(inside_idx, :);
+
+neighbourdist = 20;  % mm
+N = numel(inside_idx);
+neighbours.mat = false(N, N);
+
+for i = 1:N
+    d = vecnorm(voxel_pos - voxel_pos(i,:), 2, 2);
+    neighbours.mat(i, :) = d <= neighbourdist & d > 0;  % exclude self
+end
+
+neighbours.label = arrayfun(@num2str, inside_idx, 'UniformOutput', false);
+
+%% Indices of active voxels above threshold
+active_idx = find(mask_vol(group_ft.inside));  % indices within inside voxels
+active_pos = voxel_pos(active_idx, :);         % positions of active voxels
+
+%% Simple connected-component clustering
+active_N = numel(active_idx);
+labels = zeros(active_N,1);  % label for each active voxel
+current_label = 0;
+
+for i = 1:active_N
+    if labels(i) == 0
+        current_label = current_label + 1;
+        stack = i;
+        labels(i) = current_label;
+        while ~isempty(stack)
+            v = stack(end); stack(end) = [];
+            % neighbours in distance threshold
+            neighbors_v = find(vecnorm(active_pos - active_pos(v,:), 2, 2) <= neighbourdist & vecnorm(active_pos - active_pos(v,:),2,2) > 0);
+            % keep only unlabelled
+            neighbors_v = neighbors_v(labels(neighbors_v) == 0);
+            labels(neighbors_v) = current_label;
+            stack = [stack; neighbors_v];
+        end
+    end
+end
+
+%% Interpolate group prevalence map onto brain mesh
 cfg = [];
 cfg.parameter = 'pow';
 cfg.interpmethod = 'nearest';
 group_int = ft_sourceinterpolate(cfg, group_ft, mesh_brain);
 
-% group_int.pow_thresh = group_int.pow;          % copy original
-% group_int.pow_thresh(group_int.pow < threshold) = 0;   % subthreshold = NaN
+% Threshold interpolated data for plotting
+group_int.pow_thresh = group_int.pow;
+group_int.pow_thresh(group_int.pow < threshold) = NaN;
 
-%% Plot group prevalence map
+%% Plot thresholded prevalence map
 figure;
 cfg = [];
-cfg.method = 'surface';
-cfg.funparameter = 'pow';
-cfg.funcolorlim =  [threshold max(group_int.pow)];
-cfg.funcolormap = cmap;
-cfg.projmethod = 'nearest';
-cfg.surffile = mesh_brain;
+cfg.method        = 'surface';
+cfg.funparameter  = 'pow_thresh';
+cfg.funcolorlim   = [threshold max(group_int.pow)];
+cfg.funcolormap   = flipud(colormap(parula));
+cfg.projmethod    = 'nearest';
+cfg.surffile      = mesh_brain;
 ft_sourceplot(cfg, group_int);
-
 view(176, -10);
-camlight;
-material dull
-ax = gca;                  % get current axes
+material dull;
+lighting gouraud;
+camlight('headlight');
+hold on;
+ax = gca;
 ax.FontSize = 14;
-hpatch = findobj(gcf, 'Type', 'patch');
-set(hpatch, 'FaceAlpha',0.9)
+
+% %% M1 virtual electrode - click point
+% clicked_point = [45, 269, -25];   % approximate M1 position in volumetric space
+% 
+% % Find nearest active voxel to clicked point
+% d_active = vecnorm(active_pos - clicked_point, 2, 2);
+% [~, nearest_active_idx] = min(d_active);  % index into active_pos / labels
+% 
+% % Identify cluster ID of this voxel
+% cluster_id = labels(nearest_active_idx);
+% 
+% % Get all voxels in this cluster
+% cluster_active_idx = find(labels == cluster_id);        % indices into active_pos
+% cluster_voxel_idx = active_idx(cluster_active_idx);     % indices into vol_pos / full group_ft.pos
+% cluster_voxel_pos = voxel_pos(cluster_voxel_idx, :);    % positions in volumetric space
+% 
+% %% --- NEW: choose voxel closest to click point within cluster (surface-proximal VE)
+% d_cluster = vecnorm(cluster_voxel_pos - clicked_point, 2, 2);
+% [~, idx] = min(d_cluster);
+% ve_centroid = cluster_voxel_pos(idx, :);  % VE position
+
+%%
+load(fullfile(save_dir,'roi.mat'))  %variable name is intersection_pos
+
+%% Plot native mesh
+figure;
+ft_plot_mesh(mesh_brain, 'facecolor', [0.8 0.8 0.8], 'facealpha', 0.4, 'edgecolor', 'none');
+hold on;
+
+% %% Plot M1 ROI voxels (native space)
+% plot3(roi_native(:,1), roi_native(:,2), roi_native(:,3), ...
+%       'ro', 'MarkerSize', 8, 'MarkerFaceColor', 'r', 'LineWidth', 1.5);
+
+%% Plot thresholded functional cluster voxels (native space)
+vol_pos = group_ft.pos(group_ft.inside,:);         % all valid volumetric voxels
+cluster_mask = mask_vol & group_ft.inside;        % logical mask for thresholded cluster
+cluster_pos = vol_pos(cluster_mask(group_ft.inside), :);
+
+plot3(cluster_pos(:,1), cluster_pos(:,2), cluster_pos(:,3), ...
+      'bo', 'MarkerSize', 6, 'MarkerFaceColor', 'b', 'LineWidth', 1);
+
+%% Optional: highlight intersection voxels
+dist_roi_cluster = pdist2(cluster_pos, roi_native);
+intersection_mask = any(dist_roi_cluster < 5, 2);  % voxels within 5 mm of ROI
+intersection_pos = cluster_pos(intersection_mask, :);
+
+plot3(intersection_pos(:,1), intersection_pos(:,2), intersection_pos(:,3), ...
+      'go', 'MarkerSize', 6, 'MarkerFaceColor', 'g', 'LineWidth', 2);
+
+%% Adjust view
+view([180, -20]);
+camlight('headlight');
+lighting gouraud;
+axis equal;
+xlabel('X'); ylabel('Y'); zlabel('Z');
+title('Functional cluster (blue), M1 ROI (red), intersection (green)');
 
 
-%% binomial p and CI
-x = sum(sig_pos);
-n = nSubjects;
-alpha=0.05;
-phat = x/n;
-lower = betainv(alpha/2, x,     n-x+1);
-upper = betainv(1-alpha/2, x+1, n-x);
-
-ci = [lower upper];
-p = 1 - binocdf(x-1, n, alpha);
-
+%% VE with intersection points

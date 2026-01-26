@@ -204,30 +204,54 @@ for ss=1:length(subs)
     source_diff=coh_source;
     source_diff.avg.coh=coh_diff;
 
-    permMean = mean(cohDiff_perm, 2);
-    permStd  = std(cohDiff_perm, 0, 2);
-    
-    z_coh = (coh_diff - permMean) ./ permStd;
-    permStd(permStd == 0) = NaN;
+     % One-sided permutation p-value 
+pvals = zeros(nsourcepoints,1);
+for s = 1:nsourcepoints
+    permDist = cohDiff_perm(s, :);
+    obsVal   = coh_diff(s);
+    pvals(s) = (sum(permDist >= obsVal) + 1) / (nPerm + 1);
+end
+invp = -log10(pvals);
 
-    source_z = coh_source;        %source structure
-    source_z.avg.coh = z_coh; 
+mask = coh_diff > thr95;    % same as before
+
+% Mask the inverse-p map
+invp_masked = invp;
+invp_masked(~mask) = 0;     % or NaN if
+
+
+    % sources structure with p values
+    source_p=coh_source;
+    source_p.avg.coh=invp_masked;
+
+    cfg = [];
+    cfg.parameter = 'coh';
+    spine_int = ft_sourceinterpolate(cfg, source_p, mesh_wm);
+
+%     permMean = mean(cohDiff_perm, 2);
+%     permStd  = std(cohDiff_perm, 0, 2);
+%     
+%     z_coh = (coh_diff - permMean) ./ permStd;
+%     permStd(permStd == 0) = NaN;
+% 
+%     source_z = coh_source;        %source structure
+%     source_z.avg.coh = z_coh; 
 
     %interpolate on spinal cord mesh
-    cfg = [];
-    cfg.parameter = {'coh'};
-    cfg.interpmethod='nearest';
-    spine_int=ft_sourceinterpolate(cfg,source_diff, mesh_wm);
-
-    cfg = []; %interpolate z score
-    cfg.parameter = {'coh'};
-    spine_int_z=ft_sourceinterpolate(cfg,source_z, mesh_wm);
-    
+%     cfg = [];
+%     cfg.parameter = {'coh'};
+%     cfg.interpmethod='nearest';
+%     spine_int=ft_sourceinterpolate(cfg,source_diff, mesh_wm);
+% 
+%     cfg = []; %interpolate z score
+%     cfg.parameter = {'coh'};
+%     spine_int_z=ft_sourceinterpolate(cfg,source_z, mesh_wm);
+%     
 
     %% add a significance mask
     source_mask=coh_source; %copy
     source_mask.avg.pow = coh_diff > thr95;
-    maxidx=NaN;
+     maxidx=NaN;
 
     %before interpolating mask find sig point where diff is max
     %this is all for looking at orientation of source where sig diff is max
@@ -237,8 +261,19 @@ for ss=1:length(subs)
         maskedDiff(~sigMask) = -inf;   % remove nonsignificant
         [~, maxidx] = max(maskedDiff); %max idx is nan if no sig diffs
     end
+% 
+%     fprintf('Selected source point index: %d\n', maxidx);
 
-    fprintf('Selected source point index: %d\n', maxidx);
+
+
+source_mask = coh_source;
+source_mask.avg.coh = double(mask);  % logical → double for FT
+cfg = [];
+cfg.parameter = 'coh';
+cfg.interpmethod = 'nearest';
+source_mask_int = ft_sourceinterpolate(cfg, source_mask, mesh_wm);
+    
+spine_int.mask = source_mask_int.coh;  % same as before
 % 
 %     if isnan(maxidx)
 %         subjResults(ss).maxdiff.pos = [NaN NaN NaN];
@@ -283,13 +318,13 @@ for ss=1:length(subs)
 %     title(sprintf('Dipole Orientation at Voxel %d (Contraction Condition)', maxidx));
 %     grid on;
 
-    %interpolate the mask
-    cfg = [];
-    cfg.parameter = 'pow';
-    cfg.interpmethod = 'nearest';
-    source_mask_int = ft_sourceinterpolate(cfg, source_mask, mesh_wm);
-    spine_int.mask=source_mask_int.pow; %add to struct for plotting
-    spine_int_z.mask=source_mask_int.pow;
+%     %interpolate the mask
+%     cfg = [];
+%     cfg.parameter = 'pow';
+%     cfg.interpmethod = 'nearest';
+%     source_mask_int = ft_sourceinterpolate(cfg, source_mask, mesh_wm);
+%     spine_int.mask=source_mask_int.pow; %add to struct for plotting
+%     spine_int_z.mask=source_mask_int.pow;
 
     %clip torso mesh to plot less of lower body, should save this
     y=mesh_torso.vertices(:,2);
@@ -309,21 +344,20 @@ for ss=1:length(subs)
     cfg.figure='gcf';
     cfg.method = 'surface';
     cfg.funparameter = 'coh';
-    cfg.funcolormap = flipud(colormap(magma));
+    cfg.funcolormap = flipud(colormap(parula));
     cfg.funcolorlim='zeromax';%[0 6];
     cfg.projmethod = 'nearest';
     cfg.surffile = mesh_wm;
  if any(sigMask) %
     cfg.maskparameter='mask';
  end
-    ft_sourceplot(cfg, spine_int_z);
+    ft_sourceplot(cfg, spine_int);
     view( -250, -1)
     camlight
     material dull
     ax = gca;                 
     ax.FontSize = 14;
 
-    error('stop')
 %srcmax = sources_cent.pos(maxidx,:);
 
 % % compute nearest vertex on the surface mesh
@@ -534,40 +568,40 @@ title('Group Prevalence (no interpolation)');
 
 %% visualise across subjects - 2d
 
-% nSubj=numel(subjResults); x=sources_cent.pos(:,2); figure; hold on;
-% 
-% cmap = [
-%     27,158,119;
-%     217,95,2;
-%     117,112,179;
-%     231,41,138;
-%     102,166,30;
-%     230,171,2;
-%     166,118,29;
-%     102,102,102;
-%     55,126,184
-%     ] / 255;
-% 
-% for s=1:nSubj
-%     cdiff=subjResults(s).coh_diff; thr=subjResults(s).thr95; sig=cdiff>thr;
-%     if any(sig), c=cmap(s,:); else, c=[0.7 0.7 0.7]; end
-%     for i=1:length(x)-1
-%         if sig(i)&&sig(i+1)
-%             plot(x(i:i+1),cdiff(i:i+1),'-','Color',c,'LineWidth',1.5,'HandleVisibility','off')
-%         else
-%             plot(x(i:i+1),cdiff(i:i+1),'-','Color',[0.7 0.7 0.7],'HandleVisibility','off')
-%         end
-%     end
-%     plot(x(sig),cdiff(sig),'.','Color',c,'MarkerSize',12,'HandleVisibility','off')
-%     h(s)=plot(nan,nan,'-','Color',c,'LineWidth',1.5);
-% end
-% yline(0,':k','HandleVisibility','off')
-% xlabel('Cranial caudal position (mm)'); ylabel('Coherence difference'); title('Significant coherence differences')
-% legend(h, arrayfun(@(s) sprintf('Subj %d', s), 1:nSubj, 'UniformOutput', false), ...
-%     'Location', 'bestoutside');
-% 
-% set(gca, 'FontSize', 13)
-% grid on;
+nSubj=numel(subjResults); x=sources_cent.pos(:,2); figure; hold on;
+
+cmap = [
+    27,158,119;
+    217,95,2;
+    117,112,179;
+    231,41,138;
+    102,166,30;
+    230,171,2;
+    166,118,29;
+    102,102,102;
+    55,126,184
+    ] / 255;
+
+for s=1:nSubj
+    cdiff=subjResults(s).coh_diff; thr=subjResults(s).thr95; sig=cdiff>thr;
+    if any(sig), c=cmap(s,:); else, c=[0.7 0.7 0.7]; end
+    for i=1:length(x)-1
+        if sig(i)&&sig(i+1)
+            plot(x(i:i+1),cdiff(i:i+1),'-','Color',c,'LineWidth',1.5,'HandleVisibility','off')
+        else
+            plot(x(i:i+1),cdiff(i:i+1),'-','Color',[0.7 0.7 0.7],'HandleVisibility','off')
+        end
+    end
+    plot(x(sig),cdiff(sig),'.','Color',c,'MarkerSize',12,'HandleVisibility','off')
+    h(s)=plot(nan,nan,'-','Color',c,'LineWidth',1.5);
+end
+yline(0,':k','HandleVisibility','off')
+xlabel('Cranial caudal position (mm)'); ylabel('Coherence difference'); title('Significant coherence differences')
+legend(h, arrayfun(@(s) sprintf('Participant %d', s), 1:nSubj, 'UniformOutput', false), ...
+    'Location', 'bestoutside');
+
+set(gca, 'FontSize', 13)
+grid on;
 
 %% plot orientation max coherence across subjects
 

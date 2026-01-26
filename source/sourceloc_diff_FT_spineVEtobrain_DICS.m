@@ -17,8 +17,6 @@ if ~exist(save_dir,'dir')
     mkdir(save_dir)
 end
 
-% exclude two subejcts because one had very small head (very far away from
-% sensors) and other couldnt close headcast
 
 subs = {'OP00212','OP00213','OP00215', 'OP00219', ...
  'OP00225', 'OP00221', 'OP00224'};
@@ -101,7 +99,7 @@ braingrad.tra = grad_mm.tra(brainidx, brainidx);
 
 %use all channels but only brain grad
 braindat=ftdat;
-loadfile=sprintf('VE_spine_sub%s_cluster.mat',sub);
+loadfile=sprintf('VE_spine_sub%s_forspectraVE_spine_subVE_forspectra.mat',sub);
 load(fullfile('C:\Users\mspedden\Documents\brainspine_save',loadfile))
 
 trialinfo=ftdat.trialinfo; %lost when merging
@@ -189,6 +187,7 @@ LF = ft_prepare_leadfield(cfg);
 
     %source_stat = ft_sourceanalysis(cfg,statdat); %struct per condition with single trials
     % source_rest = ft_sourceanalysis(cfg,restdat);
+    
     cfg.permutation = 'yes';
     cfg.numpermutation=500;
     source_perm = ft_sourceanalysis(cfg, statdat, restdat);
@@ -212,60 +211,95 @@ LF = ft_prepare_leadfield(cfg);
         thr95=prctile(cohDiff_perm,95,2);
     end
     
+% One-sided permutation p-value (uncorrected)
+pvals = zeros(nsourcepoints,1);
+for s = 1:nsourcepoints
+    permDist = cohDiff_perm(s, :);
+    obsVal   = coh_diff(s);
+    pvals(s) = (sum(permDist >= obsVal) + 1) / (nPerm + 1);
+end
+invp = -log10(pvals);
+
+mask = coh_diff > thr95;    % same as before
+
+% Mask the inverse-p map
+invp_masked = invp;
+invp_masked(~mask) = 0;     % or NaN if
+
+
     %% source structure with coh diff
     coh_diff=source_perm.avgA.coh-source_perm.avgB.coh;
     source_diff=coh_source;
     source_diff.avg.coh=coh_diff;
 
-    permMean = mean(cohDiff_perm, 2);
-    permStd  = std(cohDiff_perm, 0, 2);
+    % sources structure with p values
+    source_p=coh_source;
+    source_p.avg.coh=invp_masked;
+
+    cfg = [];
+    cfg.parameter = 'coh';
+    brain_int = ft_sourceinterpolate(cfg, source_p, mesh_brain);
+
+%     permMean = mean(cohDiff_perm, 2);
+%     permStd  = std(cohDiff_perm, 0, 2);
+%     
+%     z_coh = (coh_diff - permMean) ./ permStd;
+%     permStd(permStd == 0) = NaN;
+% 
+%     source_z = coh_source;        %source structure
+%     source_z.avg.coh = z_coh; 
+
+%     cfg = [];
+%     cfg.parameter = {'coh'};
+%     brain_int=ft_sourceinterpolate(cfg,source_diff, mesh_brain);
+% 
+%     cfg = []; %interpolate z score
+%     cfg.parameter = {'coh'};
+%     brain_int_z=ft_sourceinterpolate(cfg,source_z, mesh_brain);
     
-    z_coh = (coh_diff - permMean) ./ permStd;
-    permStd(permStd == 0) = NaN;
-
-    source_z = coh_source;        %source structure
-    source_z.avg.coh = z_coh; 
-
-    cfg = [];
-    cfg.parameter = {'coh'};
-    brain_int=ft_sourceinterpolate(cfg,source_diff, mesh_brain);
-
-    cfg = []; %interpolate z score
-    cfg.parameter = {'coh'};
-    brain_int_z=ft_sourceinterpolate(cfg,source_z, mesh_brain);
     %% add a mask
-    source_mask=coh_source;
-    source_mask.avg.pow = coh_diff > thr95;
-
-    %interpolate the mask
-    cfg = [];
-    cfg.parameter = 'pow';
-    cfg.interpmethod = 'nearest';
-    source_mask_int = ft_sourceinterpolate(cfg, source_mask, mesh_brain);
-    brain_int.mask=source_mask_int.pow;
-    brain_int_z.mask=source_mask_int.pow;
-
-    mask = source_mask.avg.pow;  % logical
+%     source_mask=coh_source;
+%     source_mask.avg.pow = coh_diff > thr95;
+% 
+%     %interpolate the mask
+%     cfg = [];
+%     cfg.parameter = 'pow';
+%     cfg.interpmethod = 'nearest';
+%     source_mask_int = ft_sourceinterpolate(cfg, source_mask, mesh_brain);
+%     brain_int.mask=source_mask_int.pow;
+%     brain_int_z.mask=source_mask_int.pow;
+% 
+%     mask = source_mask.avg.pow;  % logical
 
 
 % Find the max only where mask == true
-coh_diff_masked = coh_diff;
-coh_diff_masked(~mask) = -Inf;  
-[max_val, max_idx] = max(coh_diff_masked(:));
+% coh_diff_masked = coh_diff;
+% coh_diff_masked(~mask) = -Inf;  
+% [max_val, max_idx] = max(coh_diff_masked(:));
+% 
+% max_pos = sources_brain(max_idx, :);
 
-max_pos = sources_brain(max_idx, :);
+
+source_mask = coh_source;
+source_mask.avg.coh = double(mask);  % logical → double for FT
+cfg = [];
+cfg.parameter = 'coh';
+cfg.interpmethod = 'nearest';
+source_mask_int = ft_sourceinterpolate(cfg, source_mask, mesh_brain);
     
+brain_int.mask = source_mask_int.coh;  % same as before
+
     f= figure;
     cfg = [];
     cfg.figure='gcf';
     cfg.method = 'surface';
     cfg.maskparameter='mask';
     cfg.funparameter = 'coh';
-    cfg.funcolormap = flipud(colormap(magma));
+    cfg.funcolormap = flipud(colormap("parula"));
     cfg.funcolorlim='zeromax';
     cfg.projmethod = 'nearest';
     cfg.surffile = mesh_brain;
-    ft_sourceplot(cfg, brain_int_z);
+    ft_sourceplot(cfg, brain_int);
     view(178,-33)
     camlight
     material dull
@@ -312,37 +346,120 @@ group_ft.pos = group_source.pos;
 group_ft.inside = group_source.inside;
 group_ft.pow = group_prevalence;
 
+threshold = 0.3;
 
+%% Mask for volumetric data
+mask_vol = false(size(group_ft.pow));
+mask_vol(group_ft.inside) = group_ft.pow(group_ft.inside) >= threshold;
 
-%% Interpolate group map onto the brain mesh
+%% Find neighbours for clustering
+inside_idx = find(group_ft.inside);       % indices of valid voxels
+voxel_pos  = group_ft.pos(inside_idx, :);
+
+neighbourdist = 20;  % mm
+N = numel(inside_idx);
+neighbours.mat = false(N, N);
+
+for i = 1:N
+    d = vecnorm(voxel_pos - voxel_pos(i,:), 2, 2);
+    neighbours.mat(i, :) = d <= neighbourdist & d > 0;  % exclude self
+end
+
+neighbours.label = arrayfun(@num2str, inside_idx, 'UniformOutput', false);
+
+%% Indices of active voxels above threshold
+active_idx = find(mask_vol(group_ft.inside));  % indices within inside voxels
+active_pos = voxel_pos(active_idx, :);         % positions of active voxels
+
+%% Simple connected-component clustering
+active_N = numel(active_idx);
+labels = zeros(active_N,1);  % label for each active voxel
+current_label = 0;
+
+for i = 1:active_N
+    if labels(i) == 0
+        current_label = current_label + 1;
+        stack = i;
+        labels(i) = current_label;
+        while ~isempty(stack)
+            v = stack(end); stack(end) = [];
+            % neighbours in distance threshold
+            neighbors_v = find(vecnorm(active_pos - active_pos(v,:), 2, 2) <= neighbourdist & vecnorm(active_pos - active_pos(v,:),2,2) > 0);
+            % keep only unlabelled
+            neighbors_v = neighbors_v(labels(neighbors_v) == 0);
+            labels(neighbors_v) = current_label;
+            stack = [stack; neighbors_v];
+        end
+    end
+end
+
+%% Interpolate group prevalence map onto brain mesh
 cfg = [];
 cfg.parameter = 'pow';
 cfg.interpmethod = 'nearest';
 group_int = ft_sourceinterpolate(cfg, group_ft, mesh_brain);
 
-threshold = 0.3;
+% Threshold interpolated data for plotting
+group_int.pow_thresh = group_int.pow;
+group_int.pow_thresh(group_int.pow < threshold) = NaN;
 
-group_int.pow_thresh = group_int.pow;          % copy original
-group_int.pow_thresh(group_int.pow < threshold) = NaN;   % subthreshold = NaN
-
-%% Plot group prevalence map
+%% Plot thresholded prevalence map
 figure;
 cfg = [];
-cfg.method = 'surface';
-cfg.funparameter = 'pow_thresh';
-cfg.funcolorlim =  [threshold max(group_int.pow)];
-cfg.funcolormap = flipud(colormap(magma));
-cfg.projmethod = 'nearest';
-cfg.surffile = mesh_brain;
-cfg.atlas=atlas;
-cfg.atlasparam   = 'tissue';      % use the label values
-cfg.atlaslabel   = 'tissuelabel'; % optional: label names
-cfg.labeloutline = 'on';  
+cfg.method        = 'surface';
+cfg.funparameter  = 'pow_thresh';
+cfg.funcolorlim   = [threshold max(group_int.pow)];
+cfg.funcolormap   = flipud(colormap(parula));
+cfg.projmethod    = 'nearest';
+cfg.surffile      = mesh_brain;
 ft_sourceplot(cfg, group_int);
 view(176, -10);
-material dull       % reduces shiny highlights
-lighting gouraud    % smooth shading
+material dull;
+lighting gouraud;
+camlight('headlight');
 hold on;
-ax = gca;                  
+ax = gca;
 ax.FontSize = 14;
 
+
+
+%%
+dist_tol = 1e-3;  % in mm, adjust based on units of roi_native & voxel_pos
+% roi_native: nsourcepoints x 3
+% active_pos: n_active x 3
+D = pdist2(roi_native, active_pos);  % distances between each roi point and active voxel
+
+% logical matrix: 1 if distance <= dist_tol
+overlap_logical = D <= dist_tol;
+
+% For each roi point, check if it overlaps any active voxel
+roi_overlap = any(overlap_logical, 2);   % nsourcepoints x 1 logical
+
+
+% Get the positions of overlapping ROI points
+intersection_pos = roi_native(roi_overlap, :);
+
+% Plot the brain mesh
+figure;
+ft_plot_mesh(mesh_brain, ...
+             'facecolor', [0.8 0.8 0.8], ...
+             'facealpha', 0.4, ...
+             'edgecolor', 'none');
+hold on;
+
+% Plot overlapping ROI points
+plot3(intersection_pos(:,1), intersection_pos(:,2), intersection_pos(:,3), ...
+      'go', ...                 % green circles
+      'MarkerSize', 6, ...
+      'MarkerFaceColor', 'g', ...
+      'LineWidth', 2);
+
+axis equal;
+view(90,0);    % adjust view as needed
+camlight;
+lighting gouraud;
+
+
+%% VE with intersection points
+
+save intersection_pos_M1 intersection_pos

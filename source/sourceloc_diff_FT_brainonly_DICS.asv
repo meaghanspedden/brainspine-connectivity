@@ -391,7 +391,7 @@ group_int = ft_sourceinterpolate(cfg, group_ft, mesh_brain);
 figure;
 cfg = [];
 cfg.method = 'surface';
-cfg.funparameter = 'pow';
+cfg.funparameter = 'pow_thresh';
 cfg.funcolorlim =  [threshold max(group_int.pow)];
 cfg.funcolormap = cmap;
 cfg.projmethod = 'nearest';
