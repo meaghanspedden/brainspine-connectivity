@@ -251,7 +251,7 @@ invp_masked(~mask) = 0;     % or NaN if
     %% add a significance mask
     source_mask=coh_source; %copy
     source_mask.avg.pow = coh_diff > thr95;
-     maxidx=NaN;
+    maxidx=NaN;
 
     %before interpolating mask find sig point where diff is max
     %this is all for looking at orientation of source where sig diff is max
@@ -265,15 +265,13 @@ invp_masked(~mask) = 0;     % or NaN if
 %     fprintf('Selected source point index: %d\n', maxidx);
 
 
-
 source_mask = coh_source;
-source_mask.avg.coh = double(mask);  % logical → double for FT
-cfg = [];
+source_mask.avg.coh = double(mask);  
 cfg.parameter = 'coh';
 cfg.interpmethod = 'nearest';
 source_mask_int = ft_sourceinterpolate(cfg, source_mask, mesh_wm);
-    
 spine_int.mask = source_mask_int.coh;  % same as before
+
 % 
 %     if isnan(maxidx)
 %         subjResults(ss).maxdiff.pos = [NaN NaN NaN];
@@ -339,24 +337,29 @@ spine_int.mask = source_mask_int.coh;  % same as before
     mesh_cut.unit=mesh_torso.unit;
 
     % source plots
+
+    ncol = 256;
+    addpath('C:\Users\mspedden\Documents\fieldtrip\external\matplotlib\')
+    brain_color = [0.92 0.92 0.92];   % first color = background
+    hotmap = flipud(magma(ncol-1));
+    cmap = [brain_color; hotmap];
+
     figure
     cfg = [];
     cfg.figure='gcf';
     cfg.method = 'surface';
     cfg.funparameter = 'coh';
-    cfg.funcolormap = flipud(colormap(parula));
-    cfg.funcolorlim='zeromax';%[0 6];
+    cfg.funcolormap =cmap;
+    cfg.funcolorlim=[0 max(spine_int.coh(:))];
     cfg.projmethod = 'nearest';
     cfg.surffile = mesh_wm;
- if any(sigMask) %
-    cfg.maskparameter='mask';
- end
     ft_sourceplot(cfg, spine_int);
     view( -250, -1)
     camlight
-    material dull
     ax = gca;                 
     ax.FontSize = 14;
+   hpatch = findobj(gcf, 'Type', 'patch');
+    set(hpatch, 'FaceAlpha',0.9)
 
 %srcmax = sources_cent.pos(maxidx,:);
 
@@ -389,15 +392,15 @@ spine_int.mask = source_mask_int.coh;  % same as before
 
     subjResults(ss).coh_diff=coh_diff;        % source_perm.avgA.coh - avgB.coh
     subjResults(ss).thr95=thr95;
-    subjResults(ss).sig_mask = source_mask_int.pow; % binary 0/1 map
-    subjResults(ss).pos = source_mask_int.pos; % interpolated positions (same across subjects)
-    subjResults(ss).inside = source_mask_int.inside;
+    subjResults(ss).sig_mask = spine_int.coh; 
+    subjResults(ss).pos = spine_int.pos; 
+    subjResults(ss).inside = spine_int.inside;
     subjResults(ss).rest =source_rest; %prob dont need this
     subjResults(ss).stat=source_stat;
     %subjResults(ss).maxdiff.pos=pos; %dont think I need this
     %subjResults(ss).maxdiff.ori=dip_norm;
 end
-
+save('groupRes_spine_DICS.mat', 'subjResults')
 nSubjects = length(subjResults);
 sig_pos = false(nSubjects,1);
 
@@ -413,7 +416,6 @@ end
 
 fprintf('Permutation: %d/%d subjects show a positive effect above threshold\n', ...
     sum(sig_pos), nSubjects);
-save(fullfile(save_dir, 'subjGroupRes_spine_EMG'), 'subjResults')
 
 
 %% group prevalence
@@ -437,7 +439,7 @@ group_ft.pow = group_prevalence;
 
 %% Interpolate group map onto the mesh
 threshold = 0.2; %to avoid 'false' overlap interpolation
-group_ft.pow(group_ft.pow < threshold) = NaN;  % threshold source points
+group_ft.pow(group_ft.pow < threshold) = 0;  % threshold source points
 
 cfg = [];
 cfg.parameter = 'pow';
@@ -445,20 +447,19 @@ cfg.interpmethod = 'nearest';
 group_int = ft_sourceinterpolate(cfg, group_ft, mesh_wm);
 
 
-group_int.pow_thresh = group_int.pow;          % copy original
-group_int.pow_thresh(group_int.pow < threshold) = NaN;   % subthreshold = NaN
+% group_int.pow_thresh = group_int.pow;          % copy original
+% group_int.pow_thresh(group_int.pow < threshold) = NaN;   % subthreshold = NaN
 
 %% Plot group prevalence map
 figure;
 cfg = [];
 cfg.method = 'surface';
-cfg.funparameter = 'pow_thresh';
+cfg.funparameter = 'pow';
 cfg.maskparameter = 'mask';          
 cfg.funcolorlim =  [threshold max(group_int.pow)];
-cfg.funcolormap = flipud(colormap(magma));
+cfg.funcolormap = cmap;
 cfg.projmethod = 'nearest';
 cfg.surffile = mesh_wm;
-cfg.surfcolor = [0.85 0.85 0.85];  
 cfg.opacitylim    = [threshold max(group_int.pow)];
 cfg.opacitymap    = 'rampup';
 ft_sourceplot(cfg, group_int);
@@ -466,6 +467,8 @@ view(90,18);
 camlight;
 ax = gca;                  
 ax.FontSize = 14;
+hpatch = findobj(gcf, 'Type', 'patch');
+set(hpatch, 'FaceAlpha',0.9)
 
 %% Find contiguous cluster for virtual electrode
 all_masks = zeros(nsourcepoints, nSubjects);

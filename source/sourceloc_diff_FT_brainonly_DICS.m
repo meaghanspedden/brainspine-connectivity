@@ -397,10 +397,8 @@ cfg.funcolormap = cmap;
 cfg.projmethod = 'nearest';
 cfg.surffile = mesh_brain;
 ft_sourceplot(cfg, group_int);
-
 view(176, -10);
 camlight;
-material dull
 ax = gca;                  % get current axes
 ax.FontSize = 14;
 hpatch = findobj(gcf, 'Type', 'patch');
