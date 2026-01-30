@@ -210,6 +210,8 @@ LF = ft_prepare_leadfield(cfg);
         thr95=prctile(cohDiff_perm,95,2);
     end
     
+   coh_diff=source_perm.avgA.coh-source_perm.avgB.coh;
+
 % One-sided permutation p-value (uncorrected)
 pvals = zeros(nsourcepoints,1);
 for s = 1:nsourcepoints
@@ -223,11 +225,10 @@ mask = coh_diff > thr95;    % same as before
 
 % Mask the inverse-p map
 invp_masked = invp;
-invp_masked(~mask) = 0;     % or NaN if
+invp_masked(~mask) = 0;     
 
 
     %% source structure with coh diff
-    coh_diff=source_perm.avgA.coh-source_perm.avgB.coh;
     source_diff=coh_source;
     source_diff.avg.coh=coh_diff;
 
@@ -288,23 +289,49 @@ source_mask_int = ft_sourceinterpolate(cfg, source_mask, mesh_brain);
     
 brain_int.mask = source_mask_int.coh;  % same as before
 
+ncol = 256;
+addpath('C:\Users\mspedden\Documents\fieldtrip\external\matplotlib\') 
+brain_color = [0.92 0.92 0.92];   % first color = background
+hotmap = flipud(magma(ncol-1));       
+
+cmap = [brain_color; hotmap];
+
     f= figure;
     cfg = [];
     cfg.figure='gcf';
     cfg.method = 'surface';
-    cfg.maskparameter='mask';
+    %cfg.maskparameter='mask';
     cfg.funparameter = 'coh';
-    cfg.funcolormap = flipud(colormap("parula"));
-    cfg.funcolorlim='zeromax';
+    cfg.funcolormap = cmap;
+    cfg.funcolorlim= [0 max(brain_int.coh(:))];
     cfg.projmethod = 'nearest';
     cfg.surffile = mesh_brain;
     ft_sourceplot(cfg, brain_int);
-    view(178,-33)
+    view(176,-10)    
     camlight
-    material dull
     ax = gca;              
     ax.FontSize = 14;
-   
+    hpatch = findobj(gcf, 'Type', 'patch');
+    set(hpatch, 'FaceAlpha',0.9)
+
+
+    % get max val
+    maxval = max(source_diff.avg.coh);
+    maxcohindx = find(source_diff.avg.coh == maxval);
+    maxpos = source_diff.pos(maxcohindx, :);   % N x 3
+    load(fullfile(save_dir,'T.mat'));   % MNI -> native
+    T_inv = inv(T);                    % native -> MNI
+    maxpos_h = [maxpos, ones(size(maxpos,1),1)]';   % 4 x N
+    x_mni_h = T_inv * maxpos_h;
+    x_mni = x_mni_h(1:3,:)';            % N x 3
+  
+    if length(maxcohindx)>1
+        disp('multiple max locs')
+    end
+
+    figure; ft_plot_mesh(mesh_brain);
+    hold on
+    plot3(maxpos(:,1), maxpos(:,2), maxpos(:,3), 'r*')
 
     subjResults(ss).subjID = sub;
     subjResults(ss).coh_diff = coh_diff;
@@ -315,7 +342,9 @@ brain_int.mask = source_mask_int.coh;  % same as before
 
 end
 
-save(fullfile(save_dir,'groupRes_brain_DICS_spineVC'), 'subjResults')
+%save(fullfile(save_dir,'groupRes_brain_DICS_spineVC'), 'subjResults')
+
+load(fullfile(save_dir,'groupRes_brain_DICS_spineVC'), 'subjResults')
 
 nSubs = length(subjResults);
 
@@ -343,9 +372,14 @@ group_source = rmfield(group_source, {'subjID'}); % optional
 group_ft = [];
 group_ft.pos = group_source.pos;
 group_ft.inside = group_source.inside;
-group_ft.pow = group_prevalence;
+%group_ft.pow = group_prevalence;
 
 threshold = 0.3;
+
+group_prevalence_masked = group_prevalence;
+group_prevalence_masked(group_prevalence < threshold) =0;  % or 0
+
+group_ft.pow    = group_prevalence_masked;
 
 %% Mask for volumetric data
 mask_vol = false(size(group_ft.pow));
@@ -398,27 +432,45 @@ cfg.parameter = 'pow';
 cfg.interpmethod = 'nearest';
 group_int = ft_sourceinterpolate(cfg, group_ft, mesh_brain);
 
-% Threshold interpolated data for plotting
-group_int.pow_thresh = group_int.pow;
-group_int.pow_thresh(group_int.pow < threshold) = NaN;
+% % Threshold interpolated data for plotting
+% group_int.pow_thresh = group_int.pow;
+% group_int.pow_thresh(group_int.pow < threshold) = NaN;
 
 %% Plot thresholded prevalence map
 figure;
 cfg = [];
 cfg.method        = 'surface';
-cfg.funparameter  = 'pow_thresh';
+cfg.funparameter  = 'pow';
 cfg.funcolorlim   = [threshold max(group_int.pow)];
-cfg.funcolormap   = flipud(colormap(parula));
+cfg.funcolormap   = cmap;
 cfg.projmethod    = 'nearest';
 cfg.surffile      = mesh_brain;
 ft_sourceplot(cfg, group_int);
 view(176, -10);
-material dull;
-lighting gouraud;
 camlight('headlight');
 hold on;
 ax = gca;
 ax.FontSize = 14;
+hpatch = findobj(gcf, 'Type', 'patch');
+set(hpatch, 'FaceAlpha',0.9)
+
+%%report mni for max val
+
+
+    maxval = max(group_ft.pow);
+    maxidx = find(group_ft.pow == maxval);
+    maxpos = group_ft.pos(maxidx, :);   % N x 3
+    maxpos_h = [maxpos, ones(size(maxpos,1),1)]';   % 4 x N
+    x_mni_h = T_inv * maxpos_h;
+    x_mni = x_mni_h(1:3,:)';            % N x 3
+  
+    if length(maxcohindx)>1
+        disp('multiple max locs')
+    end
+
+    figure; ft_plot_mesh(mesh_brain);
+    hold on
+    plot3(maxpos(:,1), maxpos(:,2), maxpos(:,3), 'r*')
 
 
 

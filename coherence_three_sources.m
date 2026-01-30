@@ -8,6 +8,11 @@ subs = {'OP00212','OP00213','OP00215', 'OP00219', ...
 save_dir='C:\Users\mspedden\Documents\brainspine_save\';
 
 addpath(genpath('C:\Users\mspedden\Documents\neurospec211NEW\neurospec211'))
+addpath('C:\Users\mspedden\Documents\spm')
+spm('defaults','EEG')
+
+addpath('C:\Users\mspedden\Documents\fieldtrip')
+ft_defaults
 
 results=struct();
 
@@ -49,6 +54,11 @@ cfg.channel='EXG1';
 EMG=ft_selectdata(cfg,ftdat);
 
 
+cfg=[];
+cfg.rectify='yes';
+EMG=ft_preprocessing(cfg,EMG);
+
+
 %% separate conditions
 
  statidx=find(ftdat.trialinfo==1);
@@ -66,7 +76,41 @@ EMG=ft_selectdata(cfg,ftdat);
  restB=ft_selectdata(cfg,bVE);
  restS=ft_selectdata(cfg,sVE);
 
+ %% fieldtrip functional connectivity
+statB.label{1}='brain';
+statS.label{1}='spine';
+statEMG.label{1}='EMG';
 
+alldat=ft_appenddata([],statB,statS,statEMG);
+
+cfg            = [];
+cfg.output     = 'fourier';
+cfg.method     = 'mtmfft';
+cfg.foilim     = [2 75];
+cfg.tapsmofrq  = 2;
+cfg.keeptrials = 'yes';
+
+freq    = ft_freqanalysis(cfg, alldat);
+
+cfg            = [];
+cfg.method     = 'coh';
+coh      = ft_connectivityanalysis(cfg, freq);
+
+
+cfg=[];
+cfg.method='coh';
+cfg.labelcmb={'brain', 'EMG'};
+cfg.partchannel={'spine'};
+cohpart=ft_connectivityanalysis(cfg,freq);
+
+figure; plot(coh.freq, squeeze(coh.cohspctrm(1,3,:)))
+hold on
+plot(cohpart.freq, squeeze(cohpart.cohspctrm(1,2,:)))
+legend({'full', 'partial'})
+xlim([10 35])
+
+
+%% neurospec
  statBcont=[statB.trial{:}]; %format continuous
  statScont=[statS.trial{:}];
  statEMGcont=[statEMG.trial{:}];
@@ -77,10 +121,17 @@ statEMGcont=abs(statEMGcont);
 samp_rate=ftdat.hdr.Fs;
 seg_pwr=11; 
 opt_str='M3';
-[f1,t1,cl1]=sp2a2_R2_mt(statBcont',statEMGcont',samp_rate,seg_pwr,opt_str);
+[f1,t1,cl1]=sp2a2_R2_mt(statBcont',statEMGcont',samp_rate,seg_pwr);
 [f2,t2,cl2]=sp2a2_R2_mt(statBcont',statScont',samp_rate,seg_pwr,opt_str);
 [f3,t3,cl3]=sp2a2_R2_mt(statScont',statEMGcont',samp_rate,seg_pwr,opt_str);
 
+
+[fp tp clp] = sp2a2_R2_pc1(statBcont',statEMGcont',statScont',samp_rate,seg_pwr);
+
+figure; plot(fp(:,1), fp(:,4)); hold on
+plot(f1(:,1), f1(:,4))
+legend({'partial', 'full'})
+xlim([0 45])
 % Example single-subject plot
 freq_band = [10 35];  % Hz
 

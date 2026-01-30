@@ -133,11 +133,11 @@ for ss=1:length(subs)
 %% get pos and index for point with max coherence with EMG
 if ss==1
 f = figure('Color', 'w'); % white background
-spineColor = [0.25 0.05 0.35]; % deep purple base
+spineColor = [0.7 0.7 0.7];
 
 ft_plot_mesh(mesh_wm, ...
-    'facealpha', 0.15, ...
     'facecolor', spineColor, ...
+    'facealpha', 0.3,...
     'edgecolor', 'none'); 
 hold on
 highlightColor = [1 0.4 0.1];
@@ -148,11 +148,9 @@ plot3(ROIpos(:,1), ROIpos(:,2), ROIpos(:,3), 'o', ...
     'LineWidth', 2);
 [sx, sy, sz] = sphere(40);
 r = .5;
-camlight headlight
-material dull
-lighting gouraud
-axis equal off
 view(90,18)
+material dull
+
 end
 
 %% lcmv

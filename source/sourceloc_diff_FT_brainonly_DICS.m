@@ -208,6 +208,23 @@ LF = ft_prepare_leadfield(cfg);
     source_diff=coh_source;
     source_diff.avg.coh=coh_diff; %raw coh difference
 
+    maxval = max(source_diff.avg.coh);
+    maxidx = find(source_diff.avg.coh == maxval);
+    maxpos = source_diff.pos(maxidx, :);   % N x 3
+    maxpos_h = [maxpos, ones(size(maxpos,1),1)]';   % 4 x N
+    load(fullfile(save_dir, 'T.mat'));
+    T_inv=inv(T);
+    x_mni_h = T_inv * maxpos_h;
+    x_mni = x_mni_h(1:3,:)';            % N x 3
+  
+    if length(maxidx)>1
+        disp('multiple max locs')
+    end
+
+    figure; ft_plot_mesh(mesh_brain);
+    hold on
+    plot3(maxpos(:,1), maxpos(:,2), maxpos(:,3), 'r*')
+
     % One-sided permutation p-value 
 pvals = zeros(nsourcepoints,1);
 for s = 1:nsourcepoints
@@ -321,7 +338,7 @@ end
 %cd C:\Users\mspedden\Documents\brainspine_save
 load('groupRes_brain_DICS.mat')
 
-save(fullfile(save_dir,'groupRes_brain_DICS'), 'subjResults')
+%save(fullfile(save_dir,'groupRes_brain_DICS'), 'subjResults')
 
 nSubs = length(subjResults);
 
@@ -365,6 +382,21 @@ group_ft = []; %combine this with code above
 group_ft.pos = group_source.pos;
 group_ft.inside = group_source.inside;
 group_ft.pow = group_prevalence;
+
+maxval = max(group_ft.pow);
+maxidx = find(group_ft.pow == maxval);
+maxpos = group_ft.pos(maxidx, :);   % N x 3
+maxpos_h = [maxpos, ones(size(maxpos,1),1)]';   % 4 x N
+x_mni_h = T_inv * maxpos_h;
+x_mni = x_mni_h(1:3,:)';            % N x 3
+
+if length(maxidx)>1
+    disp('multiple max locs')
+end
+
+figure; ft_plot_mesh(mesh_brain);
+hold on
+plot3(maxpos(:,1), maxpos(:,2), maxpos(:,3), 'r*')
 
 
 %% Interpolate group map onto the brain mesh
