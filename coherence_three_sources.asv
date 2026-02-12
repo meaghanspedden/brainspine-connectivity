@@ -124,28 +124,6 @@ cfgp.keeptrials = 'yes';
 
 freq_stat = ft_freqanalysis(cfgp, statBS);
 freq_rest = ft_freqanalysis(cfgp, restBS);
-%% --- Participant 1: plot log power spectrum for spinal VE (rest vs contraction) ---
-if ss == 1
-    % Find spine channel in the power spectra
-    iSp = find(strcmp(freq_stat.label, 'spine'));
-    assert(~isempty(iSp), 'Could not find spine channel in freq_stat.label');
-
-    % Average power across trials (rpt x chan x freq) -> (1 x freq)
-    Psp_stat = squeeze(mean(freq_stat.powspctrm(:, iSp, :), 1));  % [freq x 1]
-    Psp_rest = squeeze(mean(freq_rest.powspctrm(:, iSp, :), 1));  % [freq x 1]
-
-    % Plot log10 power spectrum
-    figure('Color','w'); hold on;
-    plot(freq_stat.freq, log10(Psp_stat), 'LineWidth', 2);
-    plot(freq_rest.freq, log10(Psp_rest), 'LineWidth', 2);
-
-    xlim([2 75]);
-    xlabel('Frequency (Hz)');
-    ylabel('log_{10} Power');
-    title(sprintf('Participant 1 (%s): Spinal VE log power spectrum', sub));
-    legend({'Contraction','Rest'}, 'Location','best');
-    box off;
-end
 
 % Average over 10–35 Hz
 cfgsel = [];
@@ -476,12 +454,41 @@ box on;
 ax = gca;
 ax.FontSize = fs;
 
-%% directed coherence stuff
+%% coherence stuff
+
+
 
 nSubs = length(results);
-p1 = 1;   % index of participant 1 in results
 
+% Preallocate
+brainEMG_ratio_all = zeros(nSubs,1);
+brainSpine_ratio_all = zeros(nSubs,1);
+spineEMG_ratio_all = zeros(nSubs,1);
 
+for ss=1:nSubs
+    brainEMG_ratio_all(ss) = results(ss).brainEMG.ratio;
+    brainSpine_ratio_all(ss) = results(ss).brainSpine.ratio;
+    spineEMG_ratio_all(ss) = results(ss).spineEMG.ratio;
+end
+
+% Mean ± SEM
+mean_brainEMG = mean(brainEMG_ratio_all);
+sem_brainEMG = std(brainEMG_ratio_all)/sqrt(nSubs);
+
+mean_brainSpine = mean(brainSpine_ratio_all);
+sem_brainSpine = std(brainSpine_ratio_all)/sqrt(nSubs);
+
+mean_spineEMG = mean(spineEMG_ratio_all);
+sem_spineEMG = std(spineEMG_ratio_all)/sqrt(nSubs);
+
+fprintf('Brain→EMG ratio: %.3f ± %.3f\n', mean_brainEMG, sem_brainEMG);
+fprintf('Brain→Spine ratio: %.3f ± %.3f\n', mean_brainSpine, sem_brainSpine);
+fprintf('Spine→EMG ratio: %.3f ± %.3f\n', mean_spineEMG, sem_spineEMG);
+
+%% Number of subjects
+nSubs = numel(results);
+
+%% Initialize matrices
 forward_areas = zeros(nSubs, 3); % columns: brain→EMG, brain→spine, spine→EMG
 reverse_areas = zeros(nSubs, 3);
 
@@ -509,96 +516,72 @@ x_labels = {'Brain→EMG','Brain→Spine','Spine→EMG'};
 
 %% Plot grouped bars
 figure; hold on;
-
-p1 = 1; % index of participant 1
-
 b = bar(data, 'grouped');
-
-% Make bars a bit transparent so points show through
-b(1).FaceColor = [0.3 0.6 0.9];  b(1).FaceAlpha = 0.5; % Forward
-b(2).FaceColor = [0.9 0.3 0.3];  b(2).FaceAlpha = 0.5; % Reverse
+b(1).FaceColor = [0.3 0.6 0.9]; % Forward
+b(2).FaceColor = [0.9 0.3 0.3]; % Reverse
 
 % Overlay error bars
 [ngroups, nbars] = size(data);
 groupwidth = min(0.8, nbars/(nbars+1.5));
-
 for i = 1:nbars
     x = (1:ngroups) - groupwidth/2 + (2*i-1) * groupwidth / (2*nbars);
-    errorbar(x, data(:,i), sems(:,i), 'k.', 'LineWidth', 1.5);
+    errorbar(x, data(:,i), sems(:,i), 'k.', 'LineWidth',1.5);
 end
 
-% Overlay individual subject points (with small jitter), then circle participant 1
-jitter = 0.015; % horizontal jitter amount
-
+% Overlay individual subject points
 for i = 1:nbars
     x = (1:ngroups) - groupwidth/2 + (2*i-1) * groupwidth / (2*nbars);
-
     for j = 1:ngroups
         if i == 1
-            y = forward_areas(:,j);
+            y = forward_areas(:,j);  % Forward
         else
-            y = reverse_areas(:,j);
+            y = reverse_areas(:,j);  % Reverse
         end
-
-        % jittered x positions for individuals
-        xj = x(j) + jitter*randn(nSubs,1);
-
-        % all subjects (grey)
-        hInd = scatter(xj, y, 45, ...
-            'MarkerFaceColor', [0.35 0.35 0.35], ...
-            'MarkerEdgeColor', 'none', ...
-            'MarkerFaceAlpha', 0.55);
-
-        % circle participant 1 (use same jittered x position for that subject)
-        scatter(xj(p1), y(p1), 180, 'o', ...
-            'MarkerEdgeColor', 'k', ...
-            'LineWidth', 2, ...
-            'MarkerFaceColor', 'none');
+        scatter(repmat(x(j), nSubs,1), y, 50, 'k', 'filled', 'MarkerFaceAlpha',0.6);
     end
 end
-
-% Force points to top layer (helps in some MATLAB versions)
-uistack(hInd, 'top');
 
 % Labels and aesthetics
 set(gca, 'XTick', 1:ngroups, 'XTickLabel', x_labels, 'FontSize', 14);
 ylabel('Coherence area (10-35 Hz)');
 ylim([0 max(data(:))*1.3]);
 box off;
+legend({'Forward','Reverse'}, 'Location', 'northwest');
 
-legend({'Forward','Reverse','Individuals','Participant 1'}, 'Location', 'northwest');
 
+%% time domain
+brainEMG_peaks = zeros(nSubs,1);
+brainSpine_peaks = zeros(nSubs,1);
+spineEMG_peaks = zeros(nSubs,1);
 
-% %% time domain
-% brainEMG_peaks = zeros(nSubs,1);
-% brainSpine_peaks = zeros(nSubs,1);
-% spineEMG_peaks = zeros(nSubs,1);
-% 
-% for ss = 1:nSubs
-%     brainEMG_peaks(ss) = results(ss).brainEMG.peak_latency;
-%     brainSpine_peaks(ss) = results(ss).brainSpine.peak_latency;
-%     spineEMG_peaks(ss) = results(ss).spineEMG.peak_latency;
-% end
-% 
-% 
-% 
-% figure('Color','w'); hold on;
-% 
-% x_labels = {'Brain→EMG','Brain→Spine','Spine→EMG'};
-% x = 1:3;
-% 
-% % Individual points
-% scatter(repmat(x(1), nSubs,1), brainEMG_peaks, 50, 'k', 'filled', 'MarkerFaceAlpha',0.6);
-% scatter(repmat(x(2), nSubs,1), brainSpine_peaks, 50, 'k', 'filled', 'MarkerFaceAlpha',0.6);
-% scatter(repmat(x(3), nSubs,1), spineEMG_peaks, 50, 'k', 'filled', 'MarkerFaceAlpha',0.6);
-% 
-% % Overlay mean ± SEM
-% means = [mean(brainEMG_peaks), mean(brainSpine_peaks), mean(spineEMG_peaks)];
-% sems  = [std(brainEMG_peaks)/sqrt(nSubs), std(brainSpine_peaks)/sqrt(nSubs), std(spineEMG_peaks)/sqrt(nSubs)];
-% errorbar(x, means, sems, 'r', 'LineWidth',2);
-% 
-% xlim([0.5 3.5]);
-% set(gca,'XTick',x,'XTickLabel',x_labels,'FontSize',14);
-% ylabel('Peak latency (ms)');
-% title('Time-domain directionality peak latencies');
-% box off;
+for ss = 1:nSubs
+    brainEMG_peaks(ss) = results(ss).brainEMG.peak_latency;
+    brainSpine_peaks(ss) = results(ss).brainSpine.peak_latency;
+    spineEMG_peaks(ss) = results(ss).spineEMG.peak_latency;
+end
+
+fprintf('Mean ± SEM peak latency (ms):\n');
+fprintf('Brain→EMG: %.1f ± %.1f\n', mean(brainEMG_peaks), std(brainEMG_peaks)/sqrt(nSubs));
+fprintf('Brain→Spine: %.1f ± %.1f\n', mean(brainSpine_peaks), std(brainSpine_peaks)/sqrt(nSubs));
+fprintf('Spine→EMG: %.1f ± %.1f\n', mean(spineEMG_peaks), std(spineEMG_peaks)/sqrt(nSubs));
+
+figure('Color','w'); hold on;
+
+x_labels = {'Brain→EMG','Brain→Spine','Spine→EMG'};
+x = 1:3;
+
+% Individual points
+scatter(repmat(x(1), nSubs,1), brainEMG_peaks, 50, 'k', 'filled', 'MarkerFaceAlpha',0.6);
+scatter(repmat(x(2), nSubs,1), brainSpine_peaks, 50, 'k', 'filled', 'MarkerFaceAlpha',0.6);
+scatter(repmat(x(3), nSubs,1), spineEMG_peaks, 50, 'k', 'filled', 'MarkerFaceAlpha',0.6);
+
+% Overlay mean ± SEM
+means = [mean(brainEMG_peaks), mean(brainSpine_peaks), mean(spineEMG_peaks)];
+sems  = [std(brainEMG_peaks)/sqrt(nSubs), std(brainSpine_peaks)/sqrt(nSubs), std(spineEMG_peaks)/sqrt(nSubs)];
+errorbar(x, means, sems, 'r', 'LineWidth',2);
+
+xlim([0.5 3.5]);
+set(gca,'XTick',x,'XTickLabel',x_labels,'FontSize',14);
+ylabel('Peak latency (ms)');
+title('Time-domain directionality peak latencies');
+box off;

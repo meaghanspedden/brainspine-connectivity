@@ -357,8 +357,6 @@ box off;
     end
 
     invp = -log10(pvals);
-    pthr = 0.05;
-    invpthr = -log10(pthr);
 
     % Apply same significance mask as thresholding
     mask = coh_diff > thr95;
@@ -394,28 +392,28 @@ box off;
     hotmap = flipud(magma(ncol-1));
     cmap = [brain_color; hotmap];
 % 
-    figure;
-    ft_plot_mesh(mesh_brain, 'facecolor', [0.8 0.3 0.3], 'facealpha', 0.07, 'edgecolor', 'none');
-    ft_plot_mesh(mesh_cut, 'facecolor', [0.3 0.3 0.9], 'facealpha', 0.1, 'edgecolor', 'none'); hold on
-    ft_plot_mesh(mesh_bone, 'facecolor', [0.9 0.85 0.7], 'facealpha', 0.3, 'edgecolor', 'none');
-    ft_plot_sens(ftdat.grad,'coilshape','point','coilsize',6)
-    ft_plot_mesh(mesh_lungs, 'facecolor', [0.8 0.3 0.3], 'facealpha', 0.1, 'edgecolor', 'none');
-    ft_plot_mesh(mesh_heart, 'facecolor', [0.8 0.3 0.3], 'facealpha', 0.1, 'edgecolor', 'none');
-    
-    cfg = [];
-    cfg.figure      = 'gcf';
-    cfg.method      = 'surface';
-    cfg.funparameter= 'coh';
-    cfg.funcolormap = cmap;
-    cfg.funcolorlim = [invpthr max(invp(mask))];
-    cfg.projmethod  = 'nearest';
-    cfg.surffile    = mesh_wm;
-    ft_sourceplot(cfg, spine_int);
-
-    view(-250, -1);
-    camlight;
-    ax = gca;
-    ax.FontSize = 14;
+%     figure;
+%     ft_plot_mesh(mesh_brain, 'facecolor', [0.8 0.3 0.3], 'facealpha', 0.07, 'edgecolor', 'none');
+%     ft_plot_mesh(mesh_cut, 'facecolor', [0.3 0.3 0.9], 'facealpha', 0.1, 'edgecolor', 'none'); hold on
+%     ft_plot_mesh(mesh_bone, 'facecolor', [0.9 0.85 0.7], 'facealpha', 0.3, 'edgecolor', 'none');
+%     ft_plot_sens(ftdat.grad,'coilshape','point','coilsize',6)
+%     ft_plot_mesh(mesh_lungs, 'facecolor', [0.8 0.3 0.3], 'facealpha', 0.1, 'edgecolor', 'none');
+%     ft_plot_mesh(mesh_heart, 'facecolor', [0.8 0.3 0.3], 'facealpha', 0.1, 'edgecolor', 'none');
+%     
+%     cfg = [];
+%     cfg.figure      = 'gcf';
+%     cfg.method      = 'surface';
+%     cfg.funparameter= 'coh';
+%     cfg.funcolormap = cmap;
+%     cfg.funcolorlim = [thr95 max(spine_int.coh(:))];
+%     cfg.projmethod  = 'nearest';
+%     cfg.surffile    = mesh_wm;
+%     ft_sourceplot(cfg, spine_int);
+% 
+%     view(-250, -1);
+%     camlight;
+%     ax = gca;
+%     ax.FontSize = 14;
 
 
     %% save results
@@ -625,20 +623,22 @@ set(gca, 'FontSize', 13)
 grid on;
 
 %% plot orientation max coherence across subjects 
+
 p1 = 1;
 fs = 14;
 
-nP = numel(subjResults);
-
-% --- significance mask ---
-sig = sig_pos(:);   % logical nP x 1
+% --- significance mask (EDIT if your variable name differs) ---
+% sig_pos(ss) == true if participant has any significant source
+keep = sig_pos(:);   % logical nParticipants x 1
 
 % --- collect orientations ---
+nP = numel(subjResults);
 oriMat = nan(nP,3);
-valid  = false(nP,1);
+valid = false(nP,1);
 
 for ss = 1:nP
-    if isfield(subjResults(ss),'maxdiff') && isfield(subjResults(ss).maxdiff,'ori')
+    if keep(ss) && isfield(subjResults(ss),'maxdiff') ...
+            && isfield(subjResults(ss).maxdiff,'ori')
         o = subjResults(ss).maxdiff.ori(:);
         if numel(o)==3 && all(isfinite(o)) && norm(o)>0
             oriMat(ss,:) = o./norm(o);
@@ -647,24 +647,23 @@ for ss = 1:nP
     end
 end
 
-% --- keep all VALID participants ---
-use = valid;
-oriMat_plot = oriMat(use,:);
-idxMap = find(use);              % plotted index -> original participant index
-sig_plot = sig(idxMap);          % significance for plotted subjects
+% only keep significant + valid participants
+use = keep & valid;
+oriMat = oriMat(use,:);
+idxMap = find(use);          % maps plotted index -> original participant index
 
-% components
-RL = abs(oriMat_plot(:,1));
-CC = abs(oriMat_plot(:,2));
-DV = abs(oriMat_plot(:,3));
+% components: x=RL, y=CC, z=DV
+RL = abs(oriMat(:,1));
+CC = abs(oriMat(:,2));
+DV = abs(oriMat(:,3));
+
 X = [RL CC DV];
 
 % --- plot ---
 figure('Color','w'); hold on; grid on;
-barHandles = bar(X,'grouped');
+bar(X,'grouped');
 
 nPlot = size(X,1);
-
 set(gca,'XTick',1:nPlot, ...
         'XTickLabel', arrayfun(@num2str, idxMap, 'UniformOutput', false), ...
         'FontSize', fs);
@@ -673,22 +672,8 @@ xlabel('Participant','FontSize',fs);
 ylabel('Axis alignment (|component|, unit vector)','FontSize',fs);
 title('Orientation components at max coherence source','FontSize',fs);
 
-legend({'Right–Left (x)','Cranial–Caudal (y)','Dorsal–Ventral (z)'}, ...
+legend({'Right–Left (x)','Cranial–Caudal (y)','Dorsal–Ventral (z)',''}, ...
        'FontSize',fs, 'Location','best');
-
-% --- add significance stars ---
-yl = ylim;
-starY = yl(2) * 0.95;   % position near top
-
-for ii = 1:nPlot
-    if sig_plot(ii)
-        yMax = max(X(ii,:));
-        text(ii, yMax + 0.05, '*', ...
-            'HorizontalAlignment','center', ...
-            'FontSize',fs+4, ...
-            'FontWeight','bold');
-    end
-end
 
 % --- highlight Participant 1 if present ---
 p1_plot = find(idxMap == p1);
@@ -699,7 +684,7 @@ if ~isempty(p1_plot)
 end
 
 
-out_spine = plot_bayesprev_posterior(sig_pos, 0.05);
+
 %% sorted by height
 
 % heighttable=readtable('C:\Users\mspedden\Documents\SC_subs_heights.csv');

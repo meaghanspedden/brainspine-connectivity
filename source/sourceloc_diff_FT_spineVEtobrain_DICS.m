@@ -226,6 +226,8 @@ mask = coh_diff > thr95;    % same as before
 % Mask the inverse-p map
 invp_masked = invp;
 invp_masked(~mask) = 0;     
+pthr = 0.05;
+invpthr = -log10(pthr);
 
 
     %% source structure with coh diff
@@ -303,7 +305,7 @@ cmap = [brain_color; hotmap];
     %cfg.maskparameter='mask';
     cfg.funparameter = 'coh';
     cfg.funcolormap = cmap;
-    cfg.funcolorlim= [0 max(brain_int.coh(:))];
+    cfg.funcolorlim = [invpthr max(invp(mask))];
     cfg.projmethod = 'nearest';
     cfg.surffile = mesh_brain;
     ft_sourceplot(cfg, brain_int);
@@ -357,6 +359,9 @@ for i = 1:nSubjects
 end
 
 fprintf('%g/%g subjects show sig coherence anywhere\n', sum(sig_res), nSubjects)
+
+out_brain = plot_bayesprev_posterior(sig_res, 0.05);
+
 
 all_masks = cat(2, subjResults(:).sig_mask);
 
