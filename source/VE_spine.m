@@ -32,7 +32,7 @@ fband=[10 35];
 
 %load structure with position
 load('C:\Users\mspedden\Documents\brainspine_save\cluster_spineEMG_pos.mat')
-
+load(geomfile)
 
 cmap = magma(256);          
 pointColor = cmap(90,:);
@@ -41,23 +41,40 @@ outlineColor=cmap(240,:);
 
  facecol=[0.72 0.70 0.61];
 
+  y = mesh_torso.vertices(:,2);
+    keep_vert = y > -200;
+
+    new_idx = zeros(size(keep_vert));
+    new_idx(keep_vert) = 1:sum(keep_vert);
+
+    faces_keep = all(keep_vert(mesh_torso.faces), 2);
+    mesh_cut.vertices = mesh_torso.vertices(keep_vert,:);
+    mesh_cut.faces    = new_idx(mesh_torso.faces(faces_keep,:));
+    mesh_cut.unit     = mesh_torso.unit;
+
 figure
 ft_plot_mesh(mesh_wm, ...
     'facecolor', facecol, ...   % FT default: light gray
-    'facealpha', 1, ...               % opaque by default
+    'facealpha', 0.3, ...               % opaque by default
     'edgecolor', 'none');             % no edges
 hold on
 
-% for kk = 1:size(ROIpos,1)
-%     plot3(ROIpos(kk,1), ROIpos(kk,2), ROIpos(kk,3), 'o', ...
-%         'MarkerFaceColor', pointColor, ...
-%         'MarkerEdgeColor', pointColor*0.8, ...
-%         'MarkerSize', 8, ...
-%         'LineWidth', 1.5)
-% end
+for kk = 1:size(ROIpos,1)
+    plot3(ROIpos(kk,1), ROIpos(kk,2), ROIpos(kk,3), 'o', ...
+        'MarkerFaceColor', pointColor, ...
+        'MarkerEdgeColor', pointColor*0.8, ...
+        'MarkerSize', 8, ...
+        'LineWidth', 1.5)
+end
 view(-250, -1)
 lighting gouraud
 camlight
+     ft_plot_mesh(mesh_brain, 'facecolor', [0.8 0.3 0.3], 'facealpha', 0.07, 'edgecolor', 'none');
+    ft_plot_mesh(mesh_cut, 'facecolor', [0.3 0.3 0.9], 'facealpha', 0.1, 'edgecolor', 'none'); hold on
+    ft_plot_mesh(mesh_bone, 'facecolor', [0.9 0.85 0.7], 'facealpha', 0.3, 'edgecolor', 'none');
+    ft_plot_sens(ftdat.grad,'coilshape','point','coilsize',6)
+    ft_plot_mesh(mesh_lungs, 'facecolor', [0.8 0.3 0.3], 'facealpha', 0.1, 'edgecolor', 'none');
+    ft_plot_mesh(mesh_heart, 'facecolor', [0.8 0.3 0.3], 'facealpha', 0.1, 'edgecolor', 'none');
 
 
 
@@ -81,7 +98,7 @@ for ss=1:length(subs)
             'pmergedoe1000mspddfflo45hi45hfcstatic_001_array1.mat');
     end
 
-    load(geomfile)
+    
     D=spm_eeg_load(datwithEMGmerged);
     grad_mm=D.sensors('MEG');
     ftdat = spm2fieldtrip(D);

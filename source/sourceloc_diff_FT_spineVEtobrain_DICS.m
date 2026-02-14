@@ -360,7 +360,7 @@ end
 
 fprintf('%g/%g subjects show sig coherence anywhere\n', sum(sig_res), nSubjects)
 
-out_brain = plot_bayesprev_posterior(sig_res, 0.05);
+out_brain = plot_bayesprev_hdpi_only(sig_res, 0.05);
 
 
 all_masks = cat(2, subjResults(:).sig_mask);

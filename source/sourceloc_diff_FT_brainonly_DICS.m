@@ -359,7 +359,8 @@ end
 
 fprintf('%g out of %g subjects show sig coherence in brain\n', sum(sig_pos), nSubs)
 
-out_brain = plot_bayesprev_posterior(sig_pos, 0.05);
+%out_brain = plot_bayesprev_posterior(sig_pos, 0.05);
+out_brain = plot_bayesprev_hpdi_only(sig_pos, 0.05);
 
 
 % binomial p and CI

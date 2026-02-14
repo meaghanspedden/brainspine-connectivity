@@ -12,7 +12,7 @@ spm('defaults','EEG')
 addpath('C:\Users\mspedden\Documents\fieldtrip')
 ft_defaults
 
-save_dir='C:\Users\mspedden\Documents\brainspine_save';
+save_dir='C:\Users\mspedden\Documents\brainspine_save_lowfreq';
 rng(1) %for permutation testing
 
 %n=9 for spinal cord analyses
@@ -24,7 +24,7 @@ geomfile = fullfile(generic_dir, 'geometries_cervical_realistic.mat');
 
 LFop='spine'; %only want leadfields from spine here.
 rectify=1; %EMG
-fband=[10 35];
+fband=[5 8];
 mult_comp_corr=1;
 
 subjResults=struct();
@@ -41,7 +41,7 @@ for ss=1:length(subs)
             'pmergedoe1000mspddfflo45hi45hfcstatic_002_array1.mat');
 
     else
-
+error('have you changed file name?')
         datwithEMGmerged = fullfile('C:\Users\mspedden\Documents', ...
             ['sub-' sub], ...
             'ses-001', ...
@@ -203,43 +203,43 @@ for ss=1:length(subs)
         warning('Uncorrected threshold used (per-source).')
     end
 
-    %% 3) Quick control plot: where null maxima land along cranio–caudal axis
-xpos = sources_cent.pos(:,2);          % cranio–caudal coordinate (Y)
-x_maxperm = xpos(maxIdx_perm);         % null max locations (mm)
-
-figure('Color','w','Position',[100 100 600 450]); hold on;
-
-% Histogram (classic look)
-h = histogram(x_maxperm, 44, ...
-    'FaceColor',[0.75 0.75 0.75], ...
-    'EdgeColor','k', ...
-    'LineWidth',0.8);
-
-% Observed maximum (unthresholded)
-[~, obsMaxIdx] = max(coh_diff);
-xObs = xpos(obsMaxIdx);
-
-xline(xObs, '-', ...
-    'Color',[0.2 0 0], ...
-    'LineWidth',2);
-
-% Labels
-xlabel('Cranio–caudal position (mm)', 'FontSize',14);
-ylabel('Count', 'FontSize',14);
-
-% Legend
-legend({'Null maxima','Observed maximum'}, ...
-    'Location','best', ...
-    'FontSize',14, ...
-    'Box','off');
-
-% Axis formatting
-set(gca, ...
-    'FontSize',14, ...
-    'LineWidth',1.2, ...
-    'TickDir','out');
-
-box off;
+%     %% 3) Quick control plot: where null maxima land along cranio–caudal axis
+% xpos = sources_cent.pos(:,2);          % cranio–caudal coordinate (Y)
+% x_maxperm = xpos(maxIdx_perm);         % null max locations (mm)
+% 
+% figure('Color','w','Position',[100 100 600 450]); hold on;
+% 
+% % Histogram (classic look)
+% h = histogram(x_maxperm, 44, ...
+%     'FaceColor',[0.75 0.75 0.75], ...
+%     'EdgeColor','k', ...
+%     'LineWidth',0.8);
+% 
+% % Observed maximum (unthresholded)
+% [~, obsMaxIdx] = max(coh_diff);
+% xObs = xpos(obsMaxIdx);
+% 
+% xline(xObs, '-', ...
+%     'Color',[0.2 0 0], ...
+%     'LineWidth',2);
+% 
+% % Labels
+% xlabel('Cranio–caudal position (mm)', 'FontSize',14);
+% ylabel('Count', 'FontSize',14);
+% 
+% % Legend
+% legend({'Null maxima','Observed maximum'}, ...
+%     'Location','best', ...
+%     'FontSize',14, ...
+%     'Box','off');
+% 
+% % Axis formatting
+% set(gca, ...
+%     'FontSize',14, ...
+%     'LineWidth',1.2, ...
+%     'TickDir','out');
+% 
+% box off;
 
     %% 4) Orientation control: orientations at the permuted max locations (STATIC CSD)
 
@@ -259,25 +259,25 @@ box off;
     [ok, bfIdx] = ismember(bf_labels, freqdat_tr.label);
     assert(all(ok), 'Some beamformer channels not found in freqdat_tr.label');
 
-    % Permutation orientations (static condition = permA)
-    ori_perm = nan(nPerm, 3);
-
-    for p = 1:nPerm
-        sIdx = maxIdx_perm(p);
-
-        perm = allIdx(randperm(nAll));
-        permA = perm(1:nA);                     % arbitrarily treat as "static"
-
-        C_full = csd_from_trialset(freqdat_tr, permA);
-        C_stat = real(C_full(bfIdx, bfIdx));    % restrict + reorder
-
-        W = W_all{sIdx};                        % 3 x nChan
-        P = real(W * C_stat * W.');             % 3 x 3
-
-        [V, D] = eig(P);
-        [~, ix] = max(diag(D));
-        ori_perm(p,:) = (V(:,ix) / norm(V(:,ix))).';
-    end
+%     % Permutation orientations (static condition = permA)
+%     ori_perm = nan(nPerm, 3);
+% 
+%     for p = 1:nPerm
+%         sIdx = maxIdx_perm(p);
+% 
+%         perm = allIdx(randperm(nAll));
+%         permA = perm(1:nA);                     % arbitrarily treat as "static"
+% 
+%         C_full = csd_from_trialset(freqdat_tr, permA);
+%         C_stat = real(C_full(bfIdx, bfIdx));    % restrict + reorder
+% 
+%         W = W_all{sIdx};                        % 3 x nChan
+%         P = real(W * C_stat * W.');             % 3 x 3
+% 
+%         [V, D] = eig(P);
+%         [~, ix] = max(diag(D));
+%         ori_perm(p,:) = (V(:,ix) / norm(V(:,ix))).';
+%     end
 
     %% 5) Observed (real) orientation at max SIGNIFICANT coherence-difference location
 
@@ -315,37 +315,37 @@ box off;
 
     %% 6) Summary plot: axis components (null vs observed)
 
-figure('Color','w','Position',[750 100 600 450]); hold on;
-
-% Mean absolute permuted orientation components
-b = bar(mean(abs(ori_perm), 1), ...
-    'FaceColor',[0.75 0.75 0.75], ...
-    'EdgeColor','k', ...
-    'LineWidth',0.8);
-
-% Observed orientation components
-plot(1:3, abs(ori_obs), 'o', ...
-    'MarkerSize',10, ...
-    'MarkerEdgeColor',[0.2 0 0], ...
-    'MarkerFaceColor',[0.2 0 0], ...
-    'LineWidth',1.5);
-
-% Axes
-set(gca, ...
-    'XTick',1:3, ...
-    'XTickLabel',{'L–R','C–C','D–V'}, ...
-    'FontSize',14, ...
-    'LineWidth',1.2, ...
-    'TickDir','out');
-
-ylabel('|Orientation component|', 'FontSize',14);
-
-legend({'Permuted (mean)','Observed'}, ...
-    'Location','best', ...
-    'FontSize',14, ...
-    'Box','off');
-
-box off;
+% figure('Color','w','Position',[750 100 600 450]); hold on;
+% 
+% % Mean absolute permuted orientation components
+% b = bar(mean(abs(ori_perm), 1), ...
+%     'FaceColor',[0.75 0.75 0.75], ...
+%     'EdgeColor','k', ...
+%     'LineWidth',0.8);
+% 
+% % Observed orientation components
+% plot(1:3, abs(ori_obs), 'o', ...
+%     'MarkerSize',10, ...
+%     'MarkerEdgeColor',[0.2 0 0], ...
+%     'MarkerFaceColor',[0.2 0 0], ...
+%     'LineWidth',1.5);
+% 
+% % Axes
+% set(gca, ...
+%     'XTick',1:3, ...
+%     'XTickLabel',{'L–R','C–C','D–V'}, ...
+%     'FontSize',14, ...
+%     'LineWidth',1.2, ...
+%     'TickDir','out');
+% 
+% ylabel('|Orientation component|', 'FontSize',14);
+% 
+% legend({'Permuted (mean)','Observed'}, ...
+%     'Location','best', ...
+%     'FontSize',14, ...
+%     'Box','off');
+% 
+% box off;
 
     %% 7) One-sided permutation p-values + -log10(p) masked map (for plotting)
 
@@ -440,7 +440,7 @@ end
 %%----------------------------------------------
 
 
-save('groupRes_spine_DICS.mat', 'subjResults')
+save('groupRes_spine_DICS_lowfreq.mat', 'subjResults')
 
 nSubjects = length(subjResults);
 sig_pos = false(nSubjects,1);
