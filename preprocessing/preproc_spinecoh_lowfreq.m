@@ -1,10 +1,13 @@
 %% process data from hand contraction. ~ July 2025
 
+%{'OP00212','OP00213',  'OP00215', 'OP00219', ...
+   % 'OP00220', 'OP00221', 'OP00224', 'OP00225', 'OP00226'};
+
 
 clear all;
 close all;
 
-sub='OP00212';
+sub='OP00226';
 
 rmchans=0; %remove bad channels from psd...for first round of analysis
 
@@ -44,7 +47,7 @@ filetemplate = fullfile('C:\Users\mspedden\Documents', ['sub-' sub], 'ses-001', 
 
 posfile=fullfile(filetemplate, 'static_001_ar_positions.tsv');
 
-EMGpath = fullfile('C:\Users\mspedden\Documents', [sub '_experiment'], 'EMG');
+EMGpath = fullfile('C:\Users\mspedden\OneDrive - University College London', [sub '_experiment'], 'EMG');
 
 EMGfiletemplate = [sub '_00'];
 
@@ -102,7 +105,7 @@ for cond=1:length(analysis)
         else 
             S.selectbad=0; 
             spm_opm_psd(S);
-            load(fullfile(save_dir,sprintf('%s_badchans',sub)), 'badidx') %same bad channels across runs
+            load(fullfile('C:\Users\mspedden\Documents\brainspine_save',sprintf('%s_badchans',sub)), 'badidx') %same bad channels across runs
        end
 
         D=badchannels(D, badidx,1);
@@ -153,7 +156,7 @@ for cond=1:length(analysis)
         S.freq=min(fband);
         S.order=5;
         S.band='high';
-        S.prefix=sprintf('hi%d',fband(2));
+        S.prefix=sprintf('hi%d',fband(1));
         D=spm_eeg_filter(S);
 
         S.D=D_EMG;

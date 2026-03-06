@@ -44,7 +44,7 @@ filetemplate = fullfile('C:\Users\mspedden\Documents', ['sub-' sub], 'ses-001', 
 
 posfile=fullfile(filetemplate, 'static_001_ar_positions.tsv');
 
-EMGpath = fullfile('C:\Users\mspedden\Documents', [sub '_experiment'], 'EMG');
+EMGpath = fullfile('C:\Users\mspedden\OneDrive - University College London', [sub '_experiment'], 'EMG');
 
 EMGfiletemplate = [sub '_00'];
 

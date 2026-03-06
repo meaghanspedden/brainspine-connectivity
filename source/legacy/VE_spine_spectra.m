@@ -10,7 +10,7 @@ spm('defaults','EEG')
 addpath('C:\Users\mspedden\Documents\fieldtrip')
 ft_defaults
 
-save_dir='C:\Users\mspedden\Documents\brainspine_save';
+save_dir='C:\Users\mspedden\Documents\brainspine_save_newLF';
 if ~exist(save_dir,'dir')
     mkdir(save_dir)
 end
@@ -31,7 +31,7 @@ rectify=1;
 fband=[10 35];
 
 %load structure with position
-load('C:\Users\mspedden\Documents\brainspine_save\cluster_spineEMG_pos.mat')
+load('C:\Users\mspedden\Documents\brainspine_save_newLF\cluster_spineEMG_pos_newLF.mat')
 
 
 % cmap = magma(256);          
@@ -94,32 +94,30 @@ for ss=1:length(subs)
     end
 
 
-    [Gx, Gy, Gz] = build_leadfield_matrices(fullfile(generic_dir,'cervical_realistic_brain_spine'), LFop);
+   %% load and organise spinal cord leadfields
+    %[Gx, Gy, Gz] = build_leadfield_matrices(fullfile(generic_dir,'cervical_realistic_brain_spine'), LFop);
+    load('C:\Users\mspedden\Documents\bem_spine_fields\leadfield_cervical_realistic_bem_bem_.mat')
 
-    nsourcepoints = size(Gx,1);
-    nchannels     = size(Gx,2);
-    spchanidx=find(grad_mm.coilpos(:,2) < 200); %indexed in grad struct
+    nsourcepoints = size(leadfield_cord.pos,1);
+    %nchannels     = size(Gx,2);
+    spchanidx=find(grad_mm.coilpos(:,2) < 200); %indexed locally in grad struct (same indexing as LF)
     spchanlabs=grad_mm.label(spchanidx);
 
-
- %% clip leadfields to spinal cord channels only
-    Gx=Gx(:,spchanidx);
-    Gy=Gy(:,spchanidx);
-    Gz=Gz(:,spchanidx);
-
-    Lf.pos    = sources_cent.pos;     % nsourcepoints x 3
-    Lf.inside = sources_cent.inside;     % all points inside
-    Lf.unit   = 'mm';
-    Lf.label  = grad_mm.label(spchanidx);   % nchannels x 1 cell
-    Lf.leadfielddimord = '{pos}_chan_ori';
-
-    Lf.leadfield = cell(1,nsourcepoints);
-
-    for k = 1:nsourcepoints
-        % Combine X/Y/Z components
-        Lf.leadfield{k} = [Gx(k,:)' Gy(k,:)' Gz(k,:)']; % nchannels x 3
+    %% clip leadfields to spinal cord channels only
+%     Gx=Gx(:,spchanidx);
+%     Gy=Gy(:,spchanidx);
+%     Gz=Gz(:,spchanidx);
+Lf=leadfield_cord;
+Lf.label = leadfield_cord.label(spchanidx);
+for i = 1:numel(leadfield_cord.leadfield)
+    
+    if ~isempty(leadfield_cord.leadfield{i})
+        
+        % leadfield{i} is [nChan × nOri]
+        Lf.leadfield{i} = leadfield_cord.leadfield{i}(spchanidx, :);
+        
     end
-
+end
     % 2. dummy head model for input config only
     cfg                     = [];
     cfg.method              = 'infinite';
@@ -182,62 +180,8 @@ cfg.method       = 'svd';
 cfg.numcomponent = 1;
 VE = ft_virtualchannel(cfg, ftdat, source_idx);
 
-savename=sprintf('VE_spine_sub%s_forspectra', sub, 'VE');
+savename=sprintf('VE_spine_sub%s_forspectra_newLF', sub, 'VE');
 save(fullfile(save_dir,savename), 'VE')
-%%
 
-
-% beamformer=source_idx.avg.filter{1};
-% 
-% chansel  = tlock.label(1:end-1); % MEG sensors
-% chanindx = 1:length(chansel);    %hard coded    
-% 
-% coh_data = [];
-% coh_data.label = {'coh_x', 'coh_y', 'coh_z'};
-% coh_data.time = braindat.time;
-% 
-% %this gives for each orientation
-% for i=1:length(braindat.trial)
-%   coh_data.trial{i} = beamformer * braindat.trial{i}(chanindx,:);
-% end
-% 
-% timeseries = cat(2, coh_data.trial{:});
-% [u1, s1, v1] = svd(timeseries, 'econ');
-% 
-% virtualchannelbrain = [];
-% virtualchannelbrain.label = {'motor'};
-% virtualchannelbrain.time = braindat.time;
-% 
-% for k = 1:length(braindat.trial)
-%   virtualchannelbrain.trial{k}(1,:) = u1(:,1)' * beamformer * braindat.trial{k}(chanindx,:);
-% end
-% 
-% savename=sprintf('brain_VC_%s',sub);
-% save(fullfile(save_dir,savename), 'virtualchannelbrain')
-% error('stop')
-% 
-% % cfg = [];
-% % cfg.channel = 'EXG1';
-% % emgdata = ft_selectdata(cfg, braindat);
-% % 
-% % cfg = [];
-% % combineddata = ft_appenddata(cfg, virtualchannelbrain,virtualchanneldata);
-% % 
-% % cfg            = [];
-% % cfg.output     = 'fourier';
-% % cfg.method     = 'mtmfft';
-% % cfg.foilim     = [5 45];
-% % cfg.tapsmofrq  = 3;
-% % cfg.keeptrials = 'yes';
-% % freq = ft_freqanalysis(cfg, combineddata);
-% % 
-% % cfg = [];
-% % cfg.method = 'coh';
-% % coherence = ft_connectivityanalysis(cfg, freq);
-% % figure; plot(coherence.freq,(squeeze(coherence.cohspctrm(1,:,:))'))
-% % ylim([0 0.15])
-% 
-% % savename=sprintf('sub%s_VE_brain_EMG',sub);
-% % save(fullfile(save_dir,savename),"combineddata")
 
 end

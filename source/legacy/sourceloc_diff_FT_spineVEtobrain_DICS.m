@@ -12,7 +12,7 @@ spm('defaults','EEG')
 addpath('C:\Users\mspedden\Documents\fieldtrip')
 ft_defaults
 
-save_dir='C:\Users\mspedden\Documents\brainspine_save';
+save_dir='C:\Users\mspedden\Documents\brainspine_save_newLF';
 if ~exist(save_dir,'dir')
     mkdir(save_dir)
 end
@@ -98,8 +98,8 @@ braingrad.tra = grad_mm.tra(brainidx, brainidx);
 
 %use all channels but only brain grad
 braindat=ftdat;
-loadfile=sprintf('VE_spine_sub%s_forspectraVE_spine_subVE_forspectra.mat',sub);
-load(fullfile('C:\Users\mspedden\Documents\brainspine_save',loadfile))
+loadfile=sprintf('VE_spine_sub%s_forspectra_newLFVE_spine_subVE_forspectra_newLF.mat',sub);
+load(fullfile(save_dir,loadfile))
 
 trialinfo=ftdat.trialinfo; %lost when merging
 braindat=ft_appenddata([],braindat,VE);
@@ -242,44 +242,7 @@ invpthr = -log10(pthr);
     cfg.parameter = 'coh';
     brain_int = ft_sourceinterpolate(cfg, source_p, mesh_brain);
 
-%     permMean = mean(cohDiff_perm, 2);
-%     permStd  = std(cohDiff_perm, 0, 2);
-%     
-%     z_coh = (coh_diff - permMean) ./ permStd;
-%     permStd(permStd == 0) = NaN;
-% 
-%     source_z = coh_source;        %source structure
-%     source_z.avg.coh = z_coh; 
 
-%     cfg = [];
-%     cfg.parameter = {'coh'};
-%     brain_int=ft_sourceinterpolate(cfg,source_diff, mesh_brain);
-% 
-%     cfg = []; %interpolate z score
-%     cfg.parameter = {'coh'};
-%     brain_int_z=ft_sourceinterpolate(cfg,source_z, mesh_brain);
-    
-    %% add a mask
-%     source_mask=coh_source;
-%     source_mask.avg.pow = coh_diff > thr95;
-% 
-%     %interpolate the mask
-%     cfg = [];
-%     cfg.parameter = 'pow';
-%     cfg.interpmethod = 'nearest';
-%     source_mask_int = ft_sourceinterpolate(cfg, source_mask, mesh_brain);
-%     brain_int.mask=source_mask_int.pow;
-%     brain_int_z.mask=source_mask_int.pow;
-% 
-%     mask = source_mask.avg.pow;  % logical
-
-
-% Find the max only where mask == true
-% coh_diff_masked = coh_diff;
-% coh_diff_masked(~mask) = -Inf;  
-% [max_val, max_idx] = max(coh_diff_masked(:));
-% 
-% max_pos = sources_brain(max_idx, :);
 
 
 source_mask = coh_source;
@@ -321,7 +284,7 @@ cmap = [brain_color; hotmap];
     maxval = max(source_diff.avg.coh);
     maxcohindx = find(source_diff.avg.coh == maxval);
     maxpos = source_diff.pos(maxcohindx, :);   % N x 3
-    load(fullfile(save_dir,'T.mat'));   % MNI -> native
+    load('C:\Users\mspedden\Documents\brainspine_save\T.mat');   % MNI -> native
     T_inv = inv(T);                    % native -> MNI
     maxpos_h = [maxpos, ones(size(maxpos,1),1)]';   % 4 x N
     x_mni_h = T_inv * maxpos_h;
@@ -337,9 +300,9 @@ cmap = [brain_color; hotmap];
 
     subjResults(ss).subjID = sub;
     subjResults(ss).coh_diff = coh_diff;
-    subjResults(ss).sig_mask = source_mask_int.pow; % binary 0/1 map
-    subjResults(ss).pos = source_mask_int.pos; % save positions (same across subjects)
-    subjResults(ss).inside = source_mask_int.inside;
+    subjResults(ss).sig_mask = source_mask_int.coh; % binary 0/1 map
+    subjResults(ss).pos = brain_int.pos; % save positions (same across subjects)
+    subjResults(ss).inside = brain_int.inside;
 
 
 end
@@ -360,7 +323,7 @@ end
 
 fprintf('%g/%g subjects show sig coherence anywhere\n', sum(sig_res), nSubjects)
 
-out_brain = plot_bayesprev_hdpi_only(sig_res, 0.05);
+%out_brain = plot_bayesprev_hdpi_only(sig_res, 0.05);
 
 
 all_masks = cat(2, subjResults(:).sig_mask);
@@ -518,4 +481,4 @@ lighting gouraud;
 
 %% VE with intersection points
 
-save intersection_pos_M1 intersection_pos
+save(fullfile(save_dir, 'M1_ROI'),'intersection_pos_M1', 'intersection_pos')
