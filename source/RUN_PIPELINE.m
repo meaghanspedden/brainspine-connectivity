@@ -1,0 +1,1271 @@
+%% RUN_PIPELINE.m
+% Master script for brain-spine MEG-EMG coherence pipeline (BEM v2).
+%
+% PIPELINE STEPS:
+%   Step 1 — Brain-EMG DICS        (run_brain_emg_dics)
+%   Step 2 — Spine-EMG DICS        (run_spine_emg_dics)
+%   Step 3 — Spinal virtual elec.  (run_spine_VE)
+%   Step 4 — SpineVE-to-Brain DICS (run_spineVE_brain_dics)
+%
+% Step 3 requires cluster_spineEMG_pos_bemv2*.mat from Step 2.
+% Step 4 requires VE_spine_sub*_forspectra_bemv2*.mat from Step 3.
+%
+% EDIT THE USER CONFIG SECTION BELOW, THEN RUN.
+% =========================================================================
+
+clear all
+close all
+clc
+
+%% =========================================================================
+%  USER CONFIG — edit this section only
+%  =========================================================================
+
+% --- Toolbox / path setup -------------------------------------------------
+cfg_pipeline.fieldtrip_path  = 'C:\Users\mspedden\Documents\fieldtrip';
+cfg_pipeline.spm_path        = 'C:\Users\mspedden\Documents\spm';
+cfg_pipeline.bsc_source_path = 'C:\Users\mspedden\Documents\brainspineconnectivity\source';
+
+% --- Data & geometry paths ------------------------------------------------
+cfg_pipeline.data_root   = 'C:\Users\mspedden\Documents';
+cfg_pipeline.geomfile    = 'C:\Users\mspedden\Documents\new_leadfields_and_geom\geometries_cervical_realistic.mat';
+cfg_pipeline.lf_v2_path  = 'C:\Users\mspedden\Documents\bem_spine_fields\bem_v2_leadfield_cervical_realistic_bem_.mat';
+cfg_pipeline.T_mat_path  = 'C:\Users\mspedden\Documents\brainspine_save\T.mat';
+cfg_pipeline.save_dir    = 'C:\Users\mspedden\Documents\brainspine_save_bemv2';
+
+% --- Subject lists --------------------------------------------------------
+% Brain: exclude OP00220 (small head) and OP00226 (could not close headcast)
+cfg_pipeline.subs_brain = {'OP00212','OP00213','OP00215','OP00219', ...
+                            'OP00225','OP00221','OP00224'};
+
+% Spine: all 9 subjects
+cfg_pipeline.subs_spine = {'OP00212','OP00213','OP00215','OP00219', ...
+                            'OP00220','OP00221','OP00224','OP00225','OP00226'};
+
+% --- Analysis parameters --------------------------------------------------
+cfg_pipeline.rectify        = 1;
+cfg_pipeline.fband          = [10 35];
+cfg_pipeline.mult_comp_corr = 1;       % 1 = family-wise max; 0 = per-source
+cfg_pipeline.numpermutation = 500;
+cfg_pipeline.rng_seed       = 1;
+
+% --- M1 ROI (for Step 4) --------------------------------------------------
+cfg_pipeline.M1_mni_centre = [-38 -26 56];   % left M1 hand knob (MNI mm)
+cfg_pipeline.M1_radius_mm  = 20;
+
+% --- SMOOTHING — main user input ------------------------------------------
+%
+%   doSmooth = 0  — no smoothing at any step
+%   doSmooth = 1  — smooth spine maps (Step 2) and brain maps (Steps 1 & 4)
+%
+% Spine smoothing: sources_cent has ~44 sources along cord.
+%   40 mm is broad but appropriate for this sparse 1-D source space.
+%
+% Brain smoothing: sources_brain is a 5 mm grid.
+%   8 mm FWHM = 1.6x grid spacing — mild, recommended default.
+%
+% Radius is ALWAYS 3*sigma = 3*(FWHM/2.355). Do not change this formula.
+
+cfg_pipeline.doSmooth             = 1;
+cfg_pipeline.spine_smooth_fwhm_mm = 20;    % mm — spinal smoothing (Step 2)
+cfg_pipeline.brain_smooth_fwhm_mm = 8;     % mm — brain smoothing  (Steps 1 & 4)
+
+% --- Figure saving -------------------------------------------------------
+% saveFigs = 1 saves all figures as .png to save_dir/figures/
+cfg_pipeline.saveFigs = 1;
+
+% --- Steps to run ---------------------------------------------------------
+run_step1 = 0;   % Brain-EMG DICS
+run_step2 = 1;   % Spine-EMG DICS
+run_step3 = 0;   % Spinal virtual electrode
+run_step4 = 0;   % SpineVE-to-Brain DICS
+
+%% =========================================================================
+%  SETUP
+%% =========================================================================
+
+addpath(cfg_pipeline.bsc_source_path)
+addpath(cfg_pipeline.spm_path)
+spm('defaults','EEG')
+addpath(cfg_pipeline.fieldtrip_path)
+ft_defaults
+
+if ~exist(cfg_pipeline.save_dir,'dir')
+    mkdir(cfg_pipeline.save_dir)
+end
+
+rng(cfg_pipeline.rng_seed)
+
+% Compute smoothing radii once — passed into each step
+cfg_pipeline.spine_smooth_radius_mm = 3 * (cfg_pipeline.spine_smooth_fwhm_mm / 2.355);
+cfg_pipeline.brain_smooth_radius_mm = 3 * (cfg_pipeline.brain_smooth_fwhm_mm / 2.355);
+
+% Filename suffixes for inter-step file handoff
+if cfg_pipeline.doSmooth
+    cfg_pipeline.spine_suffix = sprintf('_permSmooth_%dmm', cfg_pipeline.spine_smooth_fwhm_mm);
+else
+    cfg_pipeline.spine_suffix = '';
+end
+
+fprintf('\n=== PIPELINE CONFIG ===\n')
+if cfg_pipeline.doSmooth
+    fprintf('  Smoothing:  ON  (spine %d mm FWHM, brain %d mm FWHM)\n', ...
+        cfg_pipeline.spine_smooth_fwhm_mm, cfg_pipeline.brain_smooth_fwhm_mm)
+else
+    fprintf('  Smoothing:  OFF\n')
+end
+fprintf('  Brain subs: %d\n', numel(cfg_pipeline.subs_brain))
+fprintf('  Spine subs: %d\n', numel(cfg_pipeline.subs_spine))
+fprintf('  Save dir:   %s\n', cfg_pipeline.save_dir)
+fprintf('  Steps:      %d %d %d %d\n', run_step1, run_step2, run_step3, run_step4)
+fprintf('=======================\n\n')
+
+%% =========================================================================
+%  STEP 1 — Brain-EMG DICS
+%% =========================================================================
+if run_step1
+    fprintf('\n>>> STEP 1: Brain-EMG DICS\n')
+    run_brain_emg_dics(cfg_pipeline)
+    fprintf('>>> STEP 1 complete.\n\n')
+end
+
+%% =========================================================================
+%  STEP 2 — Spine-EMG DICS
+%% =========================================================================
+if run_step2
+    fprintf('\n>>> STEP 2: Spine-EMG DICS\n')
+    run_spine_emg_dics(cfg_pipeline)
+    fprintf('>>> STEP 2 complete.\n\n')
+end
+
+%% =========================================================================
+%  STEP 3 — Spinal virtual electrode
+%  Requires: cluster_spineEMG_pos_bemv2<spine_suffix>.mat from Step 2
+%% =========================================================================
+if run_step3
+    roi_file = fullfile(cfg_pipeline.save_dir, ...
+        ['cluster_spineEMG_pos_bemv2' cfg_pipeline.spine_suffix '.mat']);
+    assert(exist(roi_file,'file')==2, ...
+        'Step 3 requires Step 2 output:\n  %s\nRun Step 2 first.', roi_file)
+    fprintf('\n>>> STEP 3: Spinal virtual electrode\n')
+    run_spine_VE(cfg_pipeline)
+    fprintf('>>> STEP 3 complete.\n\n')
+end
+
+%% =========================================================================
+%  STEP 4 — SpineVE-to-Brain DICS
+%  Requires: VE_spine_sub*_forspectra_bemv2<spine_suffix>.mat from Step 3
+%% =========================================================================
+if run_step4
+    sub1    = cfg_pipeline.subs_spine{1};
+    ve_file = fullfile(cfg_pipeline.save_dir, ...
+        sprintf('VE_spine_sub%s_forspectra_bemv2%s.mat', sub1, cfg_pipeline.spine_suffix));
+    assert(exist(ve_file,'file')==2, ...
+        'Step 4 requires Step 3 output:\n  %s\nRun Step 3 first.', ve_file)
+    fprintf('\n>>> STEP 4: SpineVE-to-Brain DICS\n')
+    run_spineVE_brain_dics(cfg_pipeline)
+    fprintf('>>> STEP 4 complete.\n\n')
+end
+
+fprintf('\n=== PIPELINE FINISHED ===\n\n')
+
+
+%% =========================================================================
+%  STEP FUNCTIONS
+%% =========================================================================
+
+function run_brain_emg_dics(cfg_pipeline)
+% Step 1: Brain-EMG DICS coherence with permutation test.
+
+subs           = cfg_pipeline.subs_brain;
+save_dir       = cfg_pipeline.save_dir;
+geomfile       = cfg_pipeline.geomfile;
+data_root      = cfg_pipeline.data_root;
+fband          = cfg_pipeline.fband;
+rectify        = cfg_pipeline.rectify;
+mult_comp_corr = cfg_pipeline.mult_comp_corr;
+numpermutation = cfg_pipeline.numpermutation;
+doSmooth       = cfg_pipeline.doSmooth;
+fwhm           = cfg_pipeline.brain_smooth_fwhm_mm;
+radius         = cfg_pipeline.brain_smooth_radius_mm;
+
+if doSmooth
+    result_suffix = sprintf('brainEMG_brainSmooth_%dmm', fwhm);
+else
+    result_suffix = 'brainEMG';
+end
+
+cmap = make_cmap(cfg_pipeline.fieldtrip_path);
+subjResults = struct();
+saveFigs = cfg_pipeline.saveFigs;
+fig_dir  = fullfile(save_dir, 'figures');
+if saveFigs && ~exist(fig_dir,'dir'), mkdir(fig_dir); end
+
+for ss = 1:length(subs)
+    sub = subs{ss};
+    fprintf('  [Step 1] Subject %s (%d/%d)\n', sub, ss, length(subs));
+
+    datwithEMGmerged = get_datafile(data_root, sub);
+    load(geomfile)   % sources_brain, mesh_brain, etc.
+    D       = spm_eeg_load(datwithEMGmerged);
+    grad_mm = D.sensors('MEG');
+    ftdat   = spm2fieldtrip(D);
+
+    badchans = D.chanlabels(D.badchannels);
+    cfg = []; cfg.channel = setdiff(ftdat.label, badchans);
+    ftdat = ft_selectdata(cfg, ftdat);
+
+    ftdat = rectify_emg(ftdat, rectify);
+
+    brainidx  = find(grad_mm.chanpos(:,2) > 200);
+    braingrad = subset_grad(grad_mm, brainidx);
+
+    % Use full ftdat (all channels) for freq analysis and beamforming —
+    % matches original script exactly. braingrad is only used for the
+    % leadfield forward model.
+    mesh_brain.unit = 'mm';
+    cfg = []; cfg.method = 'singleshell';
+    vol = ft_prepare_headmodel(cfg, mesh_brain);
+    cfg = []; cfg.sourcemodel = sources_brain; cfg.headmodel = vol;
+    cfg.grad = braingrad; cfg.reducerank = 'no';
+    LF = ft_prepare_leadfield(cfg);
+
+    [statdat, restdat, freqdat] = make_freq_data(ftdat, ftdat.trialinfo, fband);
+
+    cfg = []; cfg.grid = sources_brain; cfg.headmodel = vol;
+    cfg.sourcemodel.leadfield = LF; cfg.dics.keepfilter = 'yes';
+    cfg.dics.lambda = 10; cfg.method = 'dics'; cfg.refchan = 'EXG1';
+    coh_source = ft_sourceanalysis(cfg, freqdat);
+
+    cfg = []; cfg.grid = sources_brain; cfg.headmodel = vol;
+    cfg.sourcemodel.leadfield = LF;
+    cfg.dics.filter = coh_source.avg.filter;
+    cfg.dics.lambda = 10; cfg.method = 'dics'; cfg.refchan = 'EXG1';
+    cfg.permutation = 'yes'; cfg.numpermutation = numpermutation;
+    source_perm = ft_sourceanalysis(cfg, statdat, restdat);
+
+    nsourcepoints = length(source_perm.inside);
+    nPerm         = numel(source_perm.trialA);
+    [coh_diff, cohDiff_perm] = extract_coh_diff(source_perm, nsourcepoints, nPerm);
+
+    if doSmooth
+        inside_pos = sources_brain(source_perm.inside, :);
+        Wsm = make_gaussian_smoother(inside_pos, fwhm, radius);
+        print_smoother_diag(Wsm, 'Brain');
+        cohDiff_perm = Wsm * cohDiff_perm;
+        coh_diff     = Wsm * coh_diff;
+    end
+
+    thr95    = compute_threshold(cohDiff_perm, mult_comp_corr, nsourcepoints);
+    pvals    = compute_pvals(coh_diff, cohDiff_perm);
+    invp     = -log10(pvals);
+    mask     = coh_diff > thr95;
+    invp_masked = invp; invp_masked(~mask) = 0;
+    invpthr  = -log10(0.05);
+
+    [maxpos, x_mni] = get_mni_max(coh_diff, coh_source, cfg_pipeline.T_mat_path);
+
+    [brain_int, source_mask_int] = interpolate_brain(coh_source, invp_masked, mask, mesh_brain);
+
+    hfig = plot_brain_surface(brain_int, mask, invp, invpthr, cmap, mesh_brain, ...
+        sprintf('%s: brain-EMG coherence', sub), doSmooth, fwhm);
+    if saveFigs, savefig(hfig, fullfile(fig_dir, sprintf('step1_sub%s_brainEMG_coherence.fig', sub))); end
+
+    subjResults(ss).subjID     = sub;
+    subjResults(ss).coh_diff   = coh_diff;
+    subjResults(ss).sig_mask   = source_mask_int.coh;
+    subjResults(ss).pos        = source_mask_int.pos;
+    subjResults(ss).inside     = source_mask_int.inside;
+    subjResults(ss).thr95      = thr95;
+    subjResults(ss).maxpos     = maxpos;
+    subjResults(ss).maxpos_mni = x_mni;
+    subjResults(ss).brain_int  = brain_int;
+end
+
+groupfile = sprintf('groupRes_brain_DICS_bemv2_%s.mat', result_suffix);
+save(fullfile(save_dir, groupfile), 'subjResults')
+
+run_group_brain(subjResults, geomfile, cfg_pipeline, cmap, ...
+    'brain-EMG coherence', doSmooth, fwhm, saveFigs, fig_dir, 'step1')
+
+end
+
+
+% -------------------------------------------------------------------------
+function run_spine_emg_dics(cfg_pipeline)
+% Step 2: Spine-EMG DICS coherence with permutation test.
+
+subs           = cfg_pipeline.subs_spine;
+save_dir       = cfg_pipeline.save_dir;
+geomfile       = cfg_pipeline.geomfile;
+data_root      = cfg_pipeline.data_root;
+fband          = cfg_pipeline.fband;
+rectify        = cfg_pipeline.rectify;
+mult_comp_corr = cfg_pipeline.mult_comp_corr;
+numpermutation = cfg_pipeline.numpermutation;
+doSmooth       = cfg_pipeline.doSmooth;
+fwhm           = cfg_pipeline.spine_smooth_fwhm_mm;
+radius         = cfg_pipeline.spine_smooth_radius_mm;
+out_suffix     = cfg_pipeline.spine_suffix;
+
+cmap_hot = make_cmap(cfg_pipeline.fieldtrip_path);
+subjResults = struct();
+saveFigs = cfg_pipeline.saveFigs;
+fig_dir  = fullfile(save_dir, 'figures');
+if saveFigs && ~exist(fig_dir,'dir'), mkdir(fig_dir); end
+
+for ss = 1:length(subs)
+    sub = subs{ss};
+    fprintf('  [Step 2] Subject %s (%d/%d)\n', sub, ss, length(subs));
+
+    datwithEMGmerged = get_datafile(data_root, sub);
+    load(geomfile)
+    D       = spm_eeg_load(datwithEMGmerged);
+    grad_mm = D.sensors('MEG');
+    ftdat   = spm2fieldtrip(D);
+
+    badchans = D.chanlabels(D.badchannels);
+    cfg = []; cfg.channel = setdiff(ftdat.label, badchans);
+    ftdat = ft_selectdata(cfg, ftdat);
+
+    ftdat = rectify_emg(ftdat, rectify);
+
+    % BEM v2 with position-based channel mapping
+    load(cfg_pipeline.lf_v2_path)
+    nsourcepoints = size(leadfield_cord.pos,1);
+    spchanidx     = find(grad_mm.coilpos(:,2) < 200);
+    grad_v2       = leadfield_cord.cfg.grad;
+    spc_in_v2     = zeros(numel(spchanidx),1);
+    for i = 1:numel(spchanidx)
+        p = grad_mm.coilpos(spchanidx(i),:);
+        d = sqrt(sum((grad_v2.coilpos*1000 - p).^2, 2));
+        [~, spc_in_v2(i)] = min(d);
+    end
+    Lf = leadfield_cord; Lf.label = grad_mm.label(spchanidx);
+    for i = 1:numel(leadfield_cord.leadfield)
+        if ~isempty(leadfield_cord.leadfield{i})
+            Lf.leadfield{i} = leadfield_cord.leadfield{i}(spc_in_v2,:);
+        end
+    end
+
+    mesh_wm.unit = 'mm';
+    cfg = []; cfg.method = 'infinite'; cfg.siunits = 1;
+    cfg.grad = grad_mm; cfg.conductivity = 1;
+    dummyvol = ft_prepare_headmodel(cfg, mesh_torso);
+
+    [statdat, restdat, freqdat] = make_freq_data(ftdat, ftdat.trialinfo, fband);
+
+    cfg = []; cfg.grid = sources_cent; cfg.headmodel = dummyvol;
+    cfg.sourcemodel.leadfield = Lf; cfg.dics.keepfilter = 'yes';
+    cfg.dics.lambda = 10; cfg.method = 'dics'; cfg.refchan = 'EXG1';
+    coh_source = ft_sourceanalysis(cfg, freqdat);
+
+    cfg = []; cfg.grid = sources_cent; cfg.headmodel = dummyvol;
+    cfg.sourcemodel.leadfield = Lf;
+    cfg.dics.filter = coh_source.avg.filter;
+    cfg.dics.lambda = 10; cfg.method = 'dics'; cfg.refchan = 'EXG1';
+    cfg.permutation = 'yes'; cfg.numpermutation = numpermutation;
+    source_perm = ft_sourceanalysis(cfg, statdat, restdat);
+
+    nPerm = numel(source_perm.trialA);
+    [coh_diff, cohDiff_perm] = extract_coh_diff(source_perm, nsourcepoints, nPerm);
+
+    if doSmooth
+        Wsm = make_gaussian_smoother(sources_cent.pos, fwhm, radius);
+        print_smoother_diag(Wsm, 'Spine');
+        cohDiff_perm = Wsm * cohDiff_perm;
+        coh_diff     = Wsm * coh_diff;
+    end
+
+    thr95    = compute_threshold(cohDiff_perm, mult_comp_corr, nsourcepoints);
+
+    % null maxima location diagnostic plot
+    maxPerm = max(cohDiff_perm, [], 1);
+    [~, maxIdx_perm] = max(cohDiff_perm, [], 1);
+    xpos = sources_cent.pos(:,2);
+    [~, obsMaxIdx] = max(coh_diff);
+    hfig_null = figure('Color','w','Position',[100 100 600 450]); hold on;
+    histogram(xpos(maxIdx_perm), 44, 'FaceColor',[0.75 0.75 0.75],'EdgeColor','k','LineWidth',0.8);
+    xline(xpos(obsMaxIdx),'-','Color',[0.2 0 0],'LineWidth',2);
+    xlabel('Cranio-caudal position (mm)','FontSize',14);
+    ylabel('Count','FontSize',14);
+    legend({'Null maxima','Observed maximum'},'Location','best','FontSize',14,'Box','off');
+    set(gca,'FontSize',14,'LineWidth',1.2,'TickDir','out'); box off;
+    title(sprintf('%s — null maxima', sub),'Interpreter','none')
+    if saveFigs, savefig(hfig_null, fullfile(fig_dir, sprintf('step2_sub%s_null_maxima%s.fig', sub, out_suffix))); end
+
+    % ---- Null distribution of max coherence difference, stratified by
+    %      dominant orientation axis at the permutation peak source.
+    %      Only generated for OP00212.
+    if strcmp(sub, 'OP00212')
+    %
+    % For each permutation: find the source with max coh_diff, get its DICS
+    % filter (3 x nchans), SVD -> dominant orientation = 1st left singular
+    % vector -> label by axis with largest absolute component (x/y/z).
+    % Then plot histogram of maxPerm values, coloured by axis label.
+    % Vertical dashed line = 95th percentile (FWE threshold).
+    % Solid vertical line   = observed maximum coh_diff (participant 1 only).
+
+    % --- get dominant orientation per permutation ---
+    filters = coh_source.avg.filter;   % cell {nsources x 1}, each [3 x nchans]
+    axis_labels  = {'x','y','z'};
+    perm_axis    = zeros(nPerm,1);     % 1=x, 2=y, 3=z
+    for ip = 1:nPerm
+        src_idx = maxIdx_perm(ip);
+        F = filters{src_idx};          % [3 x nchans]
+        if isempty(F)
+            perm_axis(ip) = 0;
+            continue
+        end
+        [U,~,~] = svd(F, 'econ');
+        dom_vec  = U(:,1);             % dominant orientation [3 x 1]
+        [~, ax]  = max(abs(dom_vec));
+        perm_axis(ip) = ax;
+    end
+
+    % --- plot: grouped bar chart, 3 bars per bin (one per orientation) ---
+    ax_colors = [0.22 0.49 0.82;   % x — blue
+                 0.86 0.37 0.13;   % y — orange
+                 0.18 0.63 0.27];  % z — green
+
+    nBins     = 30;
+    bin_edges = linspace(min(maxPerm), max(maxPerm)*1.05, nBins+1);
+    bin_ctrs  = (bin_edges(1:end-1) + bin_edges(2:end)) / 2;
+
+    % count permutations per bin per orientation
+    counts = zeros(nBins, 3);
+    for ax_id = 1:3
+        counts(:, ax_id) = histcounts(maxPerm(perm_axis == ax_id), bin_edges)';
+    end
+
+    % Use uniform integer x-positions so all bars have equal width,
+    % then relabel x-axis with actual coherence values.
+    x_uniform = (1:nBins)';
+    tick_step = max(1, floor(nBins/8));
+    tick_idx  = 1:tick_step:nBins;
+
+    hfig_nulldist = figure('Color','w','Position',[100 100 680 430]);
+    hb = bar(x_uniform, counts, 'grouped', 'BarWidth', 0.85);
+    for ax_id = 1:3
+        hb(ax_id).FaceColor = ax_colors(ax_id,:);
+        hb(ax_id).EdgeColor = 'none';
+        hb(ax_id).FaceAlpha = 0.85;
+        hb(ax_id).DisplayName = sprintf('Dominant axis: %s', axis_labels{ax_id});
+    end
+    set(gca, 'XTick', tick_idx, ...
+        'XTickLabel', arrayfun(@(v) sprintf('%.3f', v), bin_ctrs(tick_idx), 'UniformOutput', false));
+    xtickangle(35);
+
+    hold on;
+
+    % 95th percentile FWE threshold — map to uniform x scale
+    [~, thr_bin] = min(abs(bin_ctrs - thr95));
+    hl_thr = xline(thr_bin, '--k', 'LineWidth', 2, ...
+        'DisplayName', '95th percentile (FWE threshold)');
+
+    % observed maximum — map to uniform x scale
+    obs_max = max(coh_diff);
+    [~, obs_bin] = min(abs(bin_ctrs - obs_max));
+    hl_obs  = xline(obs_bin, '-', 'Color',[0.55 0 0], 'LineWidth', 2.5, ...
+        'DisplayName', sprintf('Observed max — %s', sub));
+
+    xlabel('Max coherence difference (static − rest)','FontSize',14);
+    ylabel('Count','FontSize',14);
+    set(gca,'FontSize',13,'LineWidth',1.1,'TickDir','out'); box off;
+    if doSmooth
+        title(sprintf('%s — null distribution by orientation (smoothed %d mm)', sub, fwhm), ...
+            'Interpreter','none','FontSize',13)
+    else
+        title(sprintf('%s — null distribution by orientation', sub), ...
+            'Interpreter','none','FontSize',13)
+    end
+
+    legend([hb(1), hb(2), hb(3), hl_thr, hl_obs], ...
+        'Location','northeast','FontSize',11,'Box','off');
+
+    if saveFigs
+        savefig(hfig_nulldist, fullfile(fig_dir, ...
+            sprintf('step2_sub%s_null_distribution_by_orientation%s.fig', sub, out_suffix)));
+    end
+    end  % if OP00212
+
+    pvals       = compute_pvals(coh_diff, cohDiff_perm);
+    invp        = -log10(pvals);
+    mask        = coh_diff > thr95;
+    invp_masked = invp; invp_masked(~mask) = 0;
+    invpthr     = -log10(0.05);
+    invp_smooth = smooth_invp(coh_diff, cohDiff_perm, nsourcepoints, nPerm);
+
+    source_p = coh_source; source_p.avg.coh = invp_smooth;
+    cfg = []; cfg.parameter = 'coh';
+    spine_int = ft_sourceinterpolate(cfg, source_p, mesh_wm);
+
+    mesh_cut = clip_torso(mesh_torso);
+
+    hfig_spine = figure;
+    cfg = []; cfg.figure = 'gcf'; cfg.method = 'surface';
+    cfg.funparameter = 'coh'; cfg.funcolormap = cmap_hot;
+    cfg.funcolorlim = [2.3 2.5]; cfg.projmethod = 'nearest';
+    cfg.surffile = mesh_wm;
+    ft_sourceplot(cfg, spine_int);
+    view(-250,-1); camlight; ax = gca; ax.FontSize = 14;
+    hold on
+    ft_plot_mesh(mesh_brain,'facecolor',[0.8 0.3 0.3],'facealpha',0.07,'edgecolor','none');
+    ft_plot_mesh(mesh_cut,  'facecolor',[0.3 0.3 0.9],'facealpha',0.1, 'edgecolor','none');
+    ft_plot_mesh(mesh_bone, 'facecolor',[0.9 0.85 0.7],'facealpha',0.3, 'edgecolor','none');
+    ft_plot_sens(ftdat.grad,'coilshape','point','coilsize',6)
+    ft_plot_mesh(mesh_lungs,'facecolor',[0.8 0.3 0.3],'facealpha',0.1, 'edgecolor','none');
+    ft_plot_mesh(mesh_heart,'facecolor',[0.8 0.3 0.3],'facealpha',0.1, 'edgecolor','none');
+    if doSmooth
+        title(sprintf('%s: spine-EMG coherence (smoothed %d mm)', sub, fwhm),'Interpreter','none')
+    else
+        title(sprintf('%s: spine-EMG coherence', sub),'Interpreter','none')
+    end
+    if saveFigs, savefig(hfig_spine, fullfile(fig_dir, sprintf('step2_sub%s_spineEMG_coherence%s.fig', sub, out_suffix))); end
+
+    [~, obsIdx] = max(coh_diff .* double(mask | true));
+
+    % dominant orientation at the max coherence source.
+    % SVD of the DICS filter: first left singular vector gives the direction
+    % capturing most projected power (equivalent to dominant eigenvector of
+    % W*C*W' without needing the per-source CSD explicitly).
+    W_obs = coh_source.avg.filter{obsIdx};
+    if ~isempty(W_obs)
+        [U, ~, ~] = svd(W_obs, 'econ');
+        ori_obs   = U(:, 1);
+    else
+        ori_obs = [nan; nan; nan];
+    end
+
+    subjResults(ss).coh_diff    = coh_diff;
+    subjResults(ss).thr95       = thr95;
+    subjResults(ss).sig_mask    = mask;
+    subjResults(ss).pos         = sources_cent.pos;
+    subjResults(ss).inside      = sources_cent.inside;
+    subjResults(ss).maxdiff.idx = obsIdx;
+    subjResults(ss).maxdiff.pos = sources_cent.pos(obsIdx,:);
+    subjResults(ss).maxdiff.ori = ori_obs;
+end
+
+save(fullfile(save_dir, ['groupRes_spine_DICS_bemv2' out_suffix '.mat']), 'subjResults')
+
+run_group_spine(subjResults, sources_cent, save_dir, out_suffix, cmap_hot, ...
+    mesh_wm, mesh_brain, mesh_cut, mesh_bone, mesh_lungs, mesh_heart, doSmooth, fwhm, saveFigs, fig_dir)
+
+%% ---- Orientation components per participant ----
+% For each participant: bar group showing |x|, |y|, |z| components of the
+% dominant dipole orientation at the max coherence source.
+% * = significant; box = Participant 1.
+fs_ori   = 14;
+nP       = length(subjResults);
+oriMat   = nan(nP, 3);
+sig_pos  = false(nP, 1);
+valid    = false(nP, 1);
+for ss = 1:nP
+    if isfield(subjResults(ss),'maxdiff') && isfield(subjResults(ss).maxdiff,'ori')
+        o = subjResults(ss).maxdiff.ori(:);
+        if numel(o)==3 && all(isfinite(o)) && norm(o)>0
+            oriMat(ss,:) = abs(o ./ norm(o));
+            valid(ss)    = true;
+        end
+    end
+    sig_pos(ss) = any(subjResults(ss).sig_mask);
+end
+
+idxMap      = find(valid);
+oriMat_plot = oriMat(idxMap, :);
+sig_plot    = sig_pos(idxMap);
+nValid      = size(oriMat_plot, 1);
+
+ori_colors  = [0.22 0.49 0.82;   % x RL — blue
+               0.86 0.37 0.13;   % y CC — orange
+               0.18 0.63 0.27];  % z DV — green
+
+hfig_ori = figure('Color','w','Position',[100 100 max(400, nValid*70+100) 400]);
+hold on; grid on;
+hbo = bar(oriMat_plot, 'grouped');
+for ax_id = 1:3
+    hbo(ax_id).FaceColor = ori_colors(ax_id,:);
+    hbo(ax_id).EdgeColor = 'none';
+    hbo(ax_id).FaceAlpha = 0.85;
+end
+set(gca, 'XTick', 1:nValid, ...
+    'XTickLabel', arrayfun(@(s) sprintf('P%d', s), idxMap, 'UniformOutput', false), ...
+    'FontSize', fs_ori);
+xlabel('Participant', 'FontSize', fs_ori);
+ylabel('Axis alignment (|component|)', 'FontSize', fs_ori);
+legend({'Right-Left (x)','Cranial-Caudal (y)','Dorsal-Ventral (z)'}, ...
+    'FontSize', fs_ori, 'Location', 'best', 'Box', 'off');
+ylim([0 1.15]);
+
+% significance asterisks
+for ii = 1:nValid
+    if sig_plot(ii)
+        text(ii, max(oriMat_plot(ii,:)) + 0.06, '*', ...
+            'HorizontalAlignment','center','FontSize',fs_ori+4,'FontWeight','bold');
+    end
+end
+
+% box around Participant 1
+p1_plot = find(idxMap == 1);
+if ~isempty(p1_plot)
+    yl = ylim;
+    plot([p1_plot-0.45 p1_plot+0.45 p1_plot+0.45 p1_plot-0.45 p1_plot-0.45], ...
+         [yl(1) yl(1) yl(2) yl(2) yl(1)], 'k-', 'LineWidth', 2);
+end
+
+if doSmooth
+    title(sprintf('Dominant source orientation per participant (smoothed %d mm)', fwhm), ...
+        'Interpreter','none','FontSize',fs_ori)
+else
+    title('Dominant source orientation per participant','Interpreter','none','FontSize',fs_ori)
+end
+if saveFigs
+    savefig(hfig_ori, fullfile(fig_dir, sprintf('step2_group_source_orientation%s.fig', out_suffix)));
+end
+
+end
+
+
+% -------------------------------------------------------------------------
+function run_spine_VE(cfg_pipeline)
+% Step 3: Build spinal virtual electrode from prevalence cluster.
+
+subs      = cfg_pipeline.subs_spine;
+save_dir  = cfg_pipeline.save_dir;
+geomfile  = cfg_pipeline.geomfile;
+data_root = cfg_pipeline.data_root;
+rectify   = cfg_pipeline.rectify;
+doSmooth  = cfg_pipeline.doSmooth;
+fwhm      = cfg_pipeline.spine_smooth_fwhm_mm;
+ve_suffix = cfg_pipeline.spine_suffix;
+
+roi_file = fullfile(save_dir, ['cluster_spineEMG_pos_bemv2' ve_suffix '.mat']);
+load(roi_file)  % loads ROIpos
+
+load(geomfile)
+saveFigs = cfg_pipeline.saveFigs;
+fig_dir  = fullfile(save_dir, 'figures');
+if saveFigs && ~exist(fig_dir,'dir'), mkdir(fig_dir); end
+hfig_roi = figure('Color','w');
+ft_plot_mesh(mesh_wm,'facecolor',[0.7 0.7 0.7],'facealpha',0.3,'edgecolor','none');
+hold on
+plot3(ROIpos(:,1),ROIpos(:,2),ROIpos(:,3),'o','MarkerSize',10, ...
+    'MarkerEdgeColor',[0.9 0.3 0],'MarkerFaceColor',[1 0.4 0.1],'LineWidth',2);
+view(90,18); material dull;
+if doSmooth
+    title(sprintf('Spinal ROI (smoothed %d mm)', fwhm),'Interpreter','none')
+else
+    title('Spinal ROI','Interpreter','none')
+end
+if saveFigs, savefig(hfig_roi, fullfile(fig_dir, 'step3_spinal_VE_ROI.fig')); end
+
+for ss = 1:length(subs)
+    sub = subs{ss};
+    fprintf('  [Step 3] Subject %s (%d/%d)\n', sub, ss, length(subs));
+
+    datwithEMGmerged = get_datafile(data_root, sub);
+    load(geomfile)
+    D       = spm_eeg_load(datwithEMGmerged);
+    grad_mm = D.sensors('MEG');
+    ftdat   = spm2fieldtrip(D);
+
+    badchans = D.chanlabels(D.badchannels);
+    cfg = []; cfg.channel = setdiff(ftdat.label, badchans);
+    ftdat = ft_selectdata(cfg, ftdat);
+
+    ftdat = rectify_emg(ftdat, rectify);
+
+    load(cfg_pipeline.lf_v2_path)
+    spchanidx = find(grad_mm.coilpos(:,2) < 200);
+    grad_v2   = leadfield_cord.cfg.grad;
+    spc_in_v2 = zeros(numel(spchanidx),1);
+    for i = 1:numel(spchanidx)
+        p = grad_mm.coilpos(spchanidx(i),:);
+        d = sqrt(sum((grad_v2.coilpos*1000 - p).^2, 2));
+        [~, spc_in_v2(i)] = min(d);
+    end
+    Lf = leadfield_cord; Lf.label = grad_mm.label(spchanidx);
+    for i = 1:numel(leadfield_cord.leadfield)
+        if ~isempty(leadfield_cord.leadfield{i})
+            Lf.leadfield{i} = leadfield_cord.leadfield{i}(spc_in_v2,:);
+        end
+    end
+
+    mesh_wm.unit = 'mm';
+    cfg = []; cfg.method = 'infinite'; cfg.siunits = 1;
+    cfg.grad = grad_mm; cfg.conductivity = 1;
+    dummyvol = ft_prepare_headmodel(cfg, mesh_torso);
+
+    cfg = []; cfg.covariance = 'yes';
+    tlock = ft_timelockanalysis(cfg, ftdat);
+
+    cfg = []; cfg.method = 'lcmv'; cfg.headmodel = dummyvol;
+    cfg.sourcemodel.leadfield = Lf; cfg.grid = sources_cent;
+    cfg.unit = Lf.unit; cfg.lcmv.keepfilter = 'yes';
+    source_idx = ft_sourceanalysis(cfg, tlock);
+
+    roi_center = mean(ROIpos,1);
+    R = max(sqrt(sum((ROIpos - roi_center).^2, 2)));
+
+    cfg = []; cfg.pos = roi_center; cfg.radius = R;
+    cfg.method = 'svd'; cfg.numcomponent = 1;
+    VE = ft_virtualchannel(cfg, ftdat, source_idx);
+
+    savename = sprintf('VE_spine_sub%s_forspectra_bemv2%s', sub, ve_suffix);
+    save(fullfile(save_dir, savename), 'VE')
+end
+
+end
+
+
+% -------------------------------------------------------------------------
+function run_spineVE_brain_dics(cfg_pipeline)
+% Step 4: Brain DICS coherence with spinal virtual electrode as reference.
+
+subs           = cfg_pipeline.subs_spine;
+save_dir       = cfg_pipeline.save_dir;
+geomfile       = cfg_pipeline.geomfile;
+data_root      = cfg_pipeline.data_root;
+fband          = cfg_pipeline.fband;
+rectify        = cfg_pipeline.rectify;
+mult_comp_corr = cfg_pipeline.mult_comp_corr;
+numpermutation = cfg_pipeline.numpermutation;
+doSmooth       = cfg_pipeline.doSmooth;
+spine_fwhm     = cfg_pipeline.spine_smooth_fwhm_mm;
+brain_fwhm     = cfg_pipeline.brain_smooth_fwhm_mm;
+brain_radius   = cfg_pipeline.brain_smooth_radius_mm;
+loadfile_suffix = cfg_pipeline.spine_suffix;
+
+if doSmooth
+    result_suffix = sprintf('functionalVE_spineSmooth_%dmm_brainSmooth_%dmm', ...
+        spine_fwhm, brain_fwhm);
+else
+    result_suffix = 'functionalVE';
+end
+
+cmap = make_cmap(cfg_pipeline.fieldtrip_path);
+subjResults = struct();
+saveFigs = cfg_pipeline.saveFigs;
+fig_dir  = fullfile(save_dir, 'figures');
+if saveFigs && ~exist(fig_dir,'dir'), mkdir(fig_dir); end
+
+for ss = 1:length(subs)
+    sub = subs{ss};
+    fprintf('  [Step 4] Subject %s (%d/%d)\n', sub, ss, length(subs));
+
+    datwithEMGmerged = get_datafile(data_root, sub);
+    load(geomfile)
+    D       = spm_eeg_load(datwithEMGmerged);
+    grad_mm = D.sensors('MEG');
+    ftdat   = spm2fieldtrip(D);
+
+    badchans = D.chanlabels(D.badchannels);
+    cfg = []; cfg.channel = setdiff(ftdat.label, badchans);
+    ftdat = ft_selectdata(cfg, ftdat);
+
+    ftdat = rectify_emg(ftdat, rectify);
+
+    brainidx  = find(grad_mm.chanpos(:,2) > 200);
+    braingrad = subset_grad(grad_mm, brainidx);
+
+    loadfile = sprintf('VE_spine_sub%s_forspectra_bemv2%s.mat', sub, loadfile_suffix);
+    load(fullfile(save_dir, loadfile), 'VE')
+
+    trialinfo  = ftdat.trialinfo;
+    braindat   = ft_appenddata([], ftdat, VE);
+    braindat.trialinfo = trialinfo;
+    mesh_brain.unit    = 'mm';
+    % Keep full grad on braindat so CSD/covariance includes all channels.
+    % braingrad is used only for leadfield geometry below.
+
+    cfg = []; cfg.method = 'singleshell';
+    vol = ft_prepare_headmodel(cfg, mesh_brain);
+    cfg = []; cfg.sourcemodel = sources_brain; cfg.headmodel = vol;
+    cfg.grad = braingrad; cfg.reducerank = 'no'; cfg.normalize = 'no';
+    LF = ft_prepare_leadfield(cfg);
+
+    [statdat, restdat, freqdat] = make_freq_data(braindat, ftdat.trialinfo, fband);
+
+    % ft_freqanalysis does not always propagate the grad — set explicitly.
+    % Use braingrad so FieldTrip can match channels to leadfield geometry.
+    freqdat.grad = braingrad;
+    statdat.grad = braingrad;
+    restdat.grad = braingrad;
+
+    cfg = []; cfg.grid = sources_brain; cfg.headmodel = vol;
+    cfg.sourcemodel.leadfield = LF; cfg.dics.keepfilter = 'yes';
+    cfg.dics.lambda = 10; cfg.method = 'dics'; cfg.refchan = 'virtualchannel001';
+    coh_source = ft_sourceanalysis(cfg, freqdat);
+
+    cfg = []; cfg.grid = sources_brain; cfg.headmodel = vol;
+    cfg.sourcemodel.leadfield = LF;
+    cfg.dics.filter = coh_source.avg.filter;
+    cfg.dics.lambda = 10; cfg.method = 'dics'; cfg.refchan = 'virtualchannel001';
+    cfg.permutation = 'yes'; cfg.numpermutation = numpermutation;
+    source_perm = ft_sourceanalysis(cfg, statdat, restdat);
+
+    nsourcepoints = length(source_perm.inside);
+    nPerm         = numel(source_perm.trialA);
+    [coh_diff, cohDiff_perm] = extract_coh_diff(source_perm, nsourcepoints, nPerm);
+
+    if doSmooth
+        inside_pos = sources_brain(source_perm.inside, :);
+        Wsm = make_gaussian_smoother(inside_pos, brain_fwhm, brain_radius);
+        print_smoother_diag(Wsm, 'Brain');
+        cohDiff_perm = Wsm * cohDiff_perm;
+        coh_diff     = Wsm * coh_diff;
+    end
+
+    thr95    = compute_threshold(cohDiff_perm, mult_comp_corr, nsourcepoints);
+    pvals    = compute_pvals(coh_diff, cohDiff_perm);
+    invp     = -log10(pvals);
+    mask     = coh_diff > thr95;
+    invp_masked = invp; invp_masked(~mask) = 0;
+    invpthr  = -log10(0.05);
+
+    [brain_int, source_mask_int] = interpolate_brain(coh_source, invp_masked, mask, mesh_brain);
+
+    hfig = plot_brain_surface(brain_int, mask, invp, invpthr, cmap, mesh_brain, ...
+        sprintf('%s: brain-spineVE coherence', sub), doSmooth, brain_fwhm);
+    if saveFigs, savefig(hfig, fullfile(fig_dir, sprintf('step4_sub%s_brainSpineVE_coherence.fig', sub))); end
+
+    [maxpos, x_mni] = get_mni_max(coh_diff, coh_source, cfg_pipeline.T_mat_path);
+
+    subjResults(ss).subjID     = sub;
+    subjResults(ss).coh_diff   = coh_diff;
+    subjResults(ss).sig_mask   = source_mask_int.coh;
+    subjResults(ss).pos        = brain_int.pos;
+    subjResults(ss).inside     = brain_int.inside;
+    subjResults(ss).maxpos     = maxpos;
+    subjResults(ss).maxpos_mni = x_mni;
+    subjResults(ss).thr95      = thr95;
+    subjResults(ss).brain_int  = brain_int;
+end
+
+groupfile = sprintf('groupRes_brain_DICS_spineVC_bemv2_%s.mat', result_suffix);
+save(fullfile(save_dir, groupfile), 'subjResults')
+
+run_group_brain(subjResults, geomfile, cfg_pipeline, cmap, ...
+    'brain-spineVE coherence', doSmooth, brain_fwhm, cfg_pipeline.saveFigs, fullfile(cfg_pipeline.save_dir,'figures'), 'step4')
+
+run_M1_overlap(subjResults, save_dir, geomfile, cfg_pipeline, result_suffix, ...
+    doSmooth, brain_fwhm)
+
+end
+
+
+%% =========================================================================
+%  GROUP ANALYSIS HELPERS
+%% =========================================================================
+
+function run_group_brain(subjResults, geomfile, cfg_pipeline, cmap, ...
+                          label_str, doSmooth, fwhm, saveFigs, fig_dir, step_tag)
+
+load(geomfile); mesh_brain.unit = 'mm';
+
+nSubs     = length(subjResults);
+all_masks = cat(2, subjResults(:).sig_mask);
+sig_pos   = false(nSubs,1);
+for ss = 1:nSubs
+    if any(subjResults(ss).coh_diff > subjResults(ss).thr95)
+        sig_pos(ss) = true;
+    end
+end
+
+if doSmooth
+    fprintf('  %g/%g subjects show sig %s (smoothed %d mm)\n', ...
+        sum(sig_pos), nSubs, label_str, fwhm)
+else
+    fprintf('  %g/%g subjects show sig %s\n', sum(sig_pos), nSubs, label_str)
+end
+
+%plot_bayesprev_hpdi_only(sig_pos, 0.05);
+
+% x = sum(sig_pos); n = nSubs; alpha = 0.05;
+% lower = betainv(alpha/2, x, n-x+1);
+% upper = betainv(1-alpha/2, x+1, n-x);
+% fprintf('  Binomial CI: [%.3f %.3f], p = %.4f\n', lower, upper, 1-binocdf(x-1,n,alpha));
+
+group_prevalence = mean(all_masks, 2);
+threshold        = 0.3;
+gp_masked        = group_prevalence; gp_masked(gp_masked < threshold) = 0;
+
+group_ft = []; group_ft.pos = subjResults(1).pos;
+group_ft.inside = subjResults(1).inside; group_ft.pow = gp_masked;
+
+load(cfg_pipeline.T_mat_path); T_inv = inv(T);
+maxval = max(group_ft.pow); maxidx = find(group_ft.pow == maxval);
+maxpos = group_ft.pos(maxidx,:);
+maxpos_h = [maxpos, ones(size(maxpos,1),1)]';
+x_mni = (T_inv * maxpos_h)'; x_mni = x_mni(:,1:3);
+if length(maxidx)>1, disp('multiple group max locs'); end
+
+hfig_max = figure; ft_plot_mesh(mesh_brain); hold on
+plot3(maxpos(:,1),maxpos(:,2),maxpos(:,3),'r*')
+title(sprintf('Group max — %s', label_str),'Interpreter','none')
+if saveFigs, savefig(hfig_max, fullfile(fig_dir, sprintf('%s_group_max_%s.fig', step_tag, strrep(label_str,' ','_')))); end
+
+cfg = []; cfg.parameter = 'pow'; cfg.interpmethod = 'sphere_avg'; cfg.sphereradius = 10;
+group_int = ft_sourceinterpolate(cfg, group_ft, mesh_brain);
+
+hfig_prev = figure;
+cfg2 = []; cfg2.method = 'surface'; cfg2.funparameter = 'pow';
+cfg2.funcolorlim = [threshold max(group_int.pow)];
+cfg2.funcolormap = cmap; cfg2.projmethod = 'nearest'; cfg2.surffile = mesh_brain;
+ft_sourceplot(cfg2, group_int);
+view(176,-10); camlight; ax = gca; ax.FontSize = 14;
+hpatch = findobj(gcf,'Type','patch'); set(hpatch,'FaceAlpha',0.9)
+if doSmooth
+    title(sprintf('Group prevalence — %s (smoothed %d mm)', label_str, fwhm),'Interpreter','none')
+else
+    title(sprintf('Group prevalence — %s', label_str),'Interpreter','none')
+end
+if saveFigs, savefig(hfig_prev, fullfile(fig_dir, sprintf('%s_group_prevalence_%s.fig', step_tag, strrep(label_str,' ','_')))); end
+
+end
+
+
+function run_group_spine(subjResults, sources_cent, save_dir, out_suffix, cmap_hot, ...
+                          mesh_wm, mesh_brain, mesh_cut, mesh_bone, mesh_lungs, mesh_heart, ...
+                          doSmooth, fwhm, saveFigs, fig_dir)
+
+nSubjects     = length(subjResults);
+nsourcepoints = size(sources_cent.pos,1);
+all_masks     = zeros(nsourcepoints, nSubjects);
+for s = 1:nSubjects
+    m = double(subjResults(s).coh_diff > subjResults(s).thr95);
+    all_masks(:,s) = m(:);
+end
+
+sig_pos = false(nSubjects,1);
+for s = 1:nSubjects
+    sig_pos(s) = any(all_masks(:,s));
+end
+
+if doSmooth
+    fprintf('  %d/%d subjects show sig spine-EMG coherence (smoothed %d mm)\n', ...
+        sum(sig_pos), nSubjects, fwhm)
+else
+    fprintf('  %d/%d subjects show sig spine-EMG coherence\n', sum(sig_pos), nSubjects)
+end
+
+threshold      = 0.2;
+prevalence_loc = mean(all_masks, 2);
+group_ft = []; group_ft.pos = sources_cent.pos;
+group_ft.inside = sources_cent.inside;
+group_ft.pow = prevalence_loc; group_ft.pow(group_ft.pow < threshold) = 0;
+
+cfg = []; cfg.parameter = 'pow'; cfg.interpmethod = 'nearest';
+group_int = ft_sourceinterpolate(cfg, group_ft, mesh_wm);
+
+hfig_spineprev = figure;
+cfg2 = []; cfg2.method = 'surface'; cfg2.funparameter = 'pow';
+cfg2.maskparameter = 'mask'; cfg2.funcolorlim = [threshold max(group_int.pow)];
+cfg2.funcolormap = cmap_hot; cfg2.projmethod = 'nearest'; cfg2.surffile = mesh_wm;
+cfg2.opacitylim = [threshold max(group_int.pow)]; cfg2.opacitymap = 'rampup';
+ft_sourceplot(cfg2, group_int);
+view(-250,-1); camlight; ax = gca; ax.FontSize = 14; hold on
+ft_plot_mesh(mesh_brain,'facecolor',[0.8 0.3 0.3],'facealpha',0.07,'edgecolor','none');
+ft_plot_mesh(mesh_cut,  'facecolor',[0.3 0.3 0.9],'facealpha',0.1, 'edgecolor','none');
+ft_plot_mesh(mesh_bone, 'facecolor',[0.9 0.85 0.7],'facealpha',0.3, 'edgecolor','none');
+ft_plot_mesh(mesh_lungs,'facecolor',[0.8 0.3 0.3],'facealpha',0.1, 'edgecolor','none');
+ft_plot_mesh(mesh_heart,'facecolor',[0.8 0.3 0.3],'facealpha',0.1, 'edgecolor','none');
+if doSmooth
+    title(sprintf('Group prevalence — spine-EMG (smoothed %d mm)', fwhm),'Interpreter','none')
+else
+    title('Group prevalence — spine-EMG','Interpreter','none')
+end
+if saveFigs, savefig(hfig_spineprev, fullfile(fig_dir, sprintf('step2_group_spineEMG_prevalence%s.fig', out_suffix))); end
+
+% subject line plot
+subj_cmap = [27,158,119; 217,95,2; 117,112,179; 231,41,138; 102,166,30; ...
+             230,171,2;  166,118,29; 102,102,102; 55,126,184] / 255;
+x = sources_cent.pos(:,2);
+hfig_lines = figure; hold on;
+for s = 1:nSubjects
+    cdiff = subjResults(s).coh_diff;
+    thr   = subjResults(s).thr95;
+    sig   = cdiff > thr;
+    c     = subj_cmap(s,:);
+    for i = 1:length(x)-1
+        if sig(i)&&sig(i+1)
+            plot(x(i:i+1),cdiff(i:i+1),'-','Color',c,'LineWidth',1.5,'HandleVisibility','off')
+        else
+            plot(x(i:i+1),cdiff(i:i+1),'-','Color',[0.7 0.7 0.7],'HandleVisibility','off')
+        end
+    end
+    plot(x(sig),cdiff(sig),'.','Color',c,'MarkerSize',12,'HandleVisibility','off')
+    h(s) = plot(nan,nan,'-','Color',c,'LineWidth',1.5);
+end
+yline(0,':k','HandleVisibility','off')
+xlabel('Cranial-caudal position (mm)'); ylabel('Coherence difference');
+if doSmooth
+    title(sprintf('Spine-EMG coherence differences (smoothed %d mm)', fwhm))
+else
+    title('Spine-EMG coherence differences')
+end
+legend(h, arrayfun(@(s) sprintf('Participant %d',s), 1:nSubjects,'UniformOutput',false), ...
+    'Location','bestoutside');
+set(gca,'FontSize',13); grid on;
+if saveFigs, savefig(hfig_lines, fullfile(fig_dir, sprintf('step2_group_spineEMG_subject_lines%s.fig', out_suffix))); end
+
+% cluster ROI for VE
+mask_thresh = prevalence_loc >= threshold;
+pos_thresh  = sources_cent.pos(mask_thresh,:);
+distMat     = squareform(pdist(pos_thresh));
+G           = graph(distMat < 6);
+bins        = conncomp(G);
+[~, idxMax] = max(histcounts(bins, 1:(max(bins)+1)));
+ROIpos      = pos_thresh(bins == idxMax, :);
+
+hfig_clust = figure;
+plot(sources_cent.pos(:,2), prevalence_loc); hold on
+for k = 1:size(ROIpos,1)
+    plot(ROIpos(k,2), 0.2, 'r*')
+end
+xlabel('Cranial-caudal position (mm)'); ylabel('Prevalence');
+title('Spinal prevalence + VE cluster','Interpreter','none')
+if saveFigs, savefig(hfig_clust, fullfile(fig_dir, sprintf('step2_spinal_prevalence_VE_cluster%s.fig', out_suffix))); end
+
+save(fullfile(save_dir, ['cluster_spineEMG_pos_bemv2' out_suffix '.mat']), 'ROIpos')
+
+end
+
+
+function run_M1_overlap(subjResults, save_dir, geomfile, cfg_pipeline, result_suffix, ...
+                         doSmooth, brain_fwhm)
+
+load(geomfile); mesh_brain.unit = 'mm';
+load(cfg_pipeline.T_mat_path); T_inv = inv(T);
+
+radius      = cfg_pipeline.M1_radius_mm;
+M1_mni      = cfg_pipeline.M1_mni_centre;
+[xg,yg,zg] = ndgrid(-radius:radius,-radius:radius,-radius:radius);
+sphere_mask = (xg.^2+yg.^2+zg.^2) <= radius^2;
+roi_coords  = [xg(sphere_mask),yg(sphere_mask),zg(sphere_mask)] + M1_mni;
+roi_hom     = [roi_coords, ones(size(roi_coords,1),1)];
+roi_native  = (T * roi_hom')'; roi_native = roi_native(:,1:3);
+
+all_masks  = cat(2, subjResults(:).sig_mask);
+group_prev = mean(all_masks, 2);
+threshold  = 0.3;
+% sig_mask and pos are both defined over the full interpolated mesh,
+% so index directly without going through .inside
+voxel_pos  = subjResults(1).pos;
+active_idx = find(group_prev >= threshold);
+active_pos = voxel_pos(active_idx,:);
+% remove any NaN rows (outside mesh)
+active_pos = active_pos(~any(isnan(active_pos),2),:);
+
+D              = pdist2(roi_native, active_pos);
+min_dist       = min(D, [], 2);
+roi_overlap    = min_dist <= 5;
+intersection_pos = roi_native(roi_overlap,:);
+fprintf('  M1 ROI: %d/%d voxels overlap with sig brain-spine coherence (%.1f%%)\n', ...
+    sum(roi_overlap), size(roi_native,1), 100*mean(roi_overlap));
+
+hfig_m1 = figure('Color','w');
+ft_plot_mesh(mesh_brain,'facecolor',[0.85 0.85 0.85],'facealpha',0.3,'edgecolor','none');
+hold on
+plot3(roi_native(:,1),roi_native(:,2),roi_native(:,3),'o','MarkerSize',4, ...
+    'MarkerFaceColor',[0.6 0.6 0.6],'MarkerEdgeColor','none');
+plot3(active_pos(:,1),active_pos(:,2),active_pos(:,3),'o','MarkerSize',5, ...
+    'MarkerFaceColor',[0.2 0.4 0.8],'MarkerEdgeColor','none');
+if ~isempty(intersection_pos)
+    plot3(intersection_pos(:,1),intersection_pos(:,2),intersection_pos(:,3),'o', ...
+        'MarkerSize',7,'MarkerFaceColor',[0.1 0.8 0.2],'MarkerEdgeColor','k','LineWidth',0.5);
+end
+axis equal; camlight; lighting gouraud; view(176,-10);
+if doSmooth
+    title(sprintf('M1 ROI overlap — brain smooth %d mm  |  %d/%d (%.0f%%)', ...
+        brain_fwhm, sum(roi_overlap), size(roi_native,1), 100*mean(roi_overlap)), ...
+        'Interpreter','none','FontSize',13)
+else
+    title(sprintf('M1 ROI overlap  |  %d/%d (%.0f%%)', ...
+        sum(roi_overlap), size(roi_native,1), 100*mean(roi_overlap)), ...
+        'Interpreter','none','FontSize',13)
+end
+legend({'M1 ROI (full sphere)','Sig. coherence','Overlap'},'Location','best','FontSize',11,'Box','off');
+if cfg_pipeline.saveFigs, savefig(hfig_m1, fullfile(cfg_pipeline.save_dir, 'figures', sprintf('step4_M1_ROI_overlap_%s.fig', result_suffix))); end
+
+save(fullfile(save_dir, sprintf('M1_ROI_bemv2_%s.mat', result_suffix)), ...
+    'intersection_pos','roi_native','M1_mni','radius')
+
+end
+
+
+%% =========================================================================
+%  SHARED UTILITY FUNCTIONS
+%% =========================================================================
+
+function fname = get_datafile(data_root, sub)
+    run = '001'; if strcmp(sub,'OP00224'), run = '002'; end
+    fname = fullfile(data_root, ['sub-' sub], 'ses-001', 'meg', ...
+        sprintf('pmergedoe1000mspddfflo45hi45hfcstatic_%s_array1.mat', run));
+end
+
+function braingrad = subset_grad(grad_mm, idx)
+    braingrad          = grad_mm;
+    braingrad.chanori  = grad_mm.chanori(idx,:);
+    braingrad.chanpos  = grad_mm.chanpos(idx,:);
+    braingrad.chantype = grad_mm.chantype(1:length(idx));
+    braingrad.chanunit = grad_mm.chanunit(1:length(idx));
+    braingrad.coilori  = grad_mm.coilori(idx,:);
+    braingrad.coilpos  = grad_mm.coilpos(idx,:);
+    braingrad.label    = grad_mm.label(idx);
+    braingrad.tra      = grad_mm.tra(idx,idx);
+end
+
+function ftdat = rectify_emg(ftdat, rectify)
+    if rectify
+        cfg = []; cfg.rectify = 'yes'; cfg.channel = 'EXG1';
+        ftdatr = ft_preprocessing(cfg, ftdat);
+        for k = 1:length(ftdat.trial)
+            ftdat.trial{k}(end,:) = ftdatr.trial{k};
+        end
+    end
+end
+
+function [statdat, restdat, freqdat] = make_freq_data(dat, trialinfo, fband)
+    cfg = []; cfg.output = 'powandcsd'; cfg.method = 'mtmfft';
+    cfg.foilim = fband; cfg.tapsmofrq = 1; cfg.keeptrials = 'yes';
+    freqdat_tr = ft_freqanalysis(cfg, dat);
+    cfg = []; cfg.avgoverfreq = 'yes';
+    freqdat_tr = ft_selectdata(cfg, freqdat_tr);
+
+    statidx = find(trialinfo==1);
+    restidx = find(trialinfo==2);
+    [nTrials,~] = min([length(statidx) length(restidx)]);
+
+    cfg = []; cfg.trials = statidx(1:nTrials);
+    statdat = ft_selectdata(cfg, freqdat_tr);
+    cfg = []; cfg.trials = restidx(1:nTrials);
+    restdat = ft_selectdata(cfg, freqdat_tr);
+
+    cfg = []; cfg.output = 'powandcsd'; cfg.method = 'mtmfft';
+    cfg.foilim = fband; cfg.tapsmofrq = 1; cfg.keeptrials = 'no';
+    freqdat = ft_freqanalysis(cfg, dat);
+    cfg = []; cfg.avgoverfreq = 'yes';
+    freqdat = ft_selectdata(cfg, freqdat);
+end
+
+function [coh_diff, cohDiff_perm] = extract_coh_diff(source_perm, nsourcepoints, nPerm)
+    cohDiff_perm = zeros(nsourcepoints, nPerm);
+    for i = 1:nPerm
+        cohDiff_perm(:,i) = source_perm.trialA(i).coh - source_perm.trialB(i).coh;
+    end
+    coh_diff = source_perm.avgA.coh - source_perm.avgB.coh;
+end
+
+function thr = compute_threshold(cohDiff_perm, mult_comp_corr, nsourcepoints)
+    maxPerm = max(cohDiff_perm, [], 1);
+    if mult_comp_corr
+        thr = prctile(maxPerm, 95);
+    else
+        thr = prctile(cohDiff_perm, 95, 2);
+        warning('Uncorrected per-source threshold used.')
+    end
+end
+
+function pvals = compute_pvals(coh_diff, cohDiff_perm)
+    nPerm = size(cohDiff_perm, 2);
+    pvals = (sum(cohDiff_perm >= coh_diff, 2) + 1) / (nPerm + 1);
+end
+
+function invp_smooth = smooth_invp(coh_diff, cohDiff_perm, nsourcepoints, nPerm)
+    invp_smooth = zeros(nsourcepoints,1);
+    for s = 1:nsourcepoints
+        permDist = sort(cohDiff_perm(s,:));
+        obsVal   = coh_diff(s);
+        xgrid    = linspace(min(permDist), max(permDist), 200);
+        p_emp    = arrayfun(@(x) (sum(permDist >= x)+1)/(nPerm+1), xgrid);
+        logp_sm  = smooth(xgrid, -log10(p_emp), 0.15, 'loess');
+        obsVal_c = min(max(obsVal, xgrid(1)), xgrid(end));
+        invp_smooth(s) = interp1(xgrid, logp_sm, obsVal_c, 'linear');
+    end
+end
+
+function mesh_cut = clip_torso(mesh_torso)
+    y = mesh_torso.vertices(:,2);
+    keep_vert = y > -200;
+    new_idx = zeros(size(keep_vert)); new_idx(keep_vert) = 1:sum(keep_vert);
+    faces_keep = all(keep_vert(mesh_torso.faces), 2);
+    mesh_cut.vertices = mesh_torso.vertices(keep_vert,:);
+    mesh_cut.faces    = new_idx(mesh_torso.faces(faces_keep,:));
+    mesh_cut.unit     = mesh_torso.unit;
+end
+
+function [maxpos, x_mni] = get_mni_max(coh_diff, coh_source, T_mat_path)
+    source_diff = coh_source; source_diff.avg.coh = coh_diff;
+    maxval   = max(source_diff.avg.coh);
+    maxidx   = find(source_diff.avg.coh == maxval);
+    maxpos   = source_diff.pos(maxidx,:);
+    load(T_mat_path); T_inv = inv(T);
+    maxpos_h = [maxpos, ones(size(maxpos,1),1)]';
+    x_mni    = (T_inv * maxpos_h)'; x_mni = x_mni(:,1:3);
+    if length(maxidx)>1, disp('multiple max locs'); end
+end
+
+function [brain_int, source_mask_int] = interpolate_brain(coh_source, invp_masked, mask, mesh_brain)
+    source_p = coh_source; source_p.avg.coh = invp_masked;
+    cfg = []; cfg.parameter = 'coh'; cfg.interpmethod = 'sphere_avg'; cfg.sphereradius = 10;
+    brain_int = ft_sourceinterpolate(cfg, source_p, mesh_brain);
+
+    source_mask = coh_source; source_mask.avg.coh = double(mask);
+    source_mask_int = ft_sourceinterpolate(cfg, source_mask, mesh_brain);
+    brain_int.mask  = source_mask_int.coh;
+end
+
+function hfig = plot_brain_surface(brain_int, mask, invp, invpthr, cmap, mesh_brain, ttl, doSmooth, fwhm)
+    hfig = figure;
+    cfg = []; cfg.figure = 'gcf'; cfg.method = 'surface';
+    cfg.funparameter = 'coh'; cfg.funcolormap = cmap;
+    if any(mask)
+        cfg.funcolorlim = [invpthr max(invp(mask))];
+    else
+        cfg.funcolorlim = [invpthr invpthr+1];
+    end
+    cfg.projmethod = 'nearest'; cfg.surffile = mesh_brain;
+    ft_sourceplot(cfg, brain_int);
+    view(176,-10); camlight; ax = gca; ax.FontSize = 14;
+    hpatch = findobj(gcf,'Type','patch'); set(hpatch,'FaceAlpha',0.9)
+    if doSmooth
+        title(sprintf('%s (smoothed %d mm)', ttl, fwhm),'Interpreter','none')
+    else
+        title(ttl,'Interpreter','none')
+    end
+end
+
+function print_smoother_diag(Wsm, label)
+    nnz_per_row = full(sum(Wsm > 0, 2));
+    selfw       = full(diag(Wsm));
+    fprintf('  %s smoother neighbours/row: median %.1f (min %d, max %d)\n', ...
+        label, median(nnz_per_row), min(nnz_per_row), max(nnz_per_row));
+    fprintf('  %s smoother self-weight:    median %.3f (min %.3f, max %.3f)\n', ...
+        label, median(selfw), min(selfw), max(selfw));
+end
+
+function cmap = make_cmap(fieldtrip_path)
+    ncol = 256;
+    addpath(fullfile(fieldtrip_path,'external','matplotlib'))
+    cmap = [[0.92 0.92 0.92]; flipud(magma(ncol-1))];
+end
+
+function W = make_gaussian_smoother(pos_mm, fwhm_mm, radius_mm)
+% Row-normalised sparse Gaussian smoothing matrix. x_smooth = W * x
+    sigma = fwhm_mm / 2.355;
+    if nargin < 3 || isempty(radius_mm), radius_mm = 3*sigma; end
+    N   = size(pos_mm,1);
+    Mdl = KDTreeSearcher(pos_mm);
+    [idx, dist] = rangesearch(Mdl, pos_mm, radius_mm);
+    ii = []; jj = []; vv = [];
+    for i = 1:N
+        j = idx{i}; d = dist{i};
+        w = exp(-0.5*(d./sigma).^2);
+        ii = [ii; repmat(i,numel(j),1)]; jj = [jj; j(:)]; vv = [vv; w(:)];
+    end
+    W  = sparse(ii,jj,vv,N,N);
+    rs = full(sum(W,2)); rs(rs==0) = 1;
+    W  = spdiags(1./rs,0,N,N) * W;
+end
