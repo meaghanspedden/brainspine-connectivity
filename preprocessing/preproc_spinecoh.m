@@ -1,4 +1,4 @@
-%% process data from hand contraction. ~ July 2025
+%% process data from hand contraction.
 
 
 clear all;
@@ -15,7 +15,7 @@ if ~exist(save_dir, 'dir')
     mkdir(save_dir);
 end
 
-%% heartbeat estimate from 'best segment'
+%% heartbeat estimate from 'best segment in 220
 if strcmp(sub, 'OP00220') % difficult heart signal
 
     flag=1;
@@ -38,13 +38,14 @@ spine_labels={'C2', 'C3', 'C4', 'C7', 'D8', 'D5', 'D6', 'C5', 'C8', 'C6', 'D7', 
     'F2', 'F7', 'F5', 'F8', 'F3', 'F1', 'F4', 'F6', 'E2', 'E4', 'E8', 'E5', ...
     'E1', 'E7', 'E6', 'E3', 'H5', 'G5', 'G7', 'H3', 'G1', 'G2', 'A7', 'G6', ...
     'G8', 'A6', 'A3', 'A2', 'A8', 'A5', 'A1', 'A4'};
+
 trigger_label='T5';
 
 filetemplate = fullfile('C:\Users\mspedden\Documents', ['sub-' sub], 'ses-001', 'meg');
 
 posfile=fullfile(filetemplate, 'static_001_ar_positions.tsv');
 
-EMGpath = fullfile('C:\Users\mspedden\OneDrive - University College London', [sub '_experiment'], 'EMG');
+EMGpath = fullfile('C:\Users\mspedden\Documents', ['sub-' sub],'ses-001', 'emg');
 
 EMGfiletemplate = [sub '_00'];
 

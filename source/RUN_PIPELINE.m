@@ -53,32 +53,19 @@ cfg_pipeline.rng_seed       = 1;
 cfg_pipeline.M1_mni_centre = [-38 -26 56];   % left M1 hand knob (MNI mm)
 cfg_pipeline.M1_radius_mm  = 20;
 
-% --- SMOOTHING — main user input ------------------------------------------
-%
-%   doSmooth = 0  — no smoothing at any step
-%   doSmooth = 1  — smooth spine maps (Step 2) and brain maps (Steps 1 & 4)
-%
-% Spine smoothing: sources_cent has ~44 sources along cord.
-%   40 mm is broad but appropriate for this sparse 1-D source space.
-%
-% Brain smoothing: sources_brain is a 5 mm grid.
-%   8 mm FWHM = 1.6x grid spacing — mild, recommended default.
-%
-% Radius is ALWAYS 3*sigma = 3*(FWHM/2.355). Do not change this formula.
 
 cfg_pipeline.doSmooth             = 1;
 cfg_pipeline.spine_smooth_fwhm_mm = 20;    % mm — spinal smoothing (Step 2)
 cfg_pipeline.brain_smooth_fwhm_mm = 8;     % mm — brain smoothing  (Steps 1 & 4)
 
 % --- Figure saving -------------------------------------------------------
-% saveFigs = 1 saves all figures as .png to save_dir/figures/
 cfg_pipeline.saveFigs = 1;
 
 % --- Steps to run ---------------------------------------------------------
-run_step1 = 0;   % Brain-EMG DICS
+run_step1 = 1;   % Brain-EMG DICS
 run_step2 = 1;   % Spine-EMG DICS
-run_step3 = 0;   % Spinal virtual electrode
-run_step4 = 0;   % SpineVE-to-Brain DICS
+run_step3 = 1;   % Spinal virtual electrode
+run_step4 = 1;   % SpineVE-to-Brain DICS
 
 %% =========================================================================
 %  SETUP
