@@ -68,7 +68,7 @@ cfg.lat_max  =  50;
 saveFigs = 1;   % 1 = save all figures as .png to save_dir/figures/
 
 % --- Steps to run ---------------------------------------------------------
-run_stepA = 1;   % Brain VE
+run_stepA = 0;   % Brain VE
 run_stepB = 1;   % Coherence spectra
 
 %% =========================================================================
