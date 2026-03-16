@@ -592,6 +592,18 @@ ylabel('Peak latency (ms)'); set(gca,'FontSize',14); grid on; box on;
 title('Cross-correlation peak latencies','Interpreter','none')
 if saveFigs, savefig(hfig_lat, fullfile(fig_dir, 'group_peak_latencies.fig')); end
 
+
+%% ---- Print latency summary ----
+fprintf('\n=== Peak cross-correlation latencies (ms) ===\n');
+fprintf('  Pair            P1      Median   MAD\n');
+fprintf('  Brain<->EMG   %5.1f   %5.1f    %5.1f\n', ...
+    brainEMG_lat(p1), med_vals(1), mad_vals(1));
+fprintf('  Brain<->Spine %5.1f   %5.1f    %5.1f\n', ...
+    brainSpine_lat(p1), med_vals(2), mad_vals(2));
+fprintf('  Spine<->EMG   %5.1f   %5.1f    %5.1f\n', ...
+    spineEMG_lat(p1), med_vals(3), mad_vals(3));
+fprintf('=============================================\n');
+
 end  % run_coherence_spectra
 
 
