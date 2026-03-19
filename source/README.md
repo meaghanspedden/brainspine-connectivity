@@ -31,9 +31,10 @@ brainspineconnectivity/
 │   ├── preproc_spinecoh.m   # Step 0: OPM and EMG preprocessing
 │   └── ...                  # Helper functions for preprocessing
 └── source/
-    ├── RUN_PIPELINE.m       # Steps 1–4: source-level coherence analysis
-    ├── RUN_SPECTRA.m        # Steps A–B: virtual electrode spectra and directed coherence
-    └── ...                  # Helper functions for source analysis and plotting
+    ├── RUN_PIPELINE.m          # Steps 1–4: source-level coherence analysis
+    ├── RUN_FIGURES_ONLY.m      # Regenerate paper figures from saved results
+    ├── RUN_SPECTRA.m           # Steps A–B: virtual electrode spectra and directed coherence
+    └── ...                     # Helper functions for source analysis and plotting
 ```
  
 ---
@@ -41,6 +42,8 @@ brainspineconnectivity/
 ## Usage
 
 Scripts should be run in order: **preproc_spinecoh.m** → **RUN_PIPELINE.m** → **RUN_SPECTRA.m**
+
+To regenerate figures from pre-computed results without re-running the full pipeline, use **RUN_FIGURES_ONLY.m** (see below).
 
 ### Step 0 — Preprocessing (`preproc_spinecoh.m`)
 
@@ -107,6 +110,41 @@ cfg_pipeline.brain_smooth_fwhm_mm = 8;  % smoothing kernel for brain maps
 
 ---
 
+### Figures only — Regenerate paper figures (`RUN_FIGURES_ONLY.m`)
+
+Loads pre-computed results from `RUN_PIPELINE.m` and regenerates the main figures without re-running the full analysis. Intended for use with the saved results files available on Zenodo.
+
+**Key paths to set:**
+```matlab
+cfg.fieldtrip_path = '...\fieldtrip';
+cfg.spm_path       = '...\spm';
+cfg.geomfile       = '...\geometries_cervical_realistic.mat';
+cfg.T_mat_path     = '...\T.mat';
+cfg.save_dir       = '...';   % directory containing the saved results files
+```
+
+**Required files in `save_dir`:**
+
+| File | Used by |
+|------|---------|
+| `groupRes_brain_DICS_bemv2_brainEMG_brainSmooth_8mm.mat` | Step 1 figures |
+| `groupRes_spine_DICS_bemv2_permSmooth_20mm.mat` | Step 2 figures |
+| `cluster_spineEMG_pos_bemv2_permSmooth_20mm.mat` | Step 3 figure |
+| `groupRes_brain_DICS_spineVC_bemv2_functionalVE_spineSmooth_20mm_brainSmooth_8mm.mat` | Step 4 figures |
+
+Plus `geometries_cervical_realistic.mat` and `T.mat` from `Leadfields_meshes/`.
+
+**Figures generated:**
+
+| Step | Figures |
+|------|---------|
+| 1 | Participant 1 brain–EMG coherence surface map; group prevalence map |
+| 2 | Participant 1 spine–EMG coherence surface map; group prevalence map (with torso); group prevalence map (mesh only); per-subject coherence difference line plot |
+| 3 | Spinal ROI used for virtual electrode construction |
+| 4 | Participant 1 brain–spineVE coherence surface map; group prevalence map |
+
+---
+
 ### Steps A–B — Spectra and directed coherence (`RUN_SPECTRA.m`)
 
 Downstream analysis of virtual electrode time series. Requires outputs from `RUN_PIPELINE.m`. Edit the **USER CONFIG** section before running.
@@ -156,5 +194,3 @@ Shared forward model files (BEM meshes, lead fields, MNI-to-native transformatio
 - Analysis was performed in a magnetically shielded room at UCL. The preprocessing pipeline is tailored to QuSpin Neuro-1 triaxial OPM data acquired with the custom scanner-cast described in the paper.
 
 ---
-
-
