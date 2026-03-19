@@ -59,13 +59,13 @@ cfg_pipeline.spine_smooth_fwhm_mm = 20;    % mm — spinal smoothing (Step 2)
 cfg_pipeline.brain_smooth_fwhm_mm = 8;     % mm — brain smoothing  (Steps 1 & 4)
 
 % --- Figure saving -------------------------------------------------------
-cfg_pipeline.saveFigs = 1;
+cfg_pipeline.saveFigs = 0;
 
 % --- Steps to run ---------------------------------------------------------
-run_step1 = 1;   % Brain-EMG DICS
+run_step1 = 0;   % Brain-EMG DICS
 run_step2 = 1;   % Spine-EMG DICS
-run_step3 = 1;   % Spinal virtual electrode
-run_step4 = 1;   % SpineVE-to-Brain DICS
+run_step3 = 0;   % Spinal virtual electrode
+run_step4 = 0;   % SpineVE-to-Brain DICS
 
 %% =========================================================================
 %  SETUP
@@ -552,6 +552,8 @@ for ss = 1:length(subs)
     subjResults(ss).inside      = sources_cent.inside;
     subjResults(ss).maxdiff.idx = obsIdx;
     subjResults(ss).maxdiff.pos = sources_cent.pos(obsIdx,:);
+    subjResults(ss).invp_smooth = invp_smooth;
+
 end
 
 save(fullfile(save_dir, ['groupRes_spine_DICS_bemv2' out_suffix '.mat']), 'subjResults')
