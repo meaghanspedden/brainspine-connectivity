@@ -59,13 +59,13 @@ cfg_pipeline.spine_smooth_fwhm_mm = 20;    % mm — spinal smoothing (Step 2)
 cfg_pipeline.brain_smooth_fwhm_mm = 8;     % mm — brain smoothing  (Steps 1 & 4)
 
 % --- Figure saving -------------------------------------------------------
-cfg_pipeline.saveFigs = 0;
+cfg_pipeline.saveFigs = 1;
 
 % --- Steps to run ---------------------------------------------------------
-run_step1 = 0;   % Brain-EMG DICS
+run_step1 = 1;   % Brain-EMG DICS
 run_step2 = 1;   % Spine-EMG DICS
-run_step3 = 0;   % Spinal virtual electrode
-run_step4 = 0;   % SpineVE-to-Brain DICS
+run_step3 = 1;   % Spinal virtual electrode
+run_step4 = 1;   % SpineVE-to-Brain DICS
 
 %% =========================================================================
 %  SETUP
@@ -221,13 +221,15 @@ for ss = 1:length(subs)
 
     cfg = []; cfg.grid = sources_brain; cfg.headmodel = vol;
     cfg.sourcemodel.leadfield = LF; cfg.dics.keepfilter = 'yes';
-    cfg.dics.lambda = 10; cfg.method = 'dics'; cfg.refchan = 'EXG1';
+    cfg.dics.lambda = 10; % absolute regularisation; equivalent to ~0.1% of mean CSD diagonal for these data
+    cfg.method = 'dics'; cfg.refchan = 'EXG1';
     coh_source = ft_sourceanalysis(cfg, freqdat);
 
     cfg = []; cfg.grid = sources_brain; cfg.headmodel = vol;
     cfg.sourcemodel.leadfield = LF;
     cfg.dics.filter = coh_source.avg.filter;
-    cfg.dics.lambda = 10; cfg.method = 'dics'; cfg.refchan = 'EXG1';
+    cfg.dics.lambda = 10; % absolute regularisation; equivalent to ~0.1% of mean CSD diagonal for these data
+    cfg.method = 'dics'; cfg.refchan = 'EXG1';
     cfg.permutation = 'yes'; cfg.numpermutation = numpermutation;
     source_perm = ft_sourceanalysis(cfg, statdat, restdat);
 
@@ -344,13 +346,15 @@ for ss = 1:length(subs)
 
     cfg = []; cfg.grid = sources_cent; cfg.headmodel = dummyvol;
     cfg.sourcemodel.leadfield = Lf; cfg.dics.keepfilter = 'yes';
-    cfg.dics.lambda = 10; cfg.method = 'dics'; cfg.refchan = 'EXG1';
+    cfg.dics.lambda = 10; % absolute regularisation; equivalent to ~0.1% of mean CSD diagonal for these data
+    cfg.method = 'dics'; cfg.refchan = 'EXG1';
     coh_source = ft_sourceanalysis(cfg, freqdat);
 
     cfg = []; cfg.grid = sources_cent; cfg.headmodel = dummyvol;
     cfg.sourcemodel.leadfield = Lf;
     cfg.dics.filter = coh_source.avg.filter;
-    cfg.dics.lambda = 10; cfg.method = 'dics'; cfg.refchan = 'EXG1';
+    cfg.dics.lambda = 10; % absolute regularisation; equivalent to ~0.1% of mean CSD diagonal for these data
+    cfg.method = 'dics'; cfg.refchan = 'EXG1';
     cfg.permutation = 'yes'; cfg.numpermutation = numpermutation;
     source_perm = ft_sourceanalysis(cfg, statdat, restdat);
 
@@ -732,13 +736,15 @@ for ss = 1:length(subs)
 
     cfg = []; cfg.grid = sources_brain; cfg.headmodel = vol;
     cfg.sourcemodel.leadfield = LF; cfg.dics.keepfilter = 'yes';
-    cfg.dics.lambda = 10; cfg.method = 'dics'; cfg.refchan = 'virtualchannel001';
+    cfg.dics.lambda = 10; % absolute regularisation; equivalent to ~0.1% of mean CSD diagonal for these data
+    cfg.method = 'dics'; cfg.refchan = 'virtualchannel001';
     coh_source = ft_sourceanalysis(cfg, freqdat);
 
     cfg = []; cfg.grid = sources_brain; cfg.headmodel = vol;
     cfg.sourcemodel.leadfield = LF;
     cfg.dics.filter = coh_source.avg.filter;
-    cfg.dics.lambda = 10; cfg.method = 'dics'; cfg.refchan = 'virtualchannel001';
+    cfg.dics.lambda = 10; % absolute regularisation; equivalent to ~0.1% of mean CSD diagonal for these data
+    cfg.method = 'dics'; cfg.refchan = 'virtualchannel001';
     cfg.permutation = 'yes'; cfg.numpermutation = numpermutation;
     source_perm = ft_sourceanalysis(cfg, statdat, restdat);
 
