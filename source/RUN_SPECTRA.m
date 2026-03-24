@@ -338,15 +338,15 @@ for ss = 1:nSubs
         iB1 = find(strcmp(bp_stat1.label,'brain'));
         iS1 = find(strcmp(bp_stat1.label,'spine'));
 
-        [~,pB,~,sB] = ttest2(x_stat1(:,iB1), x_rest1(:,iB1), 'Vartype','unequal');
-        [~,pS,~,sS] = ttest2(x_stat1(:,iS1), x_rest1(:,iS1), 'Vartype','unequal');
-        sdB = std([x_stat1(:,iB1); x_rest1(:,iB1)]);
-        sdS = std([x_stat1(:,iS1); x_rest1(:,iS1)]);
+        [~,pB,~,sB] = ttest(x_stat1(:,iB1), x_rest1(:,iB1));
+        [~,pS,~,sS] = ttest(x_stat1(:,iS1), x_rest1(:,iS1));
+        sdB = std(x_stat1(:,iB1) - x_rest1(:,iB1));
+        sdS = std(x_stat1(:,iS1) - x_rest1(:,iS1));
         fprintf('\n  Participant 1 band power (10-35 Hz, log) Static vs Rest:\n');
-        fprintf('    Brain: t=%.3f, p=%.4g, d=%.3f\n', sB.tstat, pB, ...
-            (mean(x_stat1(:,iB1))-mean(x_rest1(:,iB1)))/sdB);
-        fprintf('    Spine: t=%.3f, p=%.4g, d=%.3f\n', sS.tstat, pS, ...
-            (mean(x_stat1(:,iS1))-mean(x_rest1(:,iS1)))/sdS);
+        fprintf('    Brain: t(%d)=%.3f, p=%.4g, d=%.3f\n', sB.df, sB.tstat, pB, ...
+            mean(x_stat1(:,iB1)-x_rest1(:,iB1))/sdB);
+        fprintf('    Spine: t(%d)=%.3f, p=%.4g, d=%.3f\n', sS.df, sS.tstat, pS, ...
+            mean(x_stat1(:,iS1)-x_rest1(:,iS1))/sdS);
     end
 
     % average band power per subject
