@@ -20,15 +20,19 @@ close all;
 %  =========================================================================
 
 % --- Toolbox paths --------------------------------------------------------
-cfg.spm_path      = 'C:\Users\mspedden\Documents\spm';
-cfg.bsc_plot_path = 'C:\Users\mspedden\Documents\brainspineconnectivity\plotting';
-cfg.bsc_prep_path = 'C:\Users\mspedden\Documents\brainspineconnectivity\preprocessing';
+cfg.spm_path      = 'D:\spm';
+cfg.bsc_plot_path = 'D:\brainspineconnectivity\plotting';
+cfg.bsc_prep_path = 'D:\brainspineconnectivity\preprocessing';
 
 % --- Data root (BIDS-style: <data_root>/sub-<ID>/ses-001/meg) -------------
 cfg.data_root = 'C:\Users\mspedden\Documents';
 
 % --- Output directory -----------------------------------------------------
 cfg.save_dir  = 'C:\Users\mspedden\Documents\brainspine_save';
+
+% --- Bad channel files (one per participant: <subID>_badchans.mat) --------
+% These are committed to the repository under preprocessing/channels_removed/
+cfg.badchan_dir = 'C:\Users\mspedden\Documents\brainspineconnectivity\preprocessing\channels_removed';
 
 % --- Subjects to process --------------------------------------------------
 % To process a single subject, use e.g.: cfg.subs = {'OP00212'};
@@ -129,7 +133,7 @@ for subIdx = 1:numel(cfg.subs)
             S.triallength = 2000;
             S.wind      = @hanning;
 
-            badchan_file = fullfile(cfg.save_dir, sprintf('%s_badchans', sub));
+            badchan_file = fullfile(cfg.badchan_dir, sprintf('%s_badchans', sub));
 
             if cfg.rmchans && k == 1 && cond == 1
                 % Pass 1: interactive bad channel selection
