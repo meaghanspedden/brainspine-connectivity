@@ -20,19 +20,19 @@ close all;
 %  =========================================================================
 
 % --- Toolbox paths --------------------------------------------------------
-cfg.spm_path      = 'D:\spm';
-cfg.bsc_plot_path = 'D:\brainspineconnectivity\plotting';
-cfg.bsc_prep_path = 'D:\brainspineconnectivity\preprocessing';
+cfg.spm_path      = 'C:\Users\mspedden\Documents\spm';
+cfg.bsc_plot_path = 'C:\Users\mspedden\Documents\brainspineconnectivityTEST\plotting';
+cfg.bsc_prep_path = 'C:\Users\mspedden\Documents\brainspineconnectivityTEST\preprocessing';
 
 % --- Data root (BIDS-style: <data_root>/sub-<ID>/ses-001/meg) -------------
-cfg.data_root = 'C:\Users\mspedden\Documents';
+cfg.data_root = 'C:\spinecoh_data';
 
 % --- Output directory -----------------------------------------------------
-cfg.save_dir  = 'C:\Users\mspedden\Documents\brainspine_save';
+cfg.save_dir  = 'C:\Users\mspedden\Documents\brainspine_saveTEST';
 
 % --- Bad channel files (one per participant: <subID>_badchans.mat) --------
 % These are committed to the repository under preprocessing/channels_removed/
-cfg.badchan_dir = 'C:\Users\mspedden\Documents\brainspineconnectivity\preprocessing\channels_removed';
+cfg.badchan_dir = 'C:\Users\mspedden\Documents\brainspineconnectivityTEST\preprocessing\channels_removed';
 
 % --- Subjects to process --------------------------------------------------
 % To process a single subject, use e.g.: cfg.subs = {'OP00212'};
@@ -165,7 +165,8 @@ for subIdx = 1:numel(cfg.subs)
             EMGdata = ft_preprocessing(cfg_ft);
 
             EMG_trigs = ft_read_event(fullfile(EMGpath, sprintf('%s_00%s.eeg', sub, runs.emg{k})));
-            D_EMG     = spm_eeg_ft2spm(EMGdata, sprintf('EMG_%s', sub));
+            D_EMG = spm_eeg_ft2spm(EMGdata, fullfile(cfg.save_dir, sprintf('EMG_%s', sub)));
+
 
             %% HFC
             if cfg.HFCflag

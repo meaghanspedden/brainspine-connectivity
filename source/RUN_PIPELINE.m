@@ -24,14 +24,14 @@ clc
 % --- Toolbox / path setup -------------------------------------------------
 cfg_pipeline.fieldtrip_path  = 'C:\Users\mspedden\Documents\fieldtrip';
 cfg_pipeline.spm_path        = 'C:\Users\mspedden\Documents\spm';
-cfg_pipeline.bsc_source_path = 'C:\Users\mspedden\Documents\brainspineconnectivity\source';
+cfg_pipeline.bsc_source_path = 'C:\Users\mspedden\Documents\brainspineconnectivityTEST\source';
 
 % --- Data & geometry paths ------------------------------------------------
 cfg_pipeline.data_root   = 'C:\Users\mspedden\Documents';
 cfg_pipeline.geomfile    = 'C:\Users\mspedden\Documents\new_leadfields_and_geom\geometries_cervical_realistic.mat';
 cfg_pipeline.lf_v2_path  = 'C:\Users\mspedden\Documents\bem_spine_fields\bem_v2_leadfield_cervical_realistic_bem_.mat';
 cfg_pipeline.T_mat_path  = 'C:\Users\mspedden\Documents\brainspine_save\T.mat';
-cfg_pipeline.save_dir    = 'C:\Users\mspedden\Documents\brainspine_save_bemv2';
+cfg_pipeline.save_dir    = 'C:\Users\mspedden\Documents\brainspine_saveTEST';
 
 % --- Subject lists --------------------------------------------------------
 % Brain: exclude OP00220 (small head) and OP00226 (could not close headcast)
