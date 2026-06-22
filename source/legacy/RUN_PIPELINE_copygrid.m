@@ -24,14 +24,14 @@ clc
 % --- Toolbox / path setup -------------------------------------------------
 cfg_pipeline.fieldtrip_path  = 'C:\Users\mspedden\Documents\fieldtrip';
 cfg_pipeline.spm_path        = 'C:\Users\mspedden\Documents\spm';
-cfg_pipeline.bsc_source_path = 'C:\Users\mspedden\Documents\brainspineconnectivityTEST\source';
+cfg_pipeline.bsc_source_path = 'C:\Users\mspedden\Documents\brainspineconnectivity\source';
 
 % --- Data & geometry paths ------------------------------------------------
-cfg_pipeline.data_root   = 'C:\Users\mspedden\Documents';
-cfg_pipeline.geomfile    = 'C:\Users\mspedden\Documents\new_leadfields_and_geom\geometries_cervical_realistic.mat';
-cfg_pipeline.lf_v2_path  = 'C:\Users\mspedden\Documents\bem_spine_fields\bem_v2_leadfield_cervical_realistic_bem_.mat';
-cfg_pipeline.T_mat_path  = 'C:\Users\mspedden\Documents\brainspine_save\T.mat';
-cfg_pipeline.save_dir    = 'C:\Users\mspedden\Documents\brainspine_saveTEST';
+cfg_pipeline.data_root   = 'C:\spinecoh_data';
+cfg_pipeline.geomfile    = 'C:\Leadfields meshes\geometries_cervical_realistic.mat';
+cfg_pipeline.lf_v2_path  = 'C:\Leadfields meshes\bem_v2_leadfield_cervical_realistic_bem_.mat';
+cfg_pipeline.T_mat_path  = 'C:\Leadfields meshes\T.mat';
+cfg_pipeline.save_dir    = 'C:\Users\mspedden\Documents\brainspine_savebem3';
 
 % --- Subject lists --------------------------------------------------------
 % Brain: exclude OP00220 (small head) and OP00226 (could not close headcast)
@@ -39,8 +39,8 @@ cfg_pipeline.subs_brain = {'OP00212','OP00213','OP00215','OP00219', ...
                             'OP00225','OP00221','OP00224'};
 
 % Spine: all 9 subjects
-cfg_pipeline.subs_spine = {'OP00212','OP00213','OP00215','OP00219', ...
-                            'OP00220','OP00221','OP00224','OP00225','OP00226'};
+cfg_pipeline.subs_spine = {'OP00212'};%,'OP00213','OP00215','OP00219', ...
+                           % 'OP00220','OP00221','OP00224','OP00225','OP00226'};
 
 % --- Analysis parameters --------------------------------------------------
 cfg_pipeline.rectify        = 1;
@@ -62,10 +62,10 @@ cfg_pipeline.brain_smooth_fwhm_mm = 8;     % mm — brain smoothing  (Steps 1 & 
 cfg_pipeline.saveFigs = 1;
 
 % --- Steps to run ---------------------------------------------------------
-run_step1 = 1;   % Brain-EMG DICS
+run_step1 = 0;   % Brain-EMG DICS
 run_step2 = 1;   % Spine-EMG DICS
-run_step3 = 1;   % Spinal virtual electrode
-run_step4 = 1;   % SpineVE-to-Brain DICS
+run_step3 = 0;   % Spinal virtual electrode
+run_step4 = 0;   % SpineVE-to-Brain DICS
 
 %% =========================================================================
 %  SETUP
@@ -343,21 +343,40 @@ for ss = 1:length(subs)
     dummyvol = ft_prepare_headmodel(cfg, mesh_torso);
 
     [statdat, restdat, freqdat] = make_freq_data(ftdat, ftdat.trialinfo, fband);
+    % Match freqdat channels to leadfield
+cfg_sel         = [];
+cfg_sel.channel = [Lf.label; {'EXG1'}];
+freqdat_sel     = ft_selectdata(cfg_sel, freqdat);
+statdat_sel     = ft_selectdata(cfg_sel, statdat);
+restdat_sel     = ft_selectdata(cfg_sel, restdat);
 
-    cfg = []; cfg.grid = sources_cent; cfg.headmodel = dummyvol;
-    cfg.sourcemodel.leadfield = Lf; cfg.dics.keepfilter = 'yes';
-    cfg.dics.lambda = 10; % absolute regularisation; equivalent to ~0.1% of mean CSD diagonal for these data
-    cfg.method = 'dics'; cfg.refchan = 'EXG1';
-    coh_source = ft_sourceanalysis(cfg, freqdat);
+cfg = [];
+cfg.sourcemodel.pos       = Lf.pos;
+cfg.sourcemodel.unit      = 'mm';
+cfg.sourcemodel.inside    = logical(Lf.inside);
+cfg.sourcemodel.leadfield = Lf.leadfield;
+cfg.sourcemodel.label     = Lf.label;
+cfg.headmodel             = dummyvol;
+cfg.dics.keepfilter       = 'yes';
+cfg.dics.lambda           = 10;
+cfg.method                = 'dics';
+cfg.refchan               = 'EXG1';
+coh_source = ft_sourceanalysis(cfg, freqdat_sel);
 
-    cfg = []; cfg.grid = sources_cent; cfg.headmodel = dummyvol;
-    cfg.sourcemodel.leadfield = Lf;
-    cfg.dics.filter = coh_source.avg.filter;
-    cfg.dics.lambda = 10; % absolute regularisation; equivalent to ~0.1% of mean CSD diagonal for these data
-    cfg.method = 'dics'; cfg.refchan = 'EXG1';
-    cfg.permutation = 'yes'; cfg.numpermutation = numpermutation;
-    source_perm = ft_sourceanalysis(cfg, statdat, restdat);
-
+cfg2 = [];
+cfg2.sourcemodel.pos       = Lf.pos;
+cfg2.sourcemodel.unit      = 'mm';
+cfg2.sourcemodel.inside    = logical(Lf.inside);
+cfg2.sourcemodel.leadfield = Lf.leadfield;
+cfg2.sourcemodel.label     = Lf.label;
+cfg2.headmodel             = dummyvol;
+cfg2.dics.filter           = coh_source.avg.filter;
+cfg2.dics.lambda           = 10;
+cfg2.method                = 'dics';
+cfg2.refchan               = 'EXG1';
+cfg2.permutation           = 'yes';
+cfg2.numpermutation        = numpermutation;
+source_perm = ft_sourceanalysis(cfg2, statdat_sel, restdat_sel);
     nPerm = numel(source_perm.trialA);
     [coh_diff, cohDiff_perm] = extract_coh_diff(source_perm, nsourcepoints, nPerm);
 

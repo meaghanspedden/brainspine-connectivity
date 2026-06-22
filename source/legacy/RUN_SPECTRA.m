@@ -26,13 +26,13 @@ clc
 % --- Toolbox paths --------------------------------------------------------
 cfg.fieldtrip_path  = 'C:\Users\mspedden\Documents\fieldtrip';
 cfg.spm_path        = 'C:\Users\mspedden\Documents\spm';
-cfg.bsc_source_path = 'C:\Users\mspedden\Documents\brainspineconnectivityTEST\source';
+cfg.bsc_source_path = 'C:\Users\mspedden\Documents\brainspineconnectivity\source';
 cfg.neurospec_path  = 'C:\Users\mspedden\Documents\neurospec211NEW\neurospec211';
 
 % --- Data & geometry paths ------------------------------------------------
-cfg.data_root = 'C:\Users\mspedden\Documents';
-cfg.geomfile  = 'C:\Users\mspedden\Documents\new_leadfields_and_geom\geometries_cervical_realistic.mat';
-cfg.save_dir  = 'C:\Users\mspedden\Documents\brainspine_saveTEST';
+cfg.data_root = 'C:\spinecoh_data';
+cfg.geomfile  = 'C:\Leadfields meshes\geometries_cervical_realistic.mat';
+cfg.save_dir  = 'C:\Users\mspedden\Documents\brainspine_save_bemv2';
 
 % --- Subject lists --------------------------------------------------------
 % Brain VE: 7 subjects (exclude OP00220 small head, OP00226 no headcast)

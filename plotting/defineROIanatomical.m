@@ -1,3 +1,6 @@
+
+
+xpos=sources_cent.pos(:,1);
 figure;
     ft_plot_mesh(mesh_bone, 'facecolor', [0.9 0.85 0.7], 'facealpha', 0.3, 'edgecolor', 'none');
 hold on
@@ -17,13 +20,13 @@ end
 
     view(-250, -1);
 
-
-figure; plot(xpos,invp,'-o'); hold on
-yline(invpthr, 'k--')
-for s = 1:length(xpos)
-    text(xpos(s), ...
-         invp(s) + 0.02*range(invp), ...  % small vertical offset
-         num2str(s), ...
-         'HorizontalAlignment','center', ...
-         'FontSize', 10);
-end
+% 
+% figure; plot(xpos,invp,'-o'); hold on
+% yline(invpthr, 'k--')
+% for s = 1:length(xpos)
+%     text(xpos(s), ...
+%          invp(s) + 0.02*range(invp), ...  % small vertical offset
+%          num2str(s), ...
+%          'HorizontalAlignment','center', ...
+%          'FontSize', 10);
+% end
