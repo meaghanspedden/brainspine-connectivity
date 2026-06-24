@@ -14,7 +14,6 @@ spm_path       = 'C:\Users\mspedden\Documents\spm';
 bsc_path       = 'C:\Users\mspedden\Documents\brainspineconnectivity\source';
 data_root      = 'C:\spinecoh_data';
 save_dir       = 'C:\Users\mspedden\Documents\brainspine_savetest';
-a
 geomfile       = 'C:\Leadfields meshes\geometries_experimental.mat';
 geomfile_brain = 'C:\Leadfields meshes\geometries_cervical_realistic.mat';
 lf_path        = 'C:\Leadfields meshes\leadfield_experimental_bem_experimental.mat';

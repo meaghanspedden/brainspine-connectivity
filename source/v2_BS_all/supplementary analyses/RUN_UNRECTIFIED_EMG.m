@@ -32,8 +32,7 @@ cfg.bsc_source_path = 'C:\Users\mspedden\Documents\brainspineconnectivity\source
 
 cfg.data_root      = 'C:\spinecoh_data';
 cfg.lf_bs_path     = 'C:\Leadfields meshes\leadfield_experimental_bslaw_experimental.mat';
-cfg.geomfile       = 'C:\Leadfields meshes\geometries_experimental.mat';
-cfg.geomfile_brain = 'C:\Leadfields meshes\geometries_cervical_realistic.mat';
+cfg.geomfile       = 'C:\Leadfields meshes\geometries_experimental_withbrain.mat';
 cfg.T_mat_path     = 'C:\Leadfields meshes\T.mat';
 cfg.save_dir       = 'C:\Users\mspedden\Documents\brainspine_savetest';
 cfg.fig_dir        = fullfile(cfg.save_dir, 'figures', 'unrectified_emg');
@@ -109,7 +108,7 @@ if run_step1
     fprintf('>>> STEP 1: Brain-EMG (unrectified)\n')
 
     %% Load brain geometry
-    t          = load(cfg.geomfile_brain);
+    t          = load(cfg.geomfile);
     mesh_brain = t.mesh_brain;
     mesh_brain.unit = 'mm';
 
@@ -222,10 +221,9 @@ if run_step2
     fprintf('>>> STEP 2: Spine-EMG (unrectified)\n')
 
     %% Load spine geometry
-    geom_exp     = load(cfg.geomfile);
-    sources_cent = geom_exp.sources_cent;
-    mesh_torso   = geom_exp.mesh_torso;
-    mesh_wm      = geom_exp.mesh_wm;
+    sources_cent = t.sources_cent;
+    mesh_torso   = t.mesh_torso;
+    mesh_wm      = t.mesh_wm;
     mesh_wm.unit = 'mm';
 
     nsourcepoints = size(sources_cent.pos, 1);

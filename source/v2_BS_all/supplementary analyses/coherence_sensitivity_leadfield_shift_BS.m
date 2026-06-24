@@ -14,7 +14,7 @@ bsc_path       = 'C:\Users\mspedden\Documents\brainspineconnectivity\source';
 data_root      = 'C:\spinecoh_data';
 save_dir       = 'C:\Users\mspedden\Documents\brainspine_savetest';
 
-geomfile       = 'C:\Leadfields meshes\geometries_experimental.mat';
+geomfile       = 'C:\Leadfields meshes\geometries_experimental_withbrain.mat';
 lf_path_orig   = 'C:\Leadfields meshes\leadfield_experimental_bslaw_experimental.mat';
 bs_lf_path     = 'C:\Users\mspedden\Documents\bslaw_sensitivity_analysis\bslaw_sensitivity_analysis\bs_law_fields';
 

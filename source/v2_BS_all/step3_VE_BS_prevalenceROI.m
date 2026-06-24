@@ -36,7 +36,7 @@ spm_path       = 'C:\Users\mspedden\Documents\spm';
 bsc_path       = 'C:\Users\mspedden\Documents\brainspineconnectivity\source';
 data_root      = 'C:\spinecoh_data';
 save_dir       = 'C:\Users\mspedden\Documents\brainspine_savetest';
-geomfile       = 'C:\Leadfields meshes\geometries_experimental.mat';
+geomfile       = 'C:\Leadfields meshes\geometries_experimental_withbrain.mat';
 lf_path        = 'C:\Leadfields meshes\leadfield_experimental_bslaw_experimental.mat';
 cluster_path   = fullfile(save_dir, 'cluster_spineEMG_pos_BS.mat');
 

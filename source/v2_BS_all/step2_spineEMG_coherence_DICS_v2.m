@@ -50,8 +50,7 @@ bsc_path       = 'C:\Users\mspedden\Documents\brainspineconnectivity\source';
 data_root      = 'C:\spinecoh_data';
 save_dir       = 'C:\Users\mspedden\Documents\brainspine_savetest';
 
-geomfile       = 'C:\Leadfields meshes\geometries_experimental.mat';
-geomfile_brain = 'C:\Leadfields meshes\geometries_cervical_realistic.mat';
+geomfile       = 'C:\Leadfields meshes\geometries_experimental_withbrain.mat';
 lf_path        = 'C:\Leadfields meshes\leadfield_experimental_bslaw_experimental.mat';
 
 subs_spine = {'OP00212','OP00213','OP00215','OP00219', ...
@@ -90,10 +89,7 @@ mesh_wm      = geom_exp.mesh_wm;
 mesh_bone    = geom_exp.mesh_bone;
 mesh_lungs   = geom_exp.mesh_lungs;
 mesh_heart   = geom_exp.mesh_heart;
-
-warning('Need to add brain mesh to new geom!!!!')
-geom_brain = load(geomfile_brain, 'mesh_brain');
-mesh_brain = geom_brain.mesh_brain;
+mesh_brain = geom_exp.mesh_brain;
 
 mesh_wm.unit = 'mm';
 

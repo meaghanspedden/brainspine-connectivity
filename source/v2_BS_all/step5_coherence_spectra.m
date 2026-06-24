@@ -569,6 +569,18 @@ end
 conf95_BS_all = arrayfun(@(s) s.conf95_BS, results)';
 ratio_BS      = peak_coh_brainSpine_full ./ conf95_BS_all;
 pass_flag_BS  = ratio_BS > 1;
+%% Save brain-spine boxplot data for figure regeneration
+boxplot_data.peak_coh_brainSpine_full = peak_coh_brainSpine_full;
+boxplot_data.conf95_BS_all            = conf95_BS_all;
+boxplot_data.ratio_BS                 = ratio_BS;
+boxplot_data.pass_flag_BS             = pass_flag_BS;
+boxplot_data.subs                     = subs;
+boxplot_data.p1_idx                   = p1_idx;
+boxplot_data.nSubs                    = nSubs;
+save(fullfile(cfg.save_dir, ...
+    ['brainspine_boxplot_data' cfg.fig_suffix '.mat']), ...
+    'boxplot_data');
+fprintf('  Brain-spine boxplot data saved.\n');
 
 col_pass = col_BS;
 col_fail = [0.65 0.65 0.65];

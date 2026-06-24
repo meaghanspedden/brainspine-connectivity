@@ -1,10 +1,7 @@
 %% peak freq correlation plots
 %
 %  Peak frequency, line of equality, for the three coherence pairs
-%  (Brain-EMG, Brain-Cord, Cord-EMG), using full coherence (sp2a2_R2_mt
-%  column 4, all lags including zero) within the 10-35 Hz analysis band.
-%  Replaces the phase-clustering / per-trial Rayleigh-test machinery from
-%  phase_analysis_v2.m, which is dropped entirely.
+
 %
 %  For each participant, find each pair's own peak coherence frequency
 %  in-band, then test pairwise (BE vs BS, BE vs SE, BS vs SE) whether the
