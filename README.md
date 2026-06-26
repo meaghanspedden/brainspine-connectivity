@@ -4,7 +4,7 @@ Analysis code for:
 
 > Spedden ME, Schmidt M, O'Neill GC, West TO, Mellor S, Tierney TM, Alexander NA, Puvvada S, Callaghan M, Farmer SF, Bestmann S, Barnes GR. *Coherent oscillations across the human brain, spinal cord, and muscle network.*
 
-Data are available on Zenodo: [doi: 10.5281/zenodo.19029856](https://doi.org/10.5281/zenodo.19029856) and [doi: 10.5281/zenodo.19004628](https://doi.org/10.5281/zenodo.19004628)
+Data are available on Zenodo: [doi: 10.5281/zenodo.20824565] and [doi:10.5281/zenodo.20824827]
 
 ---
 
