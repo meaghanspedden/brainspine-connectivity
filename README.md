@@ -22,7 +22,31 @@ https://zenodo.org/records/20824827
 | FieldTrip `external/matplotlib` | `magma` colourmap |
 
 
-## Pipeline overview
+## Repository structure
+
+| Folder | Purpose |
+|---|---|
+| `preprocessing/` | Raw data preprocessing (heartbeat removal, HFO rejection, trial selection) |
+| `source/v2_Biot_Savart_all/` | Current 5-step analysis pipeline (Biot-Savart leadfields) |
+| `plotting/` | Visualisation utilities (colormaps, topoplot, shaded error bars) |
+| `stats/` | Statistical utilities (FDR correction, Bayesian prevalence) |
+
+
+## Usage
+
+### 1. Preprocessing
+
+Run `preprocessing/PREPROC_SPINECOH_V1.m` before the source analysis pipeline.
+Key steps:
+- Heartbeat estimation and removal (`est_heartbeat.m`, `remove_heartbeat.m`)
+- High-frequency oscillation component removal (`hfo_project_out_comps.m`)
+- Outlier trial rejection (`spm_opm_removeOutlierTrials.m`)
+
+Per-subject bad channel lists are stored in `preprocessing/channels_removed/` (subjects OP00212–OP00226).
+
+### 2. Source analysis
+
+Scripts live in `source/v2_Biot_Savart_all/`. Run steps in order.
 
 ```
 step1  →  step2  →  step3  →  step4  →  step5
@@ -32,8 +56,15 @@ EMG        EMG       VE        VE (M1)     spectra &
 DICS       DICS      (LCMV)    (LCMV)      statistics
 ```
 
-Run steps in order. Steps 3 and 4 depend on the saved results of steps 1 and 2
-respectively. Step 5 requires both VEs from steps 3 and 4.
+Steps 3 and 4 depend on the saved results of steps 1 and 2 respectively. Step 5 requires both VEs from steps 3 and 4.
 
----
+### 3. Figures
 
+`source/v2_Biot_Savart_all/GET_FIGURES.m` generates all manuscript figures from the saved pipeline outputs.
+
+
+## Utilities
+
+**Plotting** (`plotting/`): colormaps (`brewermap`, `viridis`), `shadedErrorBar`, `topobrain`, `plotBEM`.
+
+**Stats** (`stats/`): `fdr_bh.m` (Benjamini-Hochberg FDR correction), Bayesian prevalence posterior plots.
