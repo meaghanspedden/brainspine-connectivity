@@ -1,196 +1,293 @@
-# brainspine-connectivity
+# Brain–Spine MEG Coherence Pipeline
 
-Analysis code for:
-
-> Spedden ME, Schmidt M, O'Neill GC, West TO, Mellor S, Tierney TM, Alexander NA, Puvvada S, Callaghan M, Farmer SF, Bestmann S, Barnes GR. *Coherent oscillations across the human brain, spinal cord, and muscle network.*
-
-Data are available on Zenodo: [doi: 10.5281/zenodo.20824565] and [doi:10.5281/zenodo.20824827]
-
----
-
-## Overview
-
-This repository contains MATLAB code for concurrent OPM brain and spinal cord and EMG data preprocessing and source analysis. The pipeline detects coherent oscillatory activity (10–35 Hz) across the brain–spinal cord–muscle axis during voluntary hand contraction, using DICS beamforming with a five-compartment spinal cord boundary element model (BEM).
+MATLAB analysis pipeline for computing coherence between cortical sources,
+spinal cord sources, and rectified EMG using MEG data. The pipeline uses DICS
+beamforming (FieldTrip) and LCMV virtual electrodes to characterise
+corticospinal connectivity in the beta band (10–35 Hz).
 
 ---
 
-## Requirements
+## Dependencies
 
-- **MATLAB** R2021b or later
-- **SPM** (development version): https://github.com/spm/spm
-- **FieldTrip**: https://github.com/fieldtrip/fieldtrip
-- **NeuroSpec 2.11**: https://github.com/dmhalliday/NeuroSpec
-- **Helsinki BEM Framework**: https://github.com/MattiStenroos/hbf_lc_p
-- **msg_coreg toolbox**: https://github.com/maikeschmidt/msg_coreg
+| Toolbox | Notes |
+|---|---|
+| [FieldTrip](https://www.fieldtriptoolbox.org/) | Source analysis, beamforming, visualisation |
+| [SPM](https://www.fil.ion.ucl.ac.uk/spm/) | EEG/MEG data loading (`spm_eeg_load`, `spm2fieldtrip`) |
+| [NeuroSpec 2.11](http://www.neurospec.org/) | Coherence spectra, directionality (`sp2a2_R2_mt`) |
+| brainspineconnectivity (`bsc_path`) | Lab-internal utilities |
+| FieldTrip `external/matplotlib` | `magma` colourmap |
 
-## Repository structure
- 
-```
-brainspineconnectivity/
-├── preprocessing/
-│   ├── preproc_spinecoh.m   # Step 0: OPM and EMG preprocessing
-│   └── ...                  # Helper functions for preprocessing
-└── source/
-    ├── RUN_PIPELINE.m          # Steps 1–4: source-level coherence analysis
-    ├── RUN_FIGURES_ONLY.m      # Regenerate paper figures from saved results
-    ├── RUN_SPECTRA.m           # Steps A–B: virtual electrode spectra and directed coherence
-    └── ...                     # Helper functions for source analysis and plotting
-```
- 
----
-
-## Usage
-
-Scripts should be run in order: **preproc_spinecoh.m** → **RUN_PIPELINE.m** → **RUN_SPECTRA.m**
-
-To regenerate figures from pre-computed results without re-running the full pipeline, use **RUN_FIGURES_ONLY.m** (see below).
-
-### Step 0 — Preprocessing (`preproc_spinecoh.m`)
-
-Preprocesses raw OPM (`.lvm`) and EMG (`.vhdr`/`.eeg`/`.vmrk`) data for one participant at a time.
-
-Set the subject ID at the top of the script:
-```matlab
-sub = 'OP00212';
-```
-
-**What it does:**
-- Loads raw OPM data and sensor positions (`.tsv`)
-- Computes and inspects power spectra; identifies and removes bad channels
-- Applies homogeneous field correction (HFC)
-- Bandpass filters OPM and EMG data (5–45 Hz) with additional notch filters at 50 and 100 Hz
-- Estimates and removes cardiac artefacts using signal space projection (SSP)
-- Downsamples OPM data to match EMG sampling rate (1000 Hz)
-- Applies synthetic gradiometry using a reference sensor
-- Synchronises OPM and EMG data via TTL pulse; crops to matched time windows
-- Epochs data into 1-second non-overlapping trials and removes outlier trials
-- Merges all runs and conditions into a single SPM file per participant
-
-**Output:** A merged, preprocessed SPM `.mat`/`.dat` file per participant, saved to `save_dir`.
+All toolbox paths are set at the top of each script under **USER CONFIG**.
 
 ---
 
-### Steps 1–4 — Source coherence pipeline (`RUN_PIPELINE.m`)
+## Data
 
-Master script for DICS-based source localisation of coherent activity. Edit the **USER CONFIG** section at the top before running.
+Each subject's MEG data is a preprocessed SPM `.mat` file following the naming
+convention:
 
-**Key paths to set:**
-```matlab
-cfg_pipeline.fieldtrip_path  = '...\fieldtrip';
-cfg_pipeline.spm_path        = '...\spm';
-cfg_pipeline.bsc_source_path = '...\brainspineconnectivity\source';
-cfg_pipeline.data_root       = '...';          % root folder containing sub-XX directories
-cfg_pipeline.geomfile        = '...\geometries_cervical_realistic.mat';
-cfg_pipeline.lf_v2_path      = '...\bem_v2_leadfield_cervical_realistic_bem_.mat';
-cfg_pipeline.T_mat_path      = '...\T.mat';    % MNI-to-native transformation matrix
-cfg_pipeline.save_dir        = '...';          % output directory
+```
+<data_root>/sub-<SubjectID>/ses-001/meg/
+    pmergedoe1000mspddfflo45hi45hfcstatic_<run>_array1.mat
 ```
 
-**Steps (each can be toggled on/off):**
+- Run is `001` for all subjects except `OP00224` (run `002`).
+- Channel `EXG1` carries the EMG signal; it is rectified in-place before
+  analysis.
+- Trial labels: `1` = static contraction, `2` = rest.
 
-| Flag | Step | Description |
-|------|------|-------------|
-| `run_step1` | Brain–EMG DICS | Localises brain sources coherent with EMG; permutation testing (n=500); group prevalence map |
-| `run_step2` | Spine–EMG DICS | Localises spinal cord sources coherent with EMG using BEM v2 lead fields; null distribution diagnostics for OP00212 |
-| `run_step3` | Spinal virtual electrode | Defines spinal ROI from Step 2 prevalence cluster; builds virtual electrode time series per participant using LCMV |
-| `run_step4` | SpineVE–Brain DICS | Localises brain sources coherent with the spinal virtual electrode; M1 ROI overlap analysis |
+### Subject lists
 
-**Step dependencies:**
-- Step 3 requires `cluster_spineEMG_pos_bemv2*.mat` from Step 2
-- Step 4 requires `VE_spine_sub*_forspectra_bemv2*.mat` from Step 3
-
-**Key parameters:**
-```matlab
-cfg_pipeline.fband          = [10 35];   % frequency band (Hz)
-cfg_pipeline.numpermutation = 500;       % permutations for significance testing
-cfg_pipeline.doSmooth       = 1;         % Gaussian spatial smoothing
-cfg_pipeline.spine_smooth_fwhm_mm = 20; % smoothing kernel for spinal maps
-cfg_pipeline.brain_smooth_fwhm_mm = 8;  % smoothing kernel for brain maps
-```
+| Group | IDs | n |
+|---|---|---|
+| Brain (MEG array covers cortex) | OP00212, OP00213, OP00215, OP00219, OP00225, OP00221, OP00224 | 7 |
+| Spine (MEG array covers torso/cord) | OP00212, OP00213, OP00215, OP00219, OP00220, OP00221, OP00224, OP00225, OP00226 | 9 |
+| Both (coherence spectra) | Intersection of above | 7 |
 
 ---
 
-### Figures only — Regenerate paper figures (`RUN_FIGURES_ONLY.m`)
+## Geometry files
 
-Loads pre-computed results from `RUN_PIPELINE.m` and regenerates the main figures without re-running the full analysis. Intended for use with the saved results files available on Zenodo.
+Both files are required by multiple steps. Update their paths under USER CONFIG
+in each script.
 
-**Key paths to set:**
-```matlab
-cfg.fieldtrip_path = '...\fieldtrip';
-cfg.spm_path       = '...\spm';
-cfg.geomfile       = '...\geometries_cervical_realistic.mat';
-cfg.T_mat_path     = '...\T.mat';
-cfg.save_dir       = '...';   % directory containing the saved results files
+| File | Contents |
+|---|---|
+| `geometries_experimental_withbrain.mat` | `sources_brain`, `sources_cent`, `mesh_brain`, `mesh_wm`, `mesh_torso`, `mesh_bone`, `mesh_lungs`, `mesh_heart` |
+| `T.mat` | 4×4 affine matrix mapping native MEG space → MNI |
+| `leadfield_experimental_bslaw_experimental.mat` | `leadfield_bs` — Biot-Savart leadfield for spine sources |
+
+---
+
+## Pipeline overview
+
+```
+step1  →  step2  →  step3  →  step4  →  step5
+  │          │          │          │
+Brain-     Spine-    Spinal    Brain       Coherence
+EMG        EMG       VE        VE (M1)     spectra &
+DICS       DICS      (LCMV)    (LCMV)      statistics
 ```
 
-**Required files in `save_dir`:**
+Run steps in order. Steps 3 and 4 depend on the saved results of steps 1 and 2
+respectively. Step 5 requires both VEs from steps 3 and 4.
+
+---
+
+## Script reference
+
+### `step1_brainEMG_coherence_DICS.m`
+
+**Purpose:** Computes DICS beamformer coherence between cortical sources and
+rectified EMG (10–35 Hz) for the 7 brain subjects.
+
+**Method:**
+- Single-shell head model on `mesh_brain`.
+- Common spatial filter computed on the full (combined) frequency data; applied
+  separately to static and rest conditions via label permutation test
+  (500 permutations, `rng(1)`).
+- Gaussian spatial smoothing (FWHM = 8 mm).
+- Family-wise error correction: 95th percentile of the permutation max
+  distribution.
+- Coherence difference (`coh_diff = static − rest`) thresholded; peaks
+  transformed to MNI space via `T.mat`.
+
+**Key settings:** `lambda = '10%'`, `fband = [10 35]`, `numpermutation = 500`,
+`fwhm_mm = 8`.
+
+**Flags:**
+- `run_subjects = 1` — run the full subject loop.
+- `run_group_only = 1` — skip subject loop, load saved results, re-run group
+  analysis only.
+
+**Outputs (`save_dir`):**
+
+| File | Description |
+|---|---|
+| `brainResult_sub<ID>_brain_pct10.mat` | `coh_diff`, `thr95`, `mask`, `invp`, `x_mni` per subject |
+| `groupRes_brain_DICS_brain_pct10.mat` | `subjResults` struct for all 7 subjects |
+
+**Figures (`save_dir/figures`):**
+
+| File | Description |
+|---|---|
+| `step1_sub<ID>_brainEMG_coherence_brain_pct10.fig` | Per-subject cortical coherence map |
+| `step1_group_brain_max_brain_pct10.fig` | Group peak location on brain mesh |
+| `step1_group_brain_prevalence_brain_pct10.fig` | Group prevalence map (threshold = 0.3) |
+
+---
+
+### `step2_spineEMG_coherence_DICS_v2.m`
+
+**Purpose:** Computes DICS coherence between spinal cord sources and rectified
+EMG for the 9 spine subjects, using the Biot-Savart (BS) leadfield.
+
+**Method:**
+- Infinite-medium volume conductor (appropriate for BS leadfield).
+- Label-based channel matching between MEG data and leadfield (handles
+  per-subject bad channel removal cleanly).
+- Gaussian smoothing (FWHM = 20 mm); common spatial filter + 500-permutation
+  label permutation test.
+- Dominant source orientation extracted via SVD of the DICS filter at the peak
+  source; stored as `dom_ori` [x; y; z] unit-vector components.
+- Group prevalence map; connected-component clustering on prevalence ≥ 0.2 to
+  define the VE ROI for step 3.
+
+**Additional figures (vs v1):**
+- Per-subject null maxima location histogram.
+- Participant-1-only null distribution stratified by dominant orientation axis
+  (x = right–left, y = cranial–caudal, z = dorsal–ventral).
+- Group dominant orientation bar chart ("Figure C").
+
+**Key settings:** `lambda = '10%'`, `fband = [10 35]`, `numpermutation = 500`,
+`fwhm_mm = 20`, `out_suffix = '_BS'`.
+
+**Outputs (`save_dir`):**
+
+| File | Description |
+|---|---|
+| `subResult_sub<ID>_BS.mat` | `coh_diff`, `thr95`, `mask`, `invp_smooth`, `pvals` per subject |
+| `groupRes_spine_DICS__BS.mat` | `subjResults` struct including `dom_ori` for all 9 subjects |
+| `cluster_spineEMG_pos_BS.mat` | `ROIpos` — largest connected prevalence cluster; input for step 3 |
+
+---
+
+### `step3_VE_BS_prevalenceROI.m`
+
+**Purpose:** Builds a spinal cord virtual electrode (VE) for each subject using
+LCMV beamforming, centred on the data-driven prevalence-cluster ROI from step 2.
+
+**Method:**
+- ROI loaded from `cluster_spineEMG_pos_BS.mat`; centre and bounding radius
+  computed.
+- LCMV spatial filter fitted to the full data covariance; `ft_virtualchannel`
+  with SVD extracts the dominant component within the ROI sphere.
+
+> **Note:** The output suffix `_BS1` is used for initial reproducibility
+> testing. Rename to `_BS` (drop the `1`) once confirmed, so that step 5 can
+> find the files.
+
+**Outputs (`save_dir`):**
+
+| File | Description |
+|---|---|
+| `VE_spine_prevalence_sub<ID>_forspectra_BS1.mat` | `VE`, `roi_center`, `R`, `ROIpos` per subject |
+
+---
+
+### `step4_brain_VE_M1.m`
+
+**Purpose:** Builds a cortical (M1) virtual electrode for each of the 7 brain
+subjects using LCMV beamforming at the intersection of the group brain-EMG
+significant region and an anatomical M1 sphere.
+
+**Method:**
+- Group brain-EMG prevalence map (from step 1, threshold = 0.3) identifies
+  significantly active cortical voxels.
+- M1 sphere (radius 20 mm) centred on MNI `[−38 −26 56]` (left M1 hand knob)
+  is transformed to native MEG space via `T.mat`.
+- Intersection of sphere and active voxels defines the ROI; falls back to the
+  full sphere if the intersection is empty.
+- Single-shell head model; LCMV filter fitted to full data covariance;
+  `ft_virtualchannel` with SVD.
+
+**Key settings:** `M1_mni_centre = [-38 -26 56]`, `M1_radius_mm = 20`.
+
+**Outputs (`save_dir`):**
+
+| File | Description |
+|---|---|
+| `M1_ROI_brain_pct10.mat` | `intersection_pos`, `roi_native`, M1 sphere parameters |
+| `sub<ID>_VE_brain_M1_brain_pct10.mat` | `VE_brain`, `roi_center`, `R`, `idx_roi` per subject |
+
+---
+
+### `step5_coherence_spectra.m`
+
+**Purpose:** Downstream coherence spectra, directionality, PSI, and statistical
+analysis using the brain (M1) and spinal cord VEs from steps 3–4.
+
+**Method:**
+- Three signal pairs: Brain–EMG, Brain–Spine, Spine–EMG.
+- NeuroSpec `sp2a2_R2_mt` for multitaper coherence spectra and cross-correlation.
+- Multitaper partial coherence (custom `mt_partial_coherence`) controlling for
+  the third channel.
+- Phase slope index (`ft_connectivityanalysis`, method `psi`) for directionality.
+- Halliday R2 forward/reverse areas for directionality comparison.
+- FOOOF periodic power extraction.
+- Paired statistics: Wilcoxon signed-rank and paired t-tests.
+- Saves `brainspine_boxplot_data_bslaw_prevalence.mat` for figure regeneration.
+
+**Key settings:** `fband = [10 35]`, `seg_pwr = 11` (segment length 2^11 = 2048
+samples), `lat_min/max = ±50 ms`.
+
+**Outputs (`save_dir/figures/spectra_bslaw_prevalence`):**
+
+| File | Description |
+|---|---|
+| `subOP00212_coherence_spectra_*.fig/.png` | Participant 1 three-pair coherence spectra |
+| `group_coherence_spectra_global_*.fig/.png` | Group spectra aligned to each pair's own peak |
+| `brainspine_peak_vs_threshold_boxplot_*.fig/.png` | Peak coherence / threshold boxplot |
+| `partial_coherence_pct_reduction_*.fig/.png` | Brain-EMG reduction after partialising cord |
+| `group_directionality_comparison_*.fig` | Halliday R2 vs PSI panel |
+| `group_peak_latencies_*.fig` | Cross-correlation peak latency plot |
+| `SuppTable1b_peak_coherence_BS.csv` | Peak coherence table (multitaper + NeuroSpec) |
+| `SuppTable_partial_coherence_pct_reduction.csv` | Partial coherence % reduction per subject |
+| `brainspine_boxplot_data_bslaw_prevalence.mat` | Saved data for boxplot regeneration |
+
+---
+
+### `GET_FIGURES.m`
+
+**Purpose:** Regenerates all pipeline figures from pre-saved `.mat` results,
+without re-running the computationally expensive beamforming steps.
+
+**Usage:** Edit the USER CONFIG section (paths, smoothing FWHMs, `plot_step*`
+flags, `saveFigs`), then run. Each step flag can be toggled independently.
+
+**Required input files (all in `save_dir`):**
 
 | File | Used by |
-|------|---------|
-| `groupRes_brain_DICS_bemv2_brainEMG_brainSmooth_8mm.mat` | Step 1 figures |
-| `groupRes_spine_DICS_bemv2_permSmooth_20mm.mat` | Step 2 figures |
-| `cluster_spineEMG_pos_bemv2_permSmooth_20mm.mat` | Step 3 figure |
-| `groupRes_brain_DICS_spineVC_bemv2_functionalVE_spineSmooth_20mm_brainSmooth_8mm.mat` | Step 4 figures |
+|---|---|
+| `groupRes_brain_DICS_brain_pct10.mat` | Step 1 figures |
+| `groupRes_spine_DICS__BS.mat` | Step 2 figures |
+| `cluster_spineEMG_pos_BS.mat` | Step 3 figure |
+| `brainspine_boxplot_data_bslaw_prevalence.mat` | Step 4 (boxplot) figure |
+| `geometries_experimental_withbrain.mat` | All steps |
+| `T.mat` | Steps 1, 4 |
 
-Plus `geometries_cervical_realistic.mat` and `T.mat` from `Leadfields_meshes/`.
-
-**Figures generated:**
-
-| Step | Figures |
-|------|---------|
-| 1 | Participant 1 brain–EMG coherence surface map; group prevalence map |
-| 2 | Participant 1 spine–EMG coherence surface map; group prevalence map (with torso); group prevalence map (mesh only); per-subject coherence difference line plot |
-| 3 | Spinal ROI used for virtual electrode construction |
-| 4 | Participant 1 brain–spineVE coherence surface map; group prevalence map |
+**Smoothing options:** `doSmooth = 1` enables post-hoc re-smoothing of saved
+results at configurable FWHMs (`spine_smooth_fwhm_mm`, `brain_smooth_fwhm_mm`).
+Set to `0` to plot results as originally computed.
 
 ---
 
-### Steps A–B — Spectra and directed coherence (`RUN_SPECTRA.m`)
+## Reproducibility
 
-Downstream analysis of virtual electrode time series. Requires outputs from `RUN_PIPELINE.m`. Edit the **USER CONFIG** section before running.
+`rng(1)` is called at the start of steps 1 and 2 to fix the permutation test
+random seed. Results should be bit-for-bit reproducible given the same input
+data and toolbox versions.
 
-**Steps:**
+---
 
-| Flag | Step | Description |
-|------|------|-------------|
-| `run_stepA` | Brain virtual electrode | Builds brain virtual electrode from M1 ROI using LCMV beamformer |
-| `run_stepB` | Coherence spectra | Pairwise NeuroSpec coherence (Brain–EMG, Brain–Spine, Spine–EMG): directed coherence, normalised cumulant density (cross-correlation), and peak latencies; FieldTrip coherence spectra; 10–35 Hz band power comparison (contraction vs rest) |
+## Typical run order
 
-**Key parameters to match with `RUN_PIPELINE.m`:**
 ```matlab
-cfg.doSmooth             = 1;
-cfg.spine_smooth_fwhm_mm = 20;   % must match RUN_PIPELINE
-cfg.M1_roi_suffix = 'functionalVE_spineSmooth_20mm_brainSmooth_8mm';
+% 1. Brain-EMG coherence maps
+run step1_brainEMG_coherence_DICS.m
+
+% 2. Spine-EMG coherence maps + ROI cluster
+run step2_spineEMG_coherence_DICS_v2.m
+
+% 3. Spinal virtual electrode (rename _BS1 → _BS outputs when confirmed)
+run step3_VE_BS_prevalenceROI.m
+
+% 4. M1 virtual electrode
+run step4_brain_VE_M1.m
+
+% 5. Coherence spectra and statistics
+run step5_coherence_spectra.m
+
+% Regenerate figures only (after any of the above)
+run GET_FIGURES.m
 ```
-
----
-
-## Data format
-
-Raw and preprocessed data are expected in the following structure (see Zenodo for the dataset):
-
-```
-sub-XX/
-└── ses-001/
-    ├── emg/
-    │   ├── *.vhdr
-    │   ├── *.eeg
-    │   └── *.vmrk
-    └── meg/
-        ├── *_positions.tsv
-        ├── *_raw.lvm
-        ├── *_preprocessed.dat
-        └── *_preprocessed.mat
-```
-
-Shared forward model files (BEM meshes, lead fields, MNI-to-native transformation) are in the `Leadfields_meshes/` folder at the top level of the Zenodo repository.
-
----
-
-## Notes
-
-- Participant OP00212 is the reference participant with full anatomical co-registration. Results for this participant are presented alongside group-level analyses in the paper.
-- Subject lists for brain and spinal analyses differ: brain analyses use n=7, spinal analyses use n=9 (see paper for details).
-- Analysis was performed in a magnetically shielded room at UCL. The preprocessing pipeline is tailored to QuSpin Neuro-1 triaxial OPM data acquired with the custom scanner-cast described in the paper.
-
----
