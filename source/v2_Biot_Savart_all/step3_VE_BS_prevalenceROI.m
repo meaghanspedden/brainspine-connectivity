@@ -166,7 +166,7 @@ for ss = 1:length(subs_spine)
     cfg_ve.radius       = R;
     cfg_ve.method       = 'svd';
     cfg_ve.numcomponent = 1;
-    VE = ft_virtualchannel(cfg_ve, ftdat, source_idx);
+    VE = ft_virtualchannel_sphere(cfg_ve, ftdat, source_idx);
 
     savename = sprintf('VE_spine_prevalence_sub%s_forspectra%s', sub, out_suffix);
     save(fullfile(save_dir, savename), 'VE', 'roi_center', 'R', 'ROIpos');

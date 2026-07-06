@@ -184,7 +184,7 @@ for ss = 1:length(subs_brain)
     cfg_ve.radius       = R;
     cfg_ve.method       = 'svd';
     cfg_ve.numcomponent = 1;
-    VE_brain = ft_virtualchannel(cfg_ve, ftdat, source_idx);
+    VE_brain = ft_virtualchannel_sphere(cfg_ve, ftdat, source_idx);
 
     savename = sprintf('sub%s_VE_brain_M1%s', sub, out_suffix);
     save(fullfile(save_dir, savename), 'VE_brain', 'roi_center', 'R', 'idx_roi');
