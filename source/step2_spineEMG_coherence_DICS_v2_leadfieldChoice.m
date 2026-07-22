@@ -292,7 +292,7 @@ for ss = 1:length(subs_spine)
     coh_diff     = Wsm * coh_diff;
 
     %% Threshold
-    thr95 = compute_threshold(cohDiff_perm, mult_comp_corr, nsourcepoints);
+    thr95 = compute_threshold(cohDiff_perm, mult_comp_corr);
     mask  = coh_diff > thr95;
 
     fprintf('  Threshold (FWE p<0.05): %.6f\n', thr95);
@@ -725,7 +725,7 @@ function [coh_diff, cohDiff_perm] = extract_coh_diff(source_perm, nsourcepoints,
 end
 
 % -------------------------------------------------------------------------
-function thr = compute_threshold(cohDiff_perm, mult_comp_corr, nsourcepoints)
+function thr = compute_threshold(cohDiff_perm, mult_comp_corr)
     maxPerm = max(cohDiff_perm, [], 1);
     if mult_comp_corr
         thr = prctile(maxPerm, 95);

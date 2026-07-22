@@ -1,4 +1,4 @@
-%% RUN_FIGURES_ONLY.m
+%% GET_FIGURES.m
 % Regenerates all pipeline figures from pre-computed results.
 %
 % Requires the following saved files in save_dir:

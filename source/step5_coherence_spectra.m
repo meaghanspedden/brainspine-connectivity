@@ -1,4 +1,4 @@
-%% step5_brainspine_coherence.m
+%% step5_coherence_spectra.m
 % Downstream spectra and coherence analysis — BSLaw forward model.
 %
 % =========================================================================

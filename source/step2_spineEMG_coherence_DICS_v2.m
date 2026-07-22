@@ -1,8 +1,43 @@
-%% BS forward model
-% Spine-EMG DICS coherence with BS forward model.
-% Uses BS leadfield with label-based channel matching.
-% Lambda = 10%, smoothing on (20mm FWHM). All 9 spine subjects.
-% Outputs saved with _bs suffix to distinguish from old results.
+%% step2_spineEMG_coherence_DICS_v2.m
+% Step 2 (v2): Spine-EMG DICS coherence with Biot-Savart (BS) forward model.
+%
+% Uses the BS leadfield with label-based channel matching. Lambda = 10%,
+% smoothing 20mm FWHM. All 9 spine subjects. Outputs saved with _BS
+% suffix to distinguish from older (BEM) results.
+%
+% Differs from step2_spineEMG_coherence_DICS.m (v1) in its orientation
+% analysis: v1 produces a per-subject dot-plot of observed vs. null
+% orientation (median +/- IQR). This version (v2) instead produces:
+%   - Per-subject null maxima location histogram
+%   - Dominant orientation extraction per subject (SVD at peak source)
+%   - Participant-1-only null distribution stratified by orientation axis
+%   - Group-level dominant orientation bar chart across participants ("Figure C")
+% Run both and compare outputs to decide which orientation analysis to keep.
+%
+% Inputs (must exist before running):
+%   geomfile       - geometries_experimental.mat: sources_cent, mesh_torso,
+%                     mesh_wm, mesh_bone, mesh_lungs, mesh_heart
+%   geomfile_brain - geometries_cervical_realistic.mat: mesh_brain only
+%                     (TODO: mesh_brain still needs adding to geomfile
+%                     directly; see warning below)
+%   lf_path        - leadfield_experimental_bslaw_experimental.mat: leadfield_bs
+%   data_root      - per-subject SPM .mat files (see datafile pattern below)
+%
+% Outputs (written to save_dir / fig_dir):
+%   subResult_sub<ID>_BS.mat                              - per-subject coh_diff, thr95, mask, invp_smooth, pvals
+%   groupRes_spine_DICS__BS.mat                            - subjResults struct for all subjects (incl. dom_ori)
+%   cluster_spineEMG_pos_BS.mat                            - VE ROI cluster positions
+%   step2_sub<ID>_spineEMG_coherence_BS.fig                - per-subject coherence map (with torso)
+%   step2_sub1_spineEMG_meshonly_BS.fig                    - Participant 1 mesh-only map
+%   step2_sub<ID>_null_maxima_BS.fig                       - per-subject null maxima location histogram
+%   step2_subOP00212_null_distribution_by_orientation_BS.fig - P1-only null dist. by orientation axis
+%   step2_group_spineEMG_prevalence_BS.fig                 - group prevalence map (with torso)
+%   step2_group_spineEMG_prevalence_meshonly_BS.fig        - group prevalence, mesh only
+%   step2_group_spineEMG_subject_lines_BS.fig              - per-subject coherence-difference traces
+%   step2_group_dominant_orientation_BS.fig / .png         - Figure C: group orientation bar chart
+%   step2_spinal_prevalence_VE_cluster_BS.fig              - prevalence + VE cluster ROI
+%
+% rng(1) is set below to fix the permutation test seed for reproducibility.
 
 clear all; close all; clc;
 
@@ -15,9 +50,8 @@ bsc_path       = 'C:\Users\mspedden\Documents\brainspineconnectivity\source';
 data_root      = 'C:\spinecoh_data';
 save_dir       = 'C:\Users\mspedden\Documents\brainspine_savetest';
 
-geomfile       = 'C:\Leadfields meshes\geometries_experimental.mat';
-geomfile_brain = 'C:\Leadfields meshes\geometries_cervical_realistic.mat';
-lf_path = 'C:\Leadfields meshes\leadfield_experimental_bslaw_experimental.mat';
+geomfile       = 'C:\Leadfields meshes\geometries_experimental_withbrain.mat';
+lf_path        = 'C:\Leadfields meshes\leadfield_experimental_bslaw_experimental.mat';
 
 subs_spine = {'OP00212','OP00213','OP00215','OP00219', ...
               'OP00220','OP00221','OP00224','OP00225','OP00226'};
@@ -29,7 +63,7 @@ lambda         = '10%';
 fwhm_mm        = 20;
 radius_mm      = 3 * (fwhm_mm / 2.355);
 out_suffix     = '_BS';
-rng(1);
+rng(1);   % fix seed for reproducible permutation test
 
 %% =========================================================================
 %  SETUP
@@ -45,8 +79,6 @@ if ~exist(fig_dir,'dir'), mkdir(fig_dir); end
 
 %% =========================================================================
 %  LOAD GEOMETRY
-%  - geometries_experimental: all spine/torso meshes + sources_cent
-%  - geometries_cervical_realistic: mesh_brain only (other meshes outdated)
 %% =========================================================================
 fprintf('Loading geometry...\n');
 geom_exp = load(geomfile);
@@ -57,11 +89,7 @@ mesh_wm      = geom_exp.mesh_wm;
 mesh_bone    = geom_exp.mesh_bone;
 mesh_lungs   = geom_exp.mesh_lungs;
 mesh_heart   = geom_exp.mesh_heart;
-
-% Load mesh_brain from old geomfile — only this mesh, nothing else
-warning('Need to add brain mesh to new geom!!!!')
-geom_brain = load(geomfile_brain, 'mesh_brain');
-mesh_brain = geom_brain.mesh_brain;
+mesh_brain = geom_exp.mesh_brain;
 
 mesh_wm.unit = 'mm';
 
@@ -69,7 +97,7 @@ nsourcepoints = size(sources_cent.pos, 1);
 fprintf('  Source space: %d points\n', nsourcepoints);
 
 %% =========================================================================
-%  BUILD SMOOTHER ONCE (shared across all subjects)
+%  BUILD SMOOTHER ONCE
 %% =========================================================================
 fprintf('Building Gaussian smoother (FWHM=%d mm)...\n', fwhm_mm);
 Wsm = make_gaussian_smoother(sources_cent.pos, fwhm_mm, radius_mm);
@@ -150,15 +178,13 @@ for ss = 1:length(subs_spine)
     dummyvol = ft_prepare_headmodel(cfg, mesh_torso);
 
     %% Frequency data
-    % keeptrials='yes' for stat/rest (permutation test needs trial-level)
-    % keeptrials='no' for combined (common spatial filter)
-    cfg_fr = []; cfg_fr.output = 'powandcsd'; cfg_fr.method = 'mtmfft';
+    cfg_fr  = []; cfg_fr.output = 'powandcsd'; cfg_fr.method = 'mtmfft';
     cfg_fr.foilim = fband; cfg_fr.tapsmofrq = 1; cfg_fr.keeptrials = 'yes';
-    cfg_av = []; cfg_av.avgoverfreq = 'yes';
+    cfg_av  = []; cfg_av.avgoverfreq = 'yes';
     cfg_sel = []; cfg_sel.channel = [Lf.label; {'EXG1'}];
 
     freqdat_tr = ft_freqanalysis(cfg_fr, ftdat);
-    freqdat_tr = ft_selectdata(cfg_av,  freqdat_tr);
+    freqdat_tr = ft_selectdata(cfg_av, freqdat_tr);
 
     trialinfo = ftdat.trialinfo;
     statidx   = find(trialinfo == 1);
@@ -171,29 +197,27 @@ for ss = 1:length(subs_spine)
     cfg = []; cfg.trials = restidx(1:nTrials);
     restdat = ft_selectdata(cfg, freqdat_tr);
 
-    % Combined for common spatial filter
     cfg_fr2 = []; cfg_fr2.output = 'powandcsd'; cfg_fr2.method = 'mtmfft';
     cfg_fr2.foilim = fband; cfg_fr2.tapsmofrq = 1; cfg_fr2.keeptrials = 'no';
     freqdat = ft_freqanalysis(cfg_fr2, ftdat);
     cfg_av2 = []; cfg_av2.avgoverfreq = 'yes';
     freqdat = ft_selectdata(cfg_av2, freqdat);
 
-    % Select channels
     statdat = ft_selectdata(cfg_sel, statdat);
     restdat = ft_selectdata(cfg_sel, restdat);
     freqdat = ft_selectdata(cfg_sel, freqdat);
 
     %% Sourcemodel
-    sourcemodel = [];
+    sourcemodel           = [];
     sourcemodel.pos       = Lf.pos;
     sourcemodel.unit      = 'mm';
     sourcemodel.inside    = logical(Lf.inside);
     sourcemodel.leadfield = Lf.leadfield;
     sourcemodel.label     = Lf.label;
 
-    %% Common spatial filter from combined data
+    %% Common spatial filter
     fprintf('  Computing common spatial filter...\n');
-    cfg_dics = [];
+    cfg_dics                 = [];
     cfg_dics.sourcemodel     = sourcemodel;
     cfg_dics.headmodel       = dummyvol;
     cfg_dics.dics.keepfilter = 'yes';
@@ -202,9 +226,9 @@ for ss = 1:length(subs_spine)
     cfg_dics.refchan         = 'EXG1';
     coh_source = ft_sourceanalysis(cfg_dics, freqdat);
 
-    %% Permutation test — contraction vs rest
+    %% Permutation test
     fprintf('  Running permutation test (%d permutations)...\n', numpermutation);
-    cfg_perm = [];
+    cfg_perm                    = [];
     cfg_perm.sourcemodel        = sourcemodel;
     cfg_perm.headmodel          = dummyvol;
     cfg_perm.dics.filter        = coh_source.avg.filter;
@@ -223,7 +247,7 @@ for ss = 1:length(subs_spine)
     coh_diff     = Wsm * coh_diff;
 
     %% Threshold
-    thr95 = compute_threshold(cohDiff_perm, mult_comp_corr, nsourcepoints);
+    thr95 = compute_threshold(cohDiff_perm, mult_comp_corr);
     mask  = coh_diff > thr95;
 
     fprintf('  Threshold (FWE p<0.05): %.6f\n', thr95);
@@ -240,11 +264,28 @@ for ss = 1:length(subs_spine)
     invpthr     = -log10(0.05);
     invp_smooth = smooth_invp(coh_diff, cohDiff_perm, nsourcepoints, nPerm);
 
-    %% Null maxima location diagnostic
-    [~, maxIdx_perm] = max(cohDiff_perm, [], 1);
-    xpos = sources_cent.pos(:,2);
-    [~, obsMaxIdx] = max(coh_diff);
+    %% Null maxima location and max per permutation (needed for orientation figures)
+    maxPerm          = max(cohDiff_perm, [], 1);   % [1 x nPerm] — max over sources
+    [~, maxIdx_perm] = max(cohDiff_perm, [], 1);   % index of max source per perm
+    xpos             = sources_cent.pos(:,2);
+    [~, obsMaxIdx]   = max(coh_diff);
 
+    %% -----------------------------------------------------------------------
+    %  DOMINANT ORIENTATION AT PEAK SOURCE (all subjects)
+    %  SVD of DICS filter at peak coh_diff source -> leading left singular
+    %  vector -> decompose into x/y/z components
+    %% -----------------------------------------------------------------------
+    filters = coh_source.avg.filter;   % cell {nsources x 1}, each [3 x nchans]
+    F_peak  = filters{peak_idx};
+    if ~isempty(F_peak)
+        [U,~,~] = svd(F_peak, 'econ');
+        dom_vec  = abs(U(:,1));         % |components| of dominant orientation
+        subjResults(ss).dom_ori = dom_vec;   % [3x1]: [x; y; z]
+    else
+        subjResults(ss).dom_ori = [nan; nan; nan];
+    end
+
+    %% Null maxima location histogram
     hfig_null = figure('Color','w','Position',[100 100 600 450]);
     hold on;
     histogram(xpos(maxIdx_perm), 44, ...
@@ -257,17 +298,84 @@ for ss = 1:length(subs_spine)
     title(sprintf('%s — null maxima (BS)', sub),'Interpreter','none');
     savefig(hfig_null, fullfile(fig_dir, ...
         sprintf('step2_sub%s_null_maxima%s.fig', sub, out_suffix)));
-%     close(hfig_null);
+    close(hfig_null);
+
+    %% -----------------------------------------------------------------------
+    %  P1 ONLY: Null distribution stratified by dominant orientation axis
+    %% -----------------------------------------------------------------------
+    if strcmp(sub, 'OP00212')
+        % For each permutation: find max source, get its filter, SVD ->
+        % dominant orientation axis (x=1, y=2, z=3)
+        perm_axis = zeros(nPerm,1);
+        for ip = 1:nPerm
+            src_idx = maxIdx_perm(ip);
+            F = filters{src_idx};
+            if isempty(F)
+                perm_axis(ip) = 0;
+                continue
+            end
+            [U,~,~]  = svd(F, 'econ');
+            dom_vec  = U(:,1);
+            [~, ax]  = max(abs(dom_vec));
+            perm_axis(ip) = ax;
+        end
+
+        ax_colors = [0.22 0.49 0.82;   % x — right-left (blue)
+                     0.86 0.37 0.13;   % y — cranial-caudal (orange)
+                     0.18 0.63 0.27];  % z — dorsal-ventral (green)
+
+        % Clamp negative maxPerm to 0 (one-sided test)
+        maxPerm_pos = max(maxPerm, 0);
+        nBins       = 30;
+        bin_edges   = linspace(0, max(maxPerm_pos)*1.05, nBins+1);
+        bin_ctrs    = (bin_edges(1:end-1) + bin_edges(2:end)) / 2;
+
+        counts = zeros(nBins, 3);
+        for ax_id = 1:3
+            counts(:,ax_id) = histcounts(maxPerm_pos(perm_axis == ax_id), bin_edges)';
+        end
+
+        x_uniform  = (1:nBins)';
+        tick_step  = max(1, floor(nBins/8));
+        tick_idx   = 1:tick_step:nBins;
+        scale_fac  = 1e4;
+
+        hfig_nulldist = figure('Color','w','Position',[100 100 500 430]);
+        hb = bar(x_uniform, counts, 'grouped', 'BarWidth', 0.85);
+        for ax_id = 1:3
+            hb(ax_id).FaceColor = ax_colors(ax_id,:);
+            hb(ax_id).EdgeColor = 'none';
+            hb(ax_id).FaceAlpha = 0.85;
+        end
+        set(gca, 'XTick', tick_idx, ...
+            'XTickLabel', arrayfun(@(v) sprintf('%.2f', v*scale_fac), ...
+            bin_ctrs(tick_idx), 'UniformOutput', false));
+        xtickangle(35);
+        hold on;
+        [~, thr_bin] = min(abs(bin_ctrs - thr95));
+        xline(thr_bin, '--k', 'LineWidth', 2, 'HandleVisibility','off');
+        obs_max = max(coh_diff);
+        [~, obs_bin] = min(abs(bin_ctrs - obs_max));
+        xline(obs_bin, '-', 'Color',[0.55 0 0], 'LineWidth', 2.5, 'HandleVisibility','off');
+        xlabel('Max coherence diff (static \minus rest)  \times 10^{-4}','FontSize',14);
+        ylabel('Count','FontSize',14);
+        set(gca,'FontSize',13,'LineWidth',1.1,'TickDir','out'); box off;
+        legend off;
+        title(sprintf('%s — null distribution by orientation (smoothed %d mm, BS)', ...
+            sub, fwhm_mm),'Interpreter','none','FontSize',13);
+        savefig(hfig_nulldist, fullfile(fig_dir, ...
+            sprintf('step2_sub%s_null_distribution_by_orientation%s.fig', sub, out_suffix)));
+        close(hfig_nulldist);
+    end
 
     %% Interpolate onto spinal mesh
-    source_p = coh_source;
+    source_p         = coh_source;
     source_p.avg.coh = invp_smooth;
     cfg_interp = []; cfg_interp.parameter = 'coh';
     spine_int = ft_sourceinterpolate(cfg_interp, source_p, mesh_wm);
 
-    mesh_cut = clip_torso(mesh_torso);
-
-    invp_max = max(invp_smooth);
+    mesh_cut  = clip_torso(mesh_torso);
+    invp_max  = max(invp_smooth);
     if invp_max <= invpthr
         clim_spine = [invpthr invpthr + 0.5];
     else
@@ -292,9 +400,9 @@ for ss = 1:length(subs_spine)
     title(sprintf('%s — spine-EMG coherence (BS)', sub),'Interpreter','none');
     savefig(hfig_spine, fullfile(fig_dir, ...
         sprintf('step2_sub%s_spineEMG_coherence%s.fig', sub, out_suffix)));
-    %close(hfig_spine);
+    close(hfig_spine);
 
-    %% Figure — mesh only for subject 1
+    %% Figure — mesh only for P1
     if ss == 1
         hfig_mesh = figure('Color','w');
         cfg_m = []; cfg_m.figure = 'gcf'; cfg_m.method = 'surface';
@@ -306,7 +414,6 @@ for ss = 1:length(subs_spine)
         view(-250,-1); camlight; ax = gca; ax.FontSize = 14;
         title('Participant 1 — spine-EMG coherence (BS)', ...
             'Interpreter','none','FontSize',13);
-        % Star at peak significant source
         sig_invp = invp_smooth; sig_invp(~mask) = -inf;
         if any(isfinite(sig_invp))
             peaks_p1 = sources_cent.pos(sig_invp >= ...
@@ -314,13 +421,13 @@ for ss = 1:length(subs_spine)
             hold on;
             scatter3(peaks_p1(:,1), peaks_p1(:,2), peaks_p1(:,3)+10, ...
                 200, '.', 'filled', ...
-                'MarkerFaceColor',[1 1 0], 'MarkerEdgeColor','k','LineWidth',1.5);
+                'MarkerFaceColor',[1 1 0],'MarkerEdgeColor','k','LineWidth',1.5);
             scatter_obj = findobj(gca,'Type','Scatter');
             uistack(scatter_obj,'top');
         end
         savefig(hfig_mesh, fullfile(fig_dir, ...
             sprintf('step2_sub%s_spineEMG_meshonly%s.fig', sub, out_suffix)));
-       % close(hfig_mesh);
+        close(hfig_mesh);
     end
 
     %% Store results
@@ -334,14 +441,15 @@ for ss = 1:length(subs_spine)
     subjResults(ss).maxdiff.idx = obsIdx;
     subjResults(ss).maxdiff.pos = sources_cent.pos(obsIdx,:);
     subjResults(ss).invp_smooth = invp_smooth;
+    % dom_ori already set above
 
-    % Save per-subject immediately in case of crash
+    % Save per-subject
     save(fullfile(save_dir, sprintf('subResult_sub%s%s.mat', sub, out_suffix)), ...
         'coh_diff','cohDiff_perm','thr95','mask','invp_smooth','pvals');
 end
 
 %% Save group results
-save(fullfile(save_dir, ['groupRes_spine_DICS_bemv2' out_suffix '.mat']), 'subjResults');
+save(fullfile(save_dir, ['groupRes_spine_DICS_' out_suffix '.mat']), 'subjResults');
 fprintf('\nAll subjects complete. Running group analysis...\n');
 
 %% =========================================================================
@@ -356,6 +464,7 @@ fprintf('\n=== DONE ===\n');
 %% =========================================================================
 %  LOCAL FUNCTIONS
 %% =========================================================================
+
 function run_group_spine(subjResults, sources_cent, save_dir, out_suffix, cmap_hot, ...
                           mesh_wm, mesh_brain, mesh_torso, mesh_bone, mesh_lungs, mesh_heart, ...
                           fwhm, fig_dir)
@@ -378,10 +487,10 @@ fprintf('  %d/%d subjects show significant spine-EMG coherence (smoothed %d mm, 
 threshold      = 0.2;
 prevalence_loc = mean(all_masks, 2);
 
-group_ft         = [];
-group_ft.pos     = sources_cent.pos;
-group_ft.inside  = sources_cent.inside;
-group_ft.pow     = prevalence_loc;
+group_ft        = [];
+group_ft.pos    = sources_cent.pos;
+group_ft.inside = sources_cent.inside;
+group_ft.pow    = prevalence_loc;
 group_ft.pow(group_ft.pow < threshold) = 0;
 
 cfg = []; cfg.parameter = 'pow'; cfg.interpmethod = 'nearest';
@@ -389,7 +498,7 @@ group_int = ft_sourceinterpolate(cfg, group_ft, mesh_wm);
 
 mesh_cut = clip_torso(mesh_torso);
 
-% Group prevalence — full figure with torso
+%% Group prevalence — full figure with torso
 hfig_prev = figure;
 cfg2 = []; cfg2.method = 'surface'; cfg2.funparameter = 'pow';
 cfg2.maskparameter = 'mask';
@@ -409,9 +518,9 @@ ft_plot_mesh(mesh_heart,'facecolor',[0.8 0.3 0.3],'facealpha',0.1, 'edgecolor','
 title(sprintf('Group prevalence — spine-EMG (smoothed %d mm, BS)', fwhm), ...
     'Interpreter','none');
 savefig(hfig_prev, fullfile(fig_dir, ['step2_group_spineEMG_prevalence' out_suffix '.fig']));
-%close(hfig_prev);
+close(hfig_prev);
 
-% Group prevalence — mesh only with star at peak
+%% Group prevalence — mesh only with star at peak
 hfig_grp_mesh = figure('Color','w','Position',[100 100 400 650]);
 cfg3 = []; cfg3.method = 'surface'; cfg3.funparameter = 'pow';
 cfg3.funcolorlim = [threshold max(group_int.pow)];
@@ -432,15 +541,15 @@ if any(isfinite(prev_vals))
     hold on;
     scatter3(peaks_grp(:,1), peaks_grp(:,2), peaks_grp(:,3)+10, ...
         200, 'p', 'filled', ...
-        'MarkerFaceColor',[1 1 0], 'MarkerEdgeColor','k','LineWidth',1.5);
+        'MarkerFaceColor',[1 1 0],'MarkerEdgeColor','k','LineWidth',1.5);
     scatter_obj = findobj(gca,'Type','Scatter');
     uistack(scatter_obj,'top');
 end
 savefig(hfig_grp_mesh, fullfile(fig_dir, ...
     ['step2_group_spineEMG_prevalence_meshonly' out_suffix '.fig']));
-%close(hfig_grp_mesh);
+close(hfig_grp_mesh);
 
-% Subject line plot
+%% Subject line plot
 subj_cmap = [27,158,119; 217,95,2; 117,112,179; 231,41,138; 102,166,30; ...
              230,171,2;  166,118,29; 102,102,102; 55,126,184] / 255;
 x = sources_cent.pos(:,2);
@@ -474,9 +583,65 @@ legend(h, arrayfun(@(s) sprintf('Participant %d',s), 1:nSubjects,'UniformOutput'
 set(gca,'FontSize',13); grid on;
 savefig(hfig_lines, fullfile(fig_dir, ...
     ['step2_group_spineEMG_subject_lines' out_suffix '.fig']));
-%close(hfig_lines);
+close(hfig_lines);
 
-% Cluster ROI for VE
+%% -----------------------------------------------------------------------
+%  FIGURE C — Group dominant orientation bar chart
+%  Colours match paper figure: purple=right-left(x), dark blue=cranial-
+%  caudal(y), salmon=dorsal-ventral(z). P1 boxed.
+%
+%  Uses subjResults(s).dom_ori (computed once per subject in the main
+%  loop, no need to recompute from coh_source/maxIdx_perm here, those
+%  only exist in the subject-loop workspace and are not passed into this
+%  function).
+%% -----------------------------------------------------------------------
+ax_colors = [0.55 0.20 0.75;   % x — right-left (purple)
+             0.15 0.25 0.60;   % y — cranial-caudal (dark blue)
+             0.90 0.40 0.30];  % z — dorsal-ventral (salmon)
+ax_names  = {'Right-left','Cranial-caudal','Dorsal-ventral'};
+
+ori_mat = nan(nSubjects, 3);
+for s = 1:nSubjects
+    if isfield(subjResults(s),'dom_ori') && ~isempty(subjResults(s).dom_ori) ...
+            && ~any(isnan(subjResults(s).dom_ori))
+        ori_mat(s,:) = subjResults(s).dom_ori(:)';
+    end
+end
+
+hfig_ori = figure('Color','w','Position',[100 100 700 380]);
+hold on;
+bw      = 0.25;
+offsets = [-bw, 0, bw];
+for ax_id = 1:3
+    for s = 1:nSubjects
+        if isnan(ori_mat(s,ax_id)), continue; end
+        b = bar(s + offsets(ax_id), ori_mat(s,ax_id), bw*0.9);
+        b.FaceColor = ax_colors(ax_id,:);
+        b.EdgeColor = 'none';
+        b.FaceAlpha = 0.85;
+    end
+end
+% Dummy bars for legend
+for ax_id = 1:3
+    bar(nan, nan, 'FaceColor', ax_colors(ax_id,:), 'EdgeColor','none', ...
+        'DisplayName', ax_names{ax_id});
+end
+% Box around P1
+rectangle('Position',[0.55 0 1 1.12], 'EdgeColor','k', 'LineWidth',2, ...
+    'FaceColor','none');
+set(gca, 'XTick', 1:nSubjects, ...
+    'XTickLabel', arrayfun(@(s) sprintf('P%d',s), 1:nSubjects, 'UniformOutput',false));
+xlabel('Participant','FontSize',13);
+ylabel('Axis alignment (|component|, unit vector)','FontSize',13);
+title('Spinal cord source orientation','FontSize',13,'Interpreter','none');
+legend('Location','northeast','Box','off','FontSize',11);
+ylim([0 1.15]);
+set(gca,'FontSize',12); box off;
+savefig(hfig_ori, fullfile(fig_dir, ['step2_group_dominant_orientation' out_suffix '.fig']));
+saveas(hfig_ori,  fullfile(fig_dir, ['step2_group_dominant_orientation' out_suffix '.png']));
+close(hfig_ori);
+
+%% Cluster ROI for VE
 mask_thresh = prevalence_loc >= threshold;
 pos_thresh  = sources_cent.pos(mask_thresh,:);
 if ~isempty(pos_thresh)
@@ -495,7 +660,7 @@ if ~isempty(pos_thresh)
     title('Spinal prevalence + VE cluster (BS)','Interpreter','none');
     savefig(hfig_clust, fullfile(fig_dir, ...
         ['step2_spinal_prevalence_VE_cluster' out_suffix '.fig']));
-   % close(hfig_clust);
+    close(hfig_clust);
 
     save(fullfile(save_dir, ['cluster_spineEMG_pos' out_suffix '.mat']), 'ROIpos');
     fprintf('  ROI cluster saved: %d sources\n', size(ROIpos,1));
@@ -515,7 +680,7 @@ function [coh_diff, cohDiff_perm] = extract_coh_diff(source_perm, nsourcepoints,
 end
 
 % -------------------------------------------------------------------------
-function thr = compute_threshold(cohDiff_perm, mult_comp_corr, nsourcepoints)
+function thr = compute_threshold(cohDiff_perm, mult_comp_corr)
     maxPerm = max(cohDiff_perm, [], 1);
     if mult_comp_corr
         thr = prctile(maxPerm, 95);

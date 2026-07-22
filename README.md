@@ -27,7 +27,7 @@ https://zenodo.org/records/20824827
 | Folder | Purpose |
 |---|---|
 | `preprocessing/` | Raw data preprocessing (heartbeat removal, HFO rejection, trial selection) |
-| `source/v2_Biot_Savart_all/` | Current 5-step analysis pipeline (Biot-Savart leadfields) |
+| `source/` | Current 5-step analysis pipeline (Biot-Savart leadfields) |
 | `plotting/` | Visualisation utilities (colormaps, topoplot, shaded error bars) |
 | `stats/` | Statistical utilities (FDR correction, Bayesian prevalence) |
 
@@ -46,7 +46,7 @@ Per-subject bad channel lists are stored in `preprocessing/channels_removed/` (s
 
 ### 2. Source analysis
 
-Scripts live in `source/v2_Biot_Savart_all/`. Run steps in order.
+Scripts live in `source/`. Run steps in order.
 
 ```
 step1  →  step2  →  step3  →  step4  →  step5
@@ -60,7 +60,7 @@ Steps 3 and 4 depend on the saved results of steps 1 and 2 respectively. Step 5 
 
 ### 3. Figures
 
-`source/v2_Biot_Savart_all/GET_FIGURES.m` generates all manuscript figures from the saved pipeline outputs.
+`source/GET_FIGURES.m` generates all manuscript figures from the saved pipeline outputs.
 
 
 ## Utilities

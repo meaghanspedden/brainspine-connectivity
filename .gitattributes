@@ -1,0 +1,4 @@
+source/legacy/** export-ignore
+legacy/** export-ignore
+preprocessing/legacy/** export-ignore
+plotting/legacy/** export-ignore
