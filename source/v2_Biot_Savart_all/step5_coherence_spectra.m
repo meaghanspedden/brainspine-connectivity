@@ -388,6 +388,68 @@ for ss = 1:nSubs
 
 end  % subject loop
 
+%% =========================================================================
+%  SUPPLEMENTARY: Cord-EMG coherence for spine-only subjects
+%  The main loop runs only the 7 brain-cap-spine subjects. Cord-EMG needs no
+%  brain VE, so it can also be computed for the spine-only subjects. This
+%  brings Cord-EMG to the full n=9 for the raw-spectra grid and the
+%  peak-frequency summary; the two brain pairs remain n=7.
+%% =========================================================================
+extra_subs     = setdiff(cfg.subs_spine, subs, 'stable');
+spineEMG_extra = struct('sub', {}, 'coh', {}, 'fax', {}, 'peakf', {}, ...
+                        'peak_mt', {}, 'peak_nt', {});
+for ee = 1:numel(extra_subs)
+    esub = extra_subs{ee};
+    fprintf('  [Step B extra] Spine-only subject %s (Cord-EMG only)\n', esub);
+    try
+        datwithEMGmerged = get_datafile(data_root, esub);
+        D     = spm_eeg_load(datwithEMGmerged);
+        ftdat = spm2fieldtrip(D);
+
+        sVE_file = fullfile(save_dir, sprintf(cfg.spine_ve_pattern, esub));
+        sVE_data = load(sVE_file);
+        sVE      = sVE_data.(cfg.spine_ve_varname);
+
+        cfg_ft = []; cfg_ft.channel = 'EXG1';
+        EMG = ft_selectdata(cfg_ft, ftdat);
+        cfg_ft = []; cfg_ft.rectify = 'yes';
+        EMG = ft_preprocessing(cfg_ft, EMG);
+
+        statidx = find(ftdat.trialinfo==1);
+        restidx = find(ftdat.trialinfo==2);
+        nTrials = min(length(statidx), length(restidx));
+        cfg_ft = []; cfg_ft.trials = statidx(1:nTrials);
+        statS   = ft_selectdata(cfg_ft, sVE);
+        statEMG = ft_selectdata(cfg_ft, EMG);
+
+        statScont   = [statS.trial{:}];
+        statEMGcont = abs([statEMG.trial{:}]);
+        samp_rate   = ftdat.hdr.Fs;
+
+        [f3_mt, ~, ~] = sp2a2_R2_mt(statScont', statEMGcont', samp_rate, seg_pwr, 'M4');
+        fax_e       = f3_mt(:,1)';
+        coh_SE_full = f3_mt(:,4)';
+
+        % peak frequency + tapered peak coherence in band (matches main loop)
+        band_mask   = fax_e >= fband(1) & fax_e <= fband(2);
+        f_band      = fax_e(band_mask);
+        [pk_mt, ig] = max(coh_SE_full(band_mask));
+
+        % non-tapered R2 for the NT peak-coherence column (matches main-loop f3_nt)
+        [f3_nt, ~, ~] = sp2a2_R2_mt(statScont', statEMGcont', samp_rate, seg_pwr);
+        fax_nt  = f3_nt(:,1)';
+        band_nt = fax_nt >= fband(1) & fax_nt <= fband(2);
+        pk_nt   = max(f3_nt(band_nt,4));
+
+        spineEMG_extra(end+1) = struct('sub', esub, 'coh', coh_SE_full, ...
+            'fax', fax_e, 'peakf', f_band(ig), 'peak_mt', pk_mt, 'peak_nt', pk_nt); %#ok<AGROW>
+    catch ME
+        warning('Cord-EMG failed for spine-only subject %s: %s', esub, ME.message);
+        spineEMG_extra(end+1) = struct('sub', esub, 'coh', [], ...
+            'fax', [], 'peakf', NaN, 'peak_mt', NaN, 'peak_nt', NaN); %#ok<AGROW>
+    end
+end
+
 p1_idx = 1;  % Participant 1, highlighted throughout the group figures below
 
 %% =========================================================================
@@ -562,6 +624,219 @@ if saveFigs
     saveas(hfig_aligned,  fullfile(fig_dir,['group_coherence_spectra_global' cfg.fig_suffix '.png']));
 end
 
+%% Raw (unaligned) coherence spectra — N x 3 grid, one row per participant
+% Shaped for A4 portrait: rows = participants, columns = pairs (Brain-EMG,
+% Brain-Cord, Cord-EMG). The brain columns are empty for the spine-only
+% subjects. Coherence line only, restricted to the 10-35 Hz band of interest,
+% with each panel scaled individually to its own peak.
+%
+% Canonical participant order used for BOTH this grid and the peak-frequency
+% boxplot below: the 7 brain subjects first, in the SAME order as
+% plot_freq_correlation_plots.m and the partial-coherence figure (so P1-P7 =
+% the same subjects with the same lines() colours across every figure),
+% followed by the 2 spine-only subjects as P8-P9.
+grid_extras = setdiff(cfg.subs_spine, subs, 'stable');
+grid_subs   = [subs, grid_extras];
+nRows       = numel(grid_subs);
+xr         = [10 35];  % displayed frequency range = analysis band of interest
+pair_names = {'Brain-EMG','Brain-Cord','Cord-EMG'};
+pair_cols  = {col_BE, col_BS, col_SE};
+
+grid_coh = cell(nRows, 3);   % {participant, pair} coherence (x1e-3)
+grid_fax = cell(nRows, 3);   % matching frequency axis
+for rr = 1:nRows
+    sub_c = grid_subs{rr};
+    bi = find(strcmp(subs, sub_c));
+    if ~isempty(bi)
+        grid_coh{rr,1} = all_coh_brainEMG_stat(bi,:)   * 1e3; grid_fax{rr,1} = freq_axis;
+        grid_coh{rr,2} = all_coh_brainSpine_stat(bi,:) * 1e3; grid_fax{rr,2} = freq_axis;
+        grid_coh{rr,3} = all_coh_spineEMG_stat(bi,:)   * 1e3; grid_fax{rr,3} = freq_axis;
+    else
+        ei = find(strcmp({spineEMG_extra.sub}, sub_c));
+        if ~isempty(ei) && ~isempty(spineEMG_extra(ei).coh)
+            grid_coh{rr,3} = spineEMG_extra(ei).coh * 1e3; grid_fax{rr,3} = spineEMG_extra(ei).fax;
+        end
+    end
+end
+
+% last populated row per column — carries that column's x tick labels, since
+% the bottom row (a spine-only subject) is empty in the brain columns
+last_row = zeros(3,1);
+for cc = 1:3
+    for rr = 1:nRows
+        if ~isempty(grid_coh{rr,cc}), last_row(cc) = rr; end
+    end
+end
+
+hfig_grid = figure('Color','w','Position',[100 30 680 960]);   % A4 portrait
+for rr = 1:nRows
+    for cc = 1:3
+        ax = subplot(nRows, 3, (rr-1)*3 + cc); hold(ax,'on');
+        y = grid_coh{rr,cc}; f = grid_fax{rr,cc};
+        if isempty(y)
+            axis(ax,'off');
+        else
+            plot(ax, f, y, 'Color', pair_cols{cc}, 'LineWidth', 1.1);
+            xlim(ax, xr);
+            in_band = f >= xr(1) & f <= xr(2);          % scale panel to its own
+            pk = max(y(in_band));                         % in-band peak
+            if isempty(pk) || ~(pk > 0), pk = 1; end
+            ylim(ax, [0 pk*1.1]);
+            set(ax, 'FontSize', 7); box(ax,'off');
+            set(ax, 'XTick', [10 20 30]);   % x tick labels kept on every panel
+            if rr == last_row(cc)
+                xlabel(ax, 'Frequency (Hz)', 'FontSize', 8);
+            end
+        end
+        if rr == 1, title(ax, pair_names{cc}, 'FontSize', 10); end
+        if cc == 1
+            % participant row label, drawn as a text child so it survives on
+            % the empty (spine-only) Brain-EMG panels, where axis off would
+            % otherwise hide a ylabel
+            text(ax, -0.30, 0.5, sprintf('P%d', rr), 'Units','normalized', ...
+                'Rotation', 90, 'HorizontalAlignment','center', ...
+                'FontWeight','bold', 'FontSize', 10);
+        end
+    end
+end
+% one y-axis units label for the whole grid (units are x1e-3 throughout)
+hax_lbl = axes('Parent', hfig_grid, 'Position', [0 0 1 1], 'Visible', 'off');
+text(hax_lbl, 0.03, 0.5, 'Coherence (x1e-3)', 'Rotation', 90, ...
+    'HorizontalAlignment', 'center', 'FontSize', 11);
+if saveFigs
+    grid_base = fullfile(fig_dir,['coherence_spectra_grid_raw' cfg.fig_suffix]);
+    savefig(hfig_grid, [grid_base '.fig']);
+    saveas(hfig_grid,  [grid_base '.png']);
+    exportgraphics(hfig_grid, [grid_base '.pdf'], 'ContentType','vector');
+    print(hfig_grid,   [grid_base '.svg'], '-dsvg', '-painters');
+end
+
+%% Peak coherence frequency summary (10-35 Hz) — one horizontal box per pair
+% Brain pairs use the 7 common subjects; Cord-EMG uses all 9. Each participant
+% is a labeled point; P-index is the participant's position in the canonical
+% grid_subs order (brain subjects P1-P7, then spine-only P8-P9).
+pf_BE = global_peak_freq(:,1);   % 7 x 1 (subs order)
+pf_BC = global_peak_freq(:,2);
+pf_SE = global_peak_freq(:,3);
+
+pf_SE_all = nan(nRows,1);        % Cord-EMG peak freq, canonical order (n=9)
+for cc = 1:nRows
+    sub_c = grid_subs{cc};
+    si = find(strcmp(subs, sub_c));
+    if ~isempty(si)
+        pf_SE_all(cc) = pf_SE(si);
+    else
+        ei = find(strcmp({spineEMG_extra.sub}, sub_c));
+        if ~isempty(ei), pf_SE_all(cc) = spineEMG_extra(ei).peakf; end
+    end
+end
+
+pf_sets  = {pf_BE, pf_BC, pf_SE_all};
+pf_names = {'Brain-EMG','Brain-Cord','Cord-EMG'};
+pf_cols  = {col_BE, col_BS, col_SE};
+
+% per-participant peak-frequency matrix (spine P-index x pair), used to trace
+% each participant across the 3 pairs; brain pairs are NaN for spine-only subs
+pf_by_part = nan(nRows, 3);
+for cc = 1:nRows
+    sub_c = grid_subs{cc};
+    si = find(strcmp(subs, sub_c));
+    if ~isempty(si)
+        pf_by_part(cc,1) = pf_BE(si);
+        pf_by_part(cc,2) = pf_BC(si);
+    end
+    pf_by_part(cc,3) = pf_SE_all(cc);
+end
+% per-participant colours consistent with plot_freq_correlation_plots.m: the 7
+% brain-cap-spine subjects take lines(nSubs) in the SAME subject order used
+% there (subs = intersect(subs_brain,subs_spine,'stable')), so a given subject
+% keeps its colour across scripts. The 2 spine-only subjects (not present in
+% that script) get distinct extra colours that cannot collide with lines(7).
+base_cmap  = lines(nSubs);
+extra_cols = [0.00 0.00 0.00;    % OP00220 — near-black
+              0.60 0.40 0.20];   % OP00226 — brown
+pt_cmap = zeros(nRows,3);
+ie = 0;
+for cc = 1:nRows
+    si = find(strcmp(subs, grid_subs{cc}));
+    if ~isempty(si)
+        pt_cmap(cc,:) = base_cmap(si,:);
+    else
+        ie = ie + 1;
+        pt_cmap(cc,:) = extra_cols(min(ie,size(extra_cols,1)),:);
+    end
+end
+
+hfig_pf = figure('Color','w','Position',[100 100 640 420]); hold on;
+box_hh = 0.28;
+for rr = 1:3
+    v = pf_sets{rr}; v = v(isfinite(v));
+    if isempty(v), continue; end
+    q1 = quantile(v,0.25); q3 = quantile(v,0.75); md = median(v);
+    wlo = min(v); whi = max(v); yc = rr;
+    plot([wlo q1],[yc yc],'-','Color',[0.2 0.2 0.2],'LineWidth',1.2);
+    plot([q3 whi],[yc yc],'-','Color',[0.2 0.2 0.2],'LineWidth',1.2);
+    plot([wlo wlo],yc+[-0.1 0.1],'-','Color',[0.2 0.2 0.2],'LineWidth',1.2);
+    plot([whi whi],yc+[-0.1 0.1],'-','Color',[0.2 0.2 0.2],'LineWidth',1.2);
+    fill([q1 q3 q3 q1], yc+[-1 -1 1 1]*box_hh, [0.85 0.85 0.85], ...
+        'FaceAlpha',0.35,'EdgeColor',[0.2 0.2 0.2],'LineWidth',1.2);
+    plot([md md], yc+[-1 1]*box_hh,'-','Color',[0.2 0.2 0.2],'LineWidth',2.2);
+end
+% per-participant traces + markers, one colour per participant
+rng(0);
+pf_yj = 0.12*randn(nRows,1);   % one y-jitter per participant, shared across pairs
+% P8 (OP00220, spine-only, lone Cord-EMG dot) sits exactly on P5 (OP00225) at
+% ~19 Hz — nudge it up so the two markers/labels separate
+pf_yj(strcmp(grid_subs,'OP00220')) = pf_yj(strcmp(grid_subs,'OP00220')) + 0.30;
+for cc = 1:nRows
+    yy = (1:3) + pf_yj(cc);
+    xx = pf_by_part(cc,:);
+    ok = isfinite(xx);
+    if sum(ok) >= 2   % connecting trace needs at least two pairs
+        plot(xx(ok), yy(ok), '-', 'Color', [pt_cmap(cc,:) 0.55], ...
+            'LineWidth', 1.3, 'HandleVisibility','off');
+    end
+    for rr = 1:3
+        if ~ok(rr), continue; end
+        plot(xx(rr), yy(rr), 'o','MarkerSize',7, ...
+            'MarkerFaceColor',pt_cmap(cc,:),'MarkerEdgeColor','w','LineWidth',0.8);
+    end
+    % label each participant at their Cord-EMG marker (no leader line)
+    text(xx(3)+0.25, yy(3), sprintf('P%d', cc), 'FontSize',8, ...
+        'Color', pt_cmap(cc,:)*0.75, 'FontWeight','bold','VerticalAlignment','middle');
+end
+xlim([fband(1)-1 fband(2)+1]); ylim([0.4 3.9]);
+set(gca,'YTick',1:3,'YTickLabel',pf_names,'FontSize',12,'TickDir','out');
+xlabel('Peak coherence frequency (Hz)','FontSize',12);
+box off;
+if saveFigs
+    pf_base = fullfile(fig_dir,['peak_coherence_frequency_summary' cfg.fig_suffix]);
+    savefig(hfig_pf, [pf_base '.fig']);
+    saveas(hfig_pf,  [pf_base '.png']);
+    exportgraphics(hfig_pf, [pf_base '.pdf'], 'ContentType','vector');
+    print(hfig_pf,   [pf_base '.svg'], '-dsvg', '-painters');
+end
+
+fprintf('\n=== Peak coherence frequency (%.0f-%.0f Hz) ===\n', fband(1), fband(2));
+fprintf('  %-12s  %9s  %9s  %9s\n','Sub','Brain-EMG','Brain-Cord','Cord-EMG');
+for cc = 1:nRows
+    sub_c = grid_subs{cc};
+    si = find(strcmp(subs, sub_c));
+    be = NaN; bc = NaN;
+    if ~isempty(si), be = pf_BE(si); bc = pf_BC(si); end
+    fprintf('  %-12s  %9.2f  %9.2f  %9.2f\n', sub_c, be, bc, pf_SE_all(cc));
+end
+fprintf('  %-12s  %9.2f  %9.2f  %9.2f\n','Median', ...
+    median(pf_BE,'omitnan'), median(pf_BC,'omitnan'), median(pf_SE_all,'omitnan'));
+fprintf('  %-12s  %9.2f  %9.2f  %9.2f\n','MAD', ...
+    mad(pf_BE,1), mad(pf_BC,1), mad(pf_SE_all,1));
+fprintf('  ---------------------------------------------\n');
+fprintf('  Median peak frequency by pair (Hz):\n');
+fprintf('    Brain-EMG  (n=%d): %.2f\n', sum(isfinite(pf_BE)),     median(pf_BE,'omitnan'));
+fprintf('    Brain-Cord (n=%d): %.2f\n', sum(isfinite(pf_BC)),     median(pf_BC,'omitnan'));
+fprintf('    Cord-EMG   (n=%d): %.2f\n', sum(isfinite(pf_SE_all)), median(pf_SE_all,'omitnan'));
+fprintf('===============================================\n');
+
 %% Brain-spine peak coherence vs threshold — boxplot
 % Full coherence + NeuroSpec analytic CL. Box = median/IQR, whiskers to
 % min/max, individual subjects jittered and colored by significance,
@@ -712,18 +987,41 @@ fprintf('  Spine FOOOF: static=%.4e  rest=%.4e\n', ...
 fprintf('====================================================\n');
 
 %% Supplementary table: peak coherence magnitude
+tbl_vars = {'BrainEMG_MT','BrainSpine_MT','SpineEMG_MT', ...
+            'BrainEMG_NT','BrainSpine_NT','SpineEMG_NT'};
+% Row labels as P#/subject (canonical numbering) so readers can map the
+% participant labels used in the figures back to subject IDs.
+row_lbl_main = arrayfun(@(k) sprintf('P%d/%s', k, subs{k}), ...
+    1:numel(subs), 'UniformOutput', false);
 peak_coh_table_full = array2table(...
     [peak_coh_brainEMG, peak_coh_brainSpine, peak_coh_spineEMG, ...
      peak_coh_brainEMG_nt, peak_coh_brainSpine_nt, peak_coh_spineEMG_nt], ...
-    'VariableNames',{'BrainEMG_MT','BrainSpine_MT','SpineEMG_MT', ...
-    'BrainEMG_NT','BrainSpine_NT','SpineEMG_NT'},'RowNames',subs);
-coh_summary = [median(peak_coh_brainEMG,'omitnan'),    median(peak_coh_brainSpine,'omitnan'),    median(peak_coh_spineEMG,'omitnan'), ...
-    median(peak_coh_brainEMG_nt,'omitnan'), median(peak_coh_brainSpine_nt,'omitnan'), median(peak_coh_spineEMG_nt,'omitnan'); ...
-    mad(peak_coh_brainEMG,1),    mad(peak_coh_brainSpine,1),    mad(peak_coh_spineEMG,1), ...
-    mad(peak_coh_brainEMG_nt,1), mad(peak_coh_brainSpine_nt,1), mad(peak_coh_spineEMG_nt,1)];
+    'VariableNames',tbl_vars,'RowNames',row_lbl_main);
+
+% Append the cord-EMG-only subjects (P8/P9): brain pairs are NaN, SpineEMG
+% filled. They follow the 7 brain subjects, matching the canonical numbering.
+if ~isempty(spineEMG_extra)
+    ex_mt   = [spineEMG_extra.peak_mt]';
+    ex_nt   = [spineEMG_extra.peak_nt]';
+    nEx     = numel(ex_mt);
+    row_lbl_ex = arrayfun(@(j) sprintf('P%d/%s', numel(subs)+j, spineEMG_extra(j).sub), ...
+        1:nEx, 'UniformOutput', false);
+    ex_rows = array2table([nan(nEx,2), ex_mt, nan(nEx,2), ex_nt], ...
+        'VariableNames',tbl_vars,'RowNames',row_lbl_ex);
+    peak_coh_table_full = [peak_coh_table_full; ex_rows];
+end
+
+% SpineEMG (Cord-EMG) summary spans all available subjects (n=9); the two
+% brain pairs stay n=7. mad() has no omitnan, so filter finite values.
+spineEMG_mt_all = peak_coh_table_full.SpineEMG_MT;
+spineEMG_nt_all = peak_coh_table_full.SpineEMG_NT;
+madfin = @(x) mad(x(isfinite(x)),1);
+coh_summary = [median(peak_coh_brainEMG,'omitnan'),    median(peak_coh_brainSpine,'omitnan'),    median(spineEMG_mt_all,'omitnan'), ...
+    median(peak_coh_brainEMG_nt,'omitnan'), median(peak_coh_brainSpine_nt,'omitnan'), median(spineEMG_nt_all,'omitnan'); ...
+    mad(peak_coh_brainEMG,1),    mad(peak_coh_brainSpine,1),    madfin(spineEMG_mt_all), ...
+    mad(peak_coh_brainEMG_nt,1), mad(peak_coh_brainSpine_nt,1), madfin(spineEMG_nt_all)];
 supp_table_1b = [peak_coh_table_full; array2table(coh_summary, ...
-    'VariableNames',{'BrainEMG_MT','BrainSpine_MT','SpineEMG_MT', ...
-    'BrainEMG_NT','BrainSpine_NT','SpineEMG_NT'},'RowNames',{'Median','MAD'})];
+    'VariableNames',tbl_vars,'RowNames',{'Median','MAD'})];
 fprintf('\n  Supplementary Table 1b: Peak coherence (R2)\n'); disp(supp_table_1b);
 try
     writetable(supp_table_1b, fullfile(fig_dir,'SuppTable1b_peak_coherence_BS.csv'),'WriteRowNames',true);
@@ -792,6 +1090,7 @@ end
 sgtitle('Directionality: Halliday R2 (top) vs PSI (bottom, BS)','FontSize',14,'Interpreter','none');
 if saveFigs
     savefig(hfig_dir_comp, fullfile(fig_dir,['group_directionality_comparison' cfg.fig_suffix '.fig']));
+    saveas(hfig_dir_comp,  fullfile(fig_dir,['group_directionality_comparison' cfg.fig_suffix '.png']));
 end
 
 %% Peak latency plot + printout
@@ -830,6 +1129,7 @@ ylabel('Peak latency (ms)','FontSize',14); set(gca,'FontSize',14); grid on; box 
 title('Cross-correlation peak latencies (BS)','Interpreter','none','FontSize',14);
 if saveFigs
     savefig(hfig_lat, fullfile(fig_dir,['group_peak_latencies' cfg.fig_suffix '.fig']));
+    saveas(hfig_lat,  fullfile(fig_dir,['group_peak_latencies' cfg.fig_suffix '.png']));
 end
 
 fprintf('\n=== Peak latencies (ms) ===\n');
@@ -844,6 +1144,13 @@ for ss = 1:nSubs
         brainEMG_lat(ss), brainSpine_lat(ss), spineEMG_lat(ss));
 end
 fprintf('=======================================================\n');
+
+%% Final summary: median frequency of peak coherence, per signal pair
+fprintf('\n=== Median frequency of peak coherence by pair (%.0f-%.0f Hz) ===\n', fband(1), fband(2));
+fprintf('  Brain-EMG  (n=%d): %.2f Hz\n', sum(isfinite(pf_BE)),     median(pf_BE,'omitnan'));
+fprintf('  Brain-Cord (n=%d): %.2f Hz\n', sum(isfinite(pf_BC)),     median(pf_BC,'omitnan'));
+fprintf('  Cord-EMG   (n=%d): %.2f Hz\n', sum(isfinite(pf_SE_all)), median(pf_SE_all,'omitnan'));
+fprintf('===============================================================\n');
 
 end  % run_coherence_spectra
 

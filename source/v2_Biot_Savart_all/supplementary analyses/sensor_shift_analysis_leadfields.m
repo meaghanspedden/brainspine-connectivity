@@ -180,11 +180,22 @@ end
 %  per shift level for BS (left) and BEM (right). One figure per orientation.
 %
 %  Adjust target_shifts to match magnitudes present in your data.
-target_shifts = [5, 15, 25];   % mm — edit to match your actual shift values
+target_shifts = [5, 15, 25];   % mm — nominal targets used only to SELECT a
+                               % representative condition near each level
 shift_cols    = [0.20 0.52 0.78;   % blue   — small
                  0.89 0.47 0.10;   % orange — medium
                  0.17 0.63 0.17];  % green  — large
 shift_styles  = {'-', '--', ':'};  % solid / dashed / dotted
+
+% Each target maps to the nearest AVAILABLE shift condition. Label the legend
+% with that condition's TRUE magnitude, not the nominal target: the dataset
+% contains no exact 5/15/25 mm shifts (largest available is ~20 mm), so a
+% "25 mm" label would misstate the data.
+actual_mags = zeros(size(target_shifts));
+for ti = 1:numel(target_shifts)
+    [~, ni]         = min(abs(all_mags - target_shifts(ti)));
+    actual_mags(ti) = all_mags(ni);
+end
 
 for ori = 1:3
     figure('Color','w','Position',[100 100 1000 420]);
@@ -258,17 +269,19 @@ for ori = 1:3
         grid on; box on;
 
         legend(leg_handles, ...
-            arrayfun(@(t) sprintf('%g mm', t), target_shifts, 'UniformOutput', false), ...
+            arrayfun(@(m) sprintf('%.1f mm', m), actual_mags, 'UniformOutput', false), ...
             'Location','southwest', 'Box','off', 'FontSize', 11);
     end
 
     sgtitle(sprintf('Sensor shift sensitivity — %s dipole orientation', ori_labels{ori}), ...
         'FontSize', 13);
 
-    fig_out = fullfile(bs_lf_path, ...
-        sprintf('sensitivity_simple_BEM_vs_BS_%s.png', ori_labels{ori}));
-    print(gcf, fig_out, '-dpng', '-r300');
-    fprintf('Simple figure saved: %s\n', fig_out);
+    fig_base = fullfile(bs_lf_path, ...
+        sprintf('sensitivity_simple_BEM_vs_BS_%s', ori_labels{ori}));
+    print(gcf, [fig_base '.png'], '-dpng', '-r300');
+    exportgraphics(gcf, [fig_base '.pdf'], 'ContentType','vector');
+    print(gcf, [fig_base '.svg'], '-dsvg', '-painters');
+    fprintf('Simple figure saved: %s (.png/.pdf/.svg)\n', fig_base);
 end
 
 %% ── BS only, AP orientation, simplified 3-line figure ────────────────────────
@@ -317,7 +330,7 @@ grid on; box on;
 set(gca, 'FontSize', 13);
 
 legend(leg_handles_ap, ...
-    arrayfun(@(t) sprintf('%g mm', t), target_shifts, 'UniformOutput', false), ...
+    arrayfun(@(m) sprintf('%.1f mm', m), actual_mags, 'UniformOutput', false), ...
     'Location','southwest', 'Box','off', 'FontSize', 11);
 
 fig_out = fullfile(bs_lf_path, 'sensitivity_bs_AP_simple.png');
