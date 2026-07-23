@@ -832,15 +832,12 @@ for cc = 1:nRows
     if ~isempty(si), be = pf_BE(si); bc = pf_BC(si); end
     fprintf('  %-12s  %9.2f  %9.2f  %9.2f\n', sub_c, be, bc, pf_SE_all(cc));
 end
+fprintf('  %-12s  %9d  %9d  %9d\n','n', ...
+    sum(isfinite(pf_BE)), sum(isfinite(pf_BC)), sum(isfinite(pf_SE_all)));
 fprintf('  %-12s  %9.2f  %9.2f  %9.2f\n','Median', ...
     median(pf_BE,'omitnan'), median(pf_BC,'omitnan'), median(pf_SE_all,'omitnan'));
 fprintf('  %-12s  %9.2f  %9.2f  %9.2f\n','MAD', ...
     mad(pf_BE,1), mad(pf_BC,1), mad(pf_SE_all,1));
-fprintf('  ---------------------------------------------\n');
-fprintf('  Median peak frequency by pair (Hz), MAD in parentheses:\n');
-fprintf('    Brain-EMG  (n=%d): %.2f (MAD %.2f)\n', sum(isfinite(pf_BE)),     median(pf_BE,'omitnan'),     mad(pf_BE(isfinite(pf_BE)),1));
-fprintf('    Brain-Cord (n=%d): %.2f (MAD %.2f)\n', sum(isfinite(pf_BC)),     median(pf_BC,'omitnan'),     mad(pf_BC(isfinite(pf_BC)),1));
-fprintf('    Cord-EMG   (n=%d): %.2f (MAD %.2f)\n', sum(isfinite(pf_SE_all)), median(pf_SE_all,'omitnan'), mad(pf_SE_all(isfinite(pf_SE_all)),1));
 fprintf('===============================================\n');
 
 %% Brain-spine peak coherence vs threshold — boxplot
@@ -948,10 +945,16 @@ if ~isempty(p1_brain_stat_trials)
            p1_brain_stat_trials > 0 & p1_brain_rest_trials > 0;
     [~,pb1,~,sb1] = ttest(log(p1_brain_stat_trials(okB1)), log(p1_brain_rest_trials(okB1)));
     fprintf('  Brain VE: n=%d trials, t(%d)=%.3f, p=%.4g\n', sum(okB1), sb1.df, sb1.tstat, pb1);
+    fprintf('    Static: median=%.4e (MAD %.4e)   Rest: median=%.4e (MAD %.4e)\n', ...
+        median(p1_brain_stat_trials(okB1)), mad(p1_brain_stat_trials(okB1),1), ...
+        median(p1_brain_rest_trials(okB1)), mad(p1_brain_rest_trials(okB1),1));
     okS1 = isfinite(p1_spine_stat_trials) & isfinite(p1_spine_rest_trials) & ...
            p1_spine_stat_trials > 0 & p1_spine_rest_trials > 0;
     [~,ps1,~,ss1] = ttest(log(p1_spine_stat_trials(okS1)), log(p1_spine_rest_trials(okS1)));
     fprintf('  Spine VE: n=%d trials, t(%d)=%.3f, p=%.4g\n', sum(okS1), ss1.df, ss1.tstat, ps1);
+    fprintf('    Static: median=%.4e (MAD %.4e)   Rest: median=%.4e (MAD %.4e)\n', ...
+        median(p1_spine_stat_trials(okS1)), mad(p1_spine_stat_trials(okS1),1), ...
+        median(p1_spine_rest_trials(okS1)), mad(p1_spine_rest_trials(okS1),1));
 else
     fprintf('  P1 trial data not available.\n');
 end
@@ -959,16 +962,12 @@ fprintf('=======================================================\n');
 
 %% FOOOF
 fprintf('\n=== Group: FOOOF periodic power (%.0f-%.0f Hz) ===\n', fband(1), fband(2));
-fprintf('  Sub           Brain_stat   Brain_rest   Spine_stat   Spine_rest\n');
-for ss = 1:nSubs
-    fprintf('  %-12s  %10.4e   %10.4e   %10.4e   %10.4e\n', subs{ss}, ...
-        Pstat_brain_fooof(ss), Prest_brain_fooof(ss), ...
-        Pstat_spine_fooof(ss), Prest_spine_fooof(ss));
-end
-fprintf('  Median stat:  %10.4e              %10.4e\n', ...
-    median(Pstat_brain_fooof,'omitnan'), median(Pstat_spine_fooof,'omitnan'));
-fprintf('  Median rest:  %10.4e              %10.4e\n', ...
-    median(Prest_brain_fooof,'omitnan'), median(Prest_spine_fooof,'omitnan'));
+fprintf('  Brain: static median=%.4e (MAD %.4e), rest median=%.4e (MAD %.4e)\n', ...
+    median(Pstat_brain_fooof,'omitnan'), mad(Pstat_brain_fooof(isfinite(Pstat_brain_fooof)),1), ...
+    median(Prest_brain_fooof,'omitnan'), mad(Prest_brain_fooof(isfinite(Prest_brain_fooof)),1));
+fprintf('  Spine: static median=%.4e (MAD %.4e), rest median=%.4e (MAD %.4e)\n', ...
+    median(Pstat_spine_fooof,'omitnan'), mad(Pstat_spine_fooof(isfinite(Pstat_spine_fooof)),1), ...
+    median(Prest_spine_fooof,'omitnan'), mad(Prest_spine_fooof(isfinite(Prest_spine_fooof)),1));
 okBf = Pstat_brain_fooof>0 & Prest_brain_fooof>0 & isfinite(Pstat_brain_fooof) & isfinite(Prest_brain_fooof);
 okSf = Pstat_spine_fooof>0 & Prest_spine_fooof>0 & isfinite(Pstat_spine_fooof) & isfinite(Prest_spine_fooof);
 fprintf('\n  Paired t-test (log, zeros excluded):\n');
@@ -988,10 +987,8 @@ fprintf('=======================================================\n');
 
 %% P1 beta band power
 fprintf('\n=== Participant 1 — beta band power (%.0f-%.0f Hz) ===\n', fband(1), fband(2));
-fprintf('  Brain VE:    static=%.4e  rest=%.4e  ratio=%.3f\n', ...
-    Pstat_brain(p1_idx), Prest_brain(p1_idx), Pstat_brain(p1_idx)/Prest_brain(p1_idx));
-fprintf('  Spine VE:    static=%.4e  rest=%.4e  ratio=%.3f\n', ...
-    Pstat_spine(p1_idx), Prest_spine(p1_idx), Pstat_spine(p1_idx)/Prest_spine(p1_idx));
+fprintf('  Brain VE:    static=%.4e  rest=%.4e\n', Pstat_brain(p1_idx), Prest_brain(p1_idx));
+fprintf('  Spine VE:    static=%.4e  rest=%.4e\n', Pstat_spine(p1_idx), Prest_spine(p1_idx));
 fprintf('  Brain FOOOF: static=%.4e  rest=%.4e\n', ...
     Pstat_brain_fooof(p1_idx), Prest_brain_fooof(p1_idx));
 fprintf('  Spine FOOOF: static=%.4e  rest=%.4e\n', ...
@@ -1156,13 +1153,6 @@ for ss = 1:nSubs
         brainEMG_lat(ss), brainSpine_lat(ss), spineEMG_lat(ss));
 end
 fprintf('=======================================================\n');
-
-%% Final summary: median frequency of peak coherence, per signal pair
-fprintf('\n=== Median frequency of peak coherence by pair (%.0f-%.0f Hz) ===\n', fband(1), fband(2));
-fprintf('  Brain-EMG  (n=%d): %.2f Hz\n', sum(isfinite(pf_BE)),     median(pf_BE,'omitnan'));
-fprintf('  Brain-Cord (n=%d): %.2f Hz\n', sum(isfinite(pf_BC)),     median(pf_BC,'omitnan'));
-fprintf('  Cord-EMG   (n=%d): %.2f Hz\n', sum(isfinite(pf_SE_all)), median(pf_SE_all,'omitnan'));
-fprintf('===============================================================\n');
 
 end  % run_coherence_spectra
 
