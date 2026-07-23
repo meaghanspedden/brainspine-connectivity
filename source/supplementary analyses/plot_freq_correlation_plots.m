@@ -15,11 +15,17 @@ clear all; close all; clc;
 %% =========================================================================
 %  CONFIG
 %% =========================================================================
-fieldtrip_path = 'C:\Users\mspedden\Documents\fieldtrip';
-spm_path       = 'C:\Users\mspedden\Documents\spm';
-neurospec_path = 'C:\Users\mspedden\Documents\neurospec211NEW\neurospec211';
-data_root      = 'C:\spinecoh_data';
-save_dir       = 'C:\Users\mspedden\Documents\brainspine_savetest';
+% Machine-specific paths live in source/brainspine_config.m — edit that
+% file to match your local installation.
+repo_root = fileparts(fileparts(fileparts(mfilename('fullpath'))));
+addpath(fullfile(repo_root, 'source'));
+paths = brainspine_config();
+
+fieldtrip_path = paths.fieldtrip_path;
+spm_path       = paths.spm_path;
+neurospec_path = paths.neurospec_path;
+data_root      = paths.data_root;
+save_dir       = paths.save_dir;
 
 brain_ve_suffix  = '_brain_pct10';
 spine_ve_pattern = 'VE_spine_prevalence_sub%s_forspectra_BS.mat';

@@ -20,14 +20,20 @@ clc
 %  USER CONFIG — edit this section only
 %  =========================================================================
 
-% --- Toolbox / path setup -------------------------------------------------
-cfg.fieldtrip_path  = 'C:\Users\mspedden\Documents\fieldtrip';   % update if different
-cfg.spm_path        = 'C:\Users\mspedden\Documents\spm';          % update if different
+% --- Toolbox / path setup ---------------------------------------------------
+% Machine-specific paths live in source/brainspine_config.m — edit that
+% file to match your local installation.
+repo_root = fileparts(fileparts(mfilename('fullpath')));
+addpath(fullfile(repo_root, 'source'));
+paths = brainspine_config();
+
+cfg.fieldtrip_path  = paths.fieldtrip_path;
+cfg.spm_path        = paths.spm_path;
 
 % --- Data & geometry paths ------------------------------------------------
-cfg.geomfile = 'C:\Leadfields meshes\geometries_experimental_withbrain.mat';
-cfg.T_mat_path      = 'C:\Leadfields meshes\T.mat';
-cfg.save_dir        = 'C:\forGeneratingFigures';
+cfg.geomfile   = paths.geomfile;
+cfg.T_mat_path = paths.T_mat_path;
+cfg.save_dir   = paths.figures_out_dir;
 
 % --- Smoothing config 
 cfg.doSmooth             = 1;

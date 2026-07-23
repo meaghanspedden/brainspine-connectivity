@@ -44,14 +44,20 @@ clear all; close all; clc;
 %% =========================================================================
 %  USER CONFIG
 %% =========================================================================
-fieldtrip_path = 'C:\Users\mspedden\Documents\fieldtrip';
-spm_path       = 'C:\Users\mspedden\Documents\spm';
-bsc_path       = 'C:\Users\mspedden\Documents\brainspineconnectivity\source';
-data_root      = 'C:\spinecoh_data';
-save_dir       = 'C:\Users\mspedden\Documents\brainspine_savetest';
+% Machine-specific paths live in source/brainspine_config.m — edit that
+% file to match your local installation.
+repo_root = fileparts(fileparts(mfilename('fullpath')));
+addpath(fullfile(repo_root, 'source'));
+paths = brainspine_config();
 
-geomfile       = 'C:\Leadfields meshes\geometries_experimental_withbrain.mat';
-lf_path        = 'C:\Leadfields meshes\leadfield_experimental_bslaw_experimental.mat';
+fieldtrip_path = paths.fieldtrip_path;
+spm_path       = paths.spm_path;
+bsc_path       = fullfile(repo_root, 'source');
+data_root      = paths.data_root;
+save_dir       = paths.save_dir;
+
+geomfile       = paths.geomfile;
+lf_path        = paths.lf_path;
 
 subs_spine = {'OP00212','OP00213','OP00215','OP00219', ...
               'OP00220','OP00221','OP00224','OP00225','OP00226'};

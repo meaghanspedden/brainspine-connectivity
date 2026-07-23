@@ -26,15 +26,21 @@ clc
 %  USER CONFIG
 %% =========================================================================
 
-cfg.fieldtrip_path  = 'C:\Users\mspedden\Documents\fieldtrip';
-cfg.spm_path        = 'C:\Users\mspedden\Documents\spm';
-cfg.bsc_source_path = 'C:\Users\mspedden\Documents\brainspineconnectivity\source';
+% Machine-specific paths live in source/brainspine_config.m — edit that
+% file to match your local installation.
+repo_root = fileparts(fileparts(fileparts(mfilename('fullpath'))));
+addpath(fullfile(repo_root, 'source'));
+paths = brainspine_config();
 
-cfg.data_root      = 'C:\spinecoh_data';
-cfg.lf_bs_path     = 'C:\Leadfields meshes\leadfield_experimental_bslaw_experimental.mat';
-cfg.geomfile       = 'C:\Leadfields meshes\geometries_experimental_withbrain.mat';
-cfg.T_mat_path     = 'C:\Leadfields meshes\T.mat';
-cfg.save_dir       = 'C:\Users\mspedden\Documents\brainspine_savetest';
+cfg.fieldtrip_path  = paths.fieldtrip_path;
+cfg.spm_path        = paths.spm_path;
+cfg.bsc_source_path = fullfile(repo_root, 'source');
+
+cfg.data_root      = paths.data_root;
+cfg.lf_bs_path     = paths.lf_path;
+cfg.geomfile       = paths.geomfile;
+cfg.T_mat_path     = paths.T_mat_path;
+cfg.save_dir       = paths.save_dir;
 cfg.fig_dir        = fullfile(cfg.save_dir, 'figures', 'unrectified_emg');
 
 cfg.sub = 'OP00212';
@@ -53,7 +59,7 @@ cfg.spine_smooth_radius_mm = 3 * (cfg.spine_smooth_fwhm_mm  / 2.355);
 cfg.brain_smooth_radius_mm = 3 * (cfg.brain_smooth_fwhm_mm / 2.355);
 
 % Rectified results file (from main pipeline) for spine comparison plot
-cfg.rect_results_file = "C:\Users\mspedden\Documents\brainspine_savetest\subResult_subOP00212_BS.mat";
+cfg.rect_results_file = fullfile(cfg.save_dir, 'subResult_subOP00212_BS.mat');
 cfg.p1_idx   = 1;   % index of OP00212 in subjResults
 cfg.saveFigs = 1;
 

@@ -10,13 +10,19 @@ clc
 %% =========================================================================
 %  USER CONFIG
 %% =========================================================================
-cfg.fieldtrip_path  = 'C:\Users\mspedden\Documents\fieldtrip';
-cfg.spm_path        = 'C:\Users\mspedden\Documents\spm';
-cfg.bsc_source_path = 'C:\Users\mspedden\Documents\brainspineconnectivity\source';
-cfg.neurospec_path  = 'C:\Users\mspedden\Documents\neurospec211NEW\neurospec211';
+% Machine-specific paths live in source/brainspine_config.m — edit that
+% file to match your local installation.
+repo_root = fileparts(fileparts(mfilename('fullpath')));
+addpath(fullfile(repo_root, 'source'));
+paths = brainspine_config();
 
-cfg.data_root = 'C:\spinecoh_data';
-cfg.save_dir  = 'C:\Users\mspedden\Documents\brainspine_savetest';
+cfg.fieldtrip_path  = paths.fieldtrip_path;
+cfg.spm_path        = paths.spm_path;
+cfg.bsc_source_path = fullfile(repo_root, 'source');
+cfg.neurospec_path  = paths.neurospec_path;
+
+cfg.data_root = paths.data_root;
+cfg.save_dir  = paths.save_dir;
 
 cfg.subs_brain = {'OP00212','OP00213','OP00215','OP00219', ...
     'OP00225','OP00221','OP00224'};
@@ -831,10 +837,10 @@ fprintf('  %-12s  %9.2f  %9.2f  %9.2f\n','Median', ...
 fprintf('  %-12s  %9.2f  %9.2f  %9.2f\n','MAD', ...
     mad(pf_BE,1), mad(pf_BC,1), mad(pf_SE_all,1));
 fprintf('  ---------------------------------------------\n');
-fprintf('  Median peak frequency by pair (Hz):\n');
-fprintf('    Brain-EMG  (n=%d): %.2f\n', sum(isfinite(pf_BE)),     median(pf_BE,'omitnan'));
-fprintf('    Brain-Cord (n=%d): %.2f\n', sum(isfinite(pf_BC)),     median(pf_BC,'omitnan'));
-fprintf('    Cord-EMG   (n=%d): %.2f\n', sum(isfinite(pf_SE_all)), median(pf_SE_all,'omitnan'));
+fprintf('  Median peak frequency by pair (Hz), MAD in parentheses:\n');
+fprintf('    Brain-EMG  (n=%d): %.2f (MAD %.2f)\n', sum(isfinite(pf_BE)),     median(pf_BE,'omitnan'),     mad(pf_BE(isfinite(pf_BE)),1));
+fprintf('    Brain-Cord (n=%d): %.2f (MAD %.2f)\n', sum(isfinite(pf_BC)),     median(pf_BC,'omitnan'),     mad(pf_BC(isfinite(pf_BC)),1));
+fprintf('    Cord-EMG   (n=%d): %.2f (MAD %.2f)\n', sum(isfinite(pf_SE_all)), median(pf_SE_all,'omitnan'), mad(pf_SE_all(isfinite(pf_SE_all)),1));
 fprintf('===============================================\n');
 
 %% Brain-spine peak coherence vs threshold — boxplot
@@ -926,9 +932,15 @@ fprintf('\n=== Group: paired t-tests %.0f-%.0f Hz band power ===\n', fband(1), f
 okB = isfinite(Pstat_brain) & isfinite(Prest_brain);
 [~,pb,~,sb] = ttest(log(Pstat_brain(okB)), log(Prest_brain(okB)));
 fprintf('  Brain: n=%d, t(%d)=%.3f, p=%.4g\n', sum(okB), sb.df, sb.tstat, pb);
+fprintf('    Static: median=%.4e (MAD %.4e)   Rest: median=%.4e (MAD %.4e)\n', ...
+    median(Pstat_brain(okB)), mad(Pstat_brain(okB),1), ...
+    median(Prest_brain(okB)), mad(Prest_brain(okB),1));
 okS = isfinite(Pstat_spine) & isfinite(Prest_spine);
 [~,ps,~,ss_] = ttest(log(Pstat_spine(okS)), log(Prest_spine(okS)));
 fprintf('  Spine: n=%d, t(%d)=%.3f, p=%.4g\n', sum(okS), ss_.df, ss_.tstat, ps);
+fprintf('    Static: median=%.4e (MAD %.4e)   Rest: median=%.4e (MAD %.4e)\n', ...
+    median(Pstat_spine(okS)), mad(Pstat_spine(okS),1), ...
+    median(Prest_spine(okS)), mad(Prest_spine(okS),1));
 
 fprintf('\n=== Participant 1 — trial-level paired t-test (%.0f-%.0f Hz power) ===\n', fband(1), fband(2));
 if ~isempty(p1_brain_stat_trials)

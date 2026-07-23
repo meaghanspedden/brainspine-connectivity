@@ -19,20 +19,27 @@ close all;
 %  USER CONFIG
 %  =========================================================================
 
-% --- Toolbox paths --------------------------------------------------------
-cfg.spm_path      = 'C:\Users\mspedden\Documents\spm';
-cfg.bsc_plot_path = 'C:\Users\mspedden\Documents\brainspineconnectivityTEST\plotting';
-cfg.bsc_prep_path = 'C:\Users\mspedden\Documents\brainspineconnectivityTEST\preprocessing';
+% --- Toolbox paths ----------------------------------------------------------
+% Machine-specific paths live in source/brainspine_config.m — edit that
+% file to match your local installation. Repo-internal paths are derived
+% automatically from this script's own location.
+repo_root = fileparts(fileparts(mfilename('fullpath')));
+addpath(fullfile(repo_root, 'source'));
+paths = brainspine_config();
+
+cfg.spm_path      = paths.spm_path;
+cfg.bsc_plot_path = fullfile(repo_root, 'plotting');
+cfg.bsc_prep_path = fullfile(repo_root, 'preprocessing');
 
 % --- Data root (BIDS-style: <data_root>/sub-<ID>/ses-001/meg) -------------
-cfg.data_root = 'C:\spinecoh_data';
+cfg.data_root = paths.data_root;
 
 % --- Output directory -----------------------------------------------------
-cfg.save_dir  = 'C:\Users\mspedden\Documents\brainspine_saveTEST';
+cfg.save_dir  = paths.save_dir;
 
 % --- Bad channel files (one per participant: <subID>_badchans.mat) --------
 % These are committed to the repository under preprocessing/channels_removed/
-cfg.badchan_dir = 'C:\Users\mspedden\Documents\brainspineconnectivityTEST\preprocessing\channels_removed';
+cfg.badchan_dir = fullfile(cfg.bsc_prep_path, 'channels_removed');
 
 % --- Subjects to process --------------------------------------------------
 % To process a single subject, use e.g.: cfg.subs = {'OP00212'};
