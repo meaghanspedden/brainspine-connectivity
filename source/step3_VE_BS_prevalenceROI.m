@@ -1,20 +1,7 @@
 %% step3_VE_BS_prevalenceROI.m
 % Step 3: Build spinal virtual electrode using the Biot-Savart (BS)
 % leadfield and the data-driven prevalence-cluster ROI from step 2
-% (run_group_spine), for all subjects.
-%
-% Replaces the earlier anatomically-defined ROI (sources 14:27, C6-T1)
-% and BEM leadfield with:
-%   - Leadfield: leadfield_experimental_bslaw_experimental.mat (leadfield_bs)
-%   - ROI:       cluster_spineEMG_pos_BS.mat (ROIpos), produced by step 2's
-%                run_group_spine prevalence clustering, instead of a fixed
-%                anatomical index range.
-%
-% Filenames below are tagged with a trailing "1" (out_suffix = '_BS1',
-% savename suffix 'forspectra_BS1') so this can be run and checked for
-% reproducibility before being pointed at the exact filenames
-% RUN_SPECTRA_BS.m expects (VE_spine_prevalence_sub%s_forspectra_BS.mat).
-% Drop the "1" once confirmed.
+% for all subjects.
 %
 % Inputs (must exist before running):
 %   geomfile           - geometries_experimental.mat: sources_cent, mesh_torso, mesh_wm
@@ -23,8 +10,8 @@
 %   data_root          - per-subject SPM .mat files (see datafile pattern below)
 %
 % Outputs (written to save_dir / fig_dir):
-%   VE_spine_prevalence_sub<ID>_forspectra_BS1.mat   - per-subject VE, roi_center, R, ROIpos
-%   step3_prevalenceROI_VE_BS1.fig / .png            - ROI location on mesh
+%   VE_spine_prevalence_sub<ID>_forspectra_BS.mat    - per-subject VE, roi_center, R, ROIpos
+%   step3_prevalenceROI_VE_BS.fig / .png            - ROI location on mesh
 
 clear all; close all; clc;
 
@@ -49,7 +36,7 @@ cluster_path   = fullfile(save_dir, 'cluster_spineEMG_pos_BS.mat');
 subs_spine = {'OP00212','OP00213','OP00215','OP00219', ...
               'OP00220','OP00221','OP00224','OP00225','OP00226'};
 
-out_suffix = '_BS1';   % trailing "1" for reproducibility testing; drop once confirmed
+out_suffix = '_BS';
 
 %% =========================================================================
 %  SETUP
