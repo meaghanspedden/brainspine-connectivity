@@ -4,15 +4,7 @@
 % Uses the BS leadfield with label-based channel matching. Lambda = 10%,
 % smoothing 20mm FWHM. All 9 spine subjects. Outputs saved with _BS
 % suffix to distinguish from older (BEM) results.
-%
-% Differs from step2_spineEMG_coherence_DICS.m (v1) in its orientation
-% analysis: v1 produces a per-subject dot-plot of observed vs. null
-% orientation (median +/- IQR). This version (v2) instead produces:
-%   - Per-subject null maxima location histogram
-%   - Dominant orientation extraction per subject (SVD at peak source)
-%   - Participant-1-only null distribution stratified by orientation axis
-%   - Group-level dominant orientation bar chart across participants ("Figure C")
-% Run both and compare outputs to decide which orientation analysis to keep.
+
 %
 % Inputs (must exist before running):
 %   geomfile       - geometries_experimental.mat: sources_cent, mesh_torso,
