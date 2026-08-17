@@ -675,6 +675,7 @@ for cc = 1:3
 end
 
 hfig_grid = figure('Color','w','Position',[100 30 680 960]);   % A4 portrait
+panel_letter = 0;   % incremented only for populated panels, row-wise (A-C, D-F, ...)
 for rr = 1:nRows
     for cc = 1:3
         ax = subplot(nRows, 3, (rr-1)*3 + cc); hold(ax,'on');
@@ -693,6 +694,10 @@ for rr = 1:nRows
             if rr == last_row(cc)
                 xlabel(ax, 'Frequency (Hz)', 'FontSize', 8);
             end
+            panel_letter = panel_letter + 1;
+            text(ax, -0.02, 1.08, char('A' + panel_letter - 1), 'Units','normalized', ...
+                'FontSize', 9, 'FontWeight', 'bold', ...
+                'HorizontalAlignment', 'left', 'VerticalAlignment', 'bottom');
         end
         if rr == 1, title(ax, pair_names{cc}, 'FontSize', 10); end
         if cc == 1
@@ -712,7 +717,7 @@ text(hax_lbl, 0.03, 0.5, 'Coherence (x1e-3)', 'Rotation', 90, ...
 if saveFigs
     grid_base = fullfile(fig_dir,['coherence_spectra_grid_raw' cfg.fig_suffix]);
     savefig(hfig_grid, [grid_base '.fig']);
-    saveas(hfig_grid,  [grid_base '.png']);
+    print(hfig_grid, [grid_base '.png'], '-dpng', '-r300');
     exportgraphics(hfig_grid, [grid_base '.pdf'], 'ContentType','vector');
     print(hfig_grid,   [grid_base '.svg'], '-dsvg', '-painters');
 end
@@ -1043,6 +1048,46 @@ for ss = 1:nSubs
         psi_brainSpine(ss) = results(ss).psi_brainSpine;
         psi_spineEMG(ss)   = results(ss).psi_spineEMG;
     end
+end
+
+%% Directed coherence bar plot
+% Group mean +/- SEM forward vs reverse coherence area per pair, with
+% individual subjects overlaid (jittered) and P1 circled.
+forward_areas = zeros(nSubs,3); reverse_areas = zeros(nSubs,3);
+for ss = 1:nSubs
+    forward_areas(ss,:) = [results(ss).brainEMG.forward_area, results(ss).brainSpine.forward_area, results(ss).spineEMG.forward_area];
+    reverse_areas(ss,:) = [results(ss).brainEMG.reverse_area, results(ss).brainSpine.reverse_area, results(ss).spineEMG.reverse_area];
+end
+mean_fwd = mean(forward_areas,1); mean_rev = mean(reverse_areas,1);
+sem_fwd  = std(forward_areas,0,1)/sqrt(nSubs); sem_rev = std(reverse_areas,0,1)/sqrt(nSubs);
+data_bar = [mean_fwd; mean_rev]'; sems_bar = [sem_fwd; sem_rev]';
+x_labels = {'Brain\rightarrowEMG','Brain\rightarrowSpine','Spine\rightarrowEMG'};
+hfig_bar = figure('Color','w'); hold on;
+b = bar(data_bar,'grouped');
+b(1).FaceColor = [0.3 0.6 0.9]; b(1).FaceAlpha = 0.5;
+b(2).FaceColor = [0.9 0.3 0.3]; b(2).FaceAlpha = 0.5;
+[ngroups, nbars] = size(data_bar);
+groupwidth = min(0.8, nbars/(nbars+1.5));
+jitter = 0.015;
+for i = 1:nbars
+    xpos = (1:ngroups) - groupwidth/2 + (2*i-1)*groupwidth/(2*nbars);
+    errorbar(xpos, data_bar(:,i), sems_bar(:,i), 'k.','LineWidth',1.5);
+    for j = 1:ngroups
+        y = forward_areas(:,j); if i==2, y=reverse_areas(:,j); end
+        xj = xpos(j) + jitter*randn(nSubs,1);
+        scatter(xj, y, 45,'MarkerFaceColor',[0.35 0.35 0.35],'MarkerEdgeColor','none','MarkerFaceAlpha',0.55);
+        scatter(xj(p1_idx), y(p1_idx), 180,'o','MarkerEdgeColor','k','LineWidth',2,'MarkerFaceColor','none');
+    end
+end
+set(gca,'XTick',1:ngroups,'XTickLabel',x_labels,'FontSize',14);
+ylabel('Coherence area (10-35 Hz)','FontSize',14);
+ylim([0 max(data_bar(:))*1.3]);
+legend({'Forward','Reverse'},'Location','northwest','FontSize',14); box off;
+title('Group directed coherence (BS)','Interpreter','none','FontSize',14);
+if saveFigs
+    bar_base = fullfile(fig_dir,['group_directed_coherence' cfg.fig_suffix]);
+    savefig(hfig_bar, [bar_base '.fig']);
+    print(hfig_bar, [bar_base '.png'], '-dpng', '-r300');
 end
 
 %% Directionality comparison (Halliday R2 vs PSI)

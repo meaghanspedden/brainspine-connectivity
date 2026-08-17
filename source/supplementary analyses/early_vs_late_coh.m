@@ -160,5 +160,11 @@ errorbar([1 2], [med_early med_late], [mad_early mad_late], 'k','LineWidth',1.5,
 
 set(gca,'XTick',[1 2],'XTickLabel',{'Early','Late'},'FontSize',13);
 ylabel('Peak Brain-EMG coherence (10-35 Hz)','FontSize',12);
-title(sprintf('signedrank = %.1f, p = %.4f', stats.signedrank, p),'FontSize',12);
 xlim([0.5 2.5]); box off;
+
+text(-0.02, 1.08, 'A', 'Units','normalized', 'FontSize',18, 'FontWeight','bold', ...
+    'HorizontalAlignment','left', 'VerticalAlignment','bottom');
+
+fig_dir = fullfile(save_dir, 'figures');
+if ~exist(fig_dir,'dir'), mkdir(fig_dir); end
+print(hfig_early_late, fullfile(fig_dir,'suppfig_early_vs_late_coherence.png'), '-dpng', '-r300');
